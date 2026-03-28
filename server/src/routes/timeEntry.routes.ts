@@ -1,1 +1,38 @@
-// TODO: CRUD /api/v1/time-entries
+import { Router } from "express";
+import { z } from "zod/v4";
+import {
+  listTimeEntries,
+  createTimeEntry,
+  updateTimeEntry,
+  deleteTimeEntry,
+} from "../controllers/timeEntry.controller.js";
+import { requireAuth } from "../middleware/auth.js";
+import { validate } from "../middleware/validate.js";
+
+const router = Router();
+
+router.use(requireAuth);
+
+const createTimeEntrySchema = z.object({
+  projectId: z.string().uuid(),
+  description: z.string().optional(),
+  startedAt: z.string(),
+  endedAt: z.string().optional(),
+  durationMin: z.number().int().positive().optional(),
+  isBillable: z.boolean().optional(),
+});
+
+const updateTimeEntrySchema = z.object({
+  description: z.string().optional(),
+  startedAt: z.string().optional(),
+  endedAt: z.string().optional(),
+  durationMin: z.number().int().positive().optional(),
+  isBillable: z.boolean().optional(),
+});
+
+router.get("/", listTimeEntries);
+router.post("/", validate(createTimeEntrySchema), createTimeEntry);
+router.patch("/:id", validate(updateTimeEntrySchema), updateTimeEntry);
+router.delete("/:id", deleteTimeEntry);
+
+export default router;
