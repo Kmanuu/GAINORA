@@ -16,6 +16,8 @@ import Button       from '@/components/ui/Button';
 import Modal        from '@/components/ui/Modal';
 import Input        from '@/components/ui/Input';
 import Select       from '@/components/ui/Select';
+import Textarea     from '@/components/ui/Textarea';
+import { useToast } from '@/components/ui/Toast';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -96,6 +98,7 @@ function projectToForm(p: Project): ProjectFormState {
 // ---------------------------------------------------------------------------
 
 export default function ProjectsPage() {
+  const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState('');
@@ -170,8 +173,10 @@ export default function ProjectsPage() {
       };
       if (editTarget) {
         await api.patch<Project>(`/v1/projects/${editTarget.id}`, payload);
+        toast('success', 'Proyecto actualizado correctamente');
       } else {
         await api.post<Project>('/v1/projects', payload);
+        toast('success', 'Proyecto creado correctamente');
       }
       setModalOpen(false);
       load();
@@ -184,8 +189,13 @@ export default function ProjectsPage() {
 
   async function handleDelete(id: string) {
     if (!window.confirm('¿Cancelar este proyecto? Se marcará como cancelado.')) return;
-    await api.delete(`/v1/projects/${id}`).catch(() => {});
-    load();
+    try {
+      await api.delete(`/v1/projects/${id}`);
+      toast('success', 'Proyecto cancelado');
+      load();
+    } catch {
+      toast('error', 'Error al cancelar el proyecto');
+    }
   }
 
   const visible = filter === 'ALL'
@@ -340,24 +350,12 @@ export default function ProjectsPage() {
             />
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium text-[#6E6E73] px-1">Descripción</label>
-            <textarea
-              value={form.description}
-              onChange={handleField('description')}
-              rows={3}
-              className={clsx(
-                'w-full bg-white border border-[rgba(0,0,0,0.10)] rounded-[10px]',
-                'text-[14px] text-[#1D1D1F] placeholder:text-[#86868B]',
-                'px-3 py-2.5 outline-none resize-none',
-                'hover:border-[rgba(0,0,0,0.18)]',
-                'focus:border-[#0A84FF] focus:ring-2 focus:ring-[rgba(10,132,255,0.15)]',
-                'transition-all duration-150',
-                'shadow-[0_1px_3px_rgba(0,0,0,0.04)]',
-              )}
-              placeholder="Descripción opcional..."
-            />
-          </div>
+          <Textarea
+            label="Descripción"
+            value={form.description}
+            onChange={handleField('description')}
+            placeholder="Descripción opcional..."
+          />
 
           {formError && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-[10px] bg-[rgba(255,69,58,0.08)] border border-[rgba(255,69,58,0.15)]">
