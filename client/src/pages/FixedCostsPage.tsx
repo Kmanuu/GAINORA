@@ -13,7 +13,8 @@ import Button    from '@/components/ui/Button';
 import Modal     from '@/components/ui/Modal';
 import Input     from '@/components/ui/Input';
 import Select    from '@/components/ui/Select';
-import Toggle    from '@/components/ui/Toggle';
+import Toggle       from '@/components/ui/Toggle';
+import { useToast } from '@/components/ui/Toast';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -46,6 +47,7 @@ const EMPTY_FORM: FormState = { name: '', amount: '', frequency: 'MONTHLY', cate
 // ---------------------------------------------------------------------------
 
 export default function FixedCostsPage() {
+  const { toast } = useToast();
   const [costs,    setCosts]    = useState<FixedCost[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState('');
@@ -110,8 +112,10 @@ export default function FixedCostsPage() {
       };
       if (editTarget) {
         await api.patch(`/v1/fixed-costs/${editTarget.id}`, payload);
+        toast('success', 'Coste fijo actualizado');
       } else {
         await api.post('/v1/fixed-costs', payload);
+        toast('success', 'Coste fijo creado');
       }
       setModalOpen(false);
       load();
@@ -124,8 +128,13 @@ export default function FixedCostsPage() {
 
   async function handleDelete(id: string) {
     if (!window.confirm('¿Eliminar este coste fijo?')) return;
-    await api.delete(`/v1/fixed-costs/${id}`).catch(() => {});
-    load();
+    try {
+      await api.delete(`/v1/fixed-costs/${id}`);
+      toast('success', 'Coste fijo eliminado');
+      load();
+    } catch {
+      toast('error', 'Error al eliminar el coste fijo');
+    }
   }
 
   if (loading) {

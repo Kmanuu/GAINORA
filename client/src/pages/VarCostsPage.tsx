@@ -11,7 +11,8 @@ import Badge      from '@/components/ui/Badge';
 import Button     from '@/components/ui/Button';
 import Modal      from '@/components/ui/Modal';
 import Input      from '@/components/ui/Input';
-import Select     from '@/components/ui/Select';
+import Select       from '@/components/ui/Select';
+import { useToast } from '@/components/ui/Toast';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -44,6 +45,7 @@ const EMPTY_FORM: FormState = {
 // ---------------------------------------------------------------------------
 
 export default function VarCostsPage() {
+  const { toast } = useToast();
   const [costs,    setCosts]    = useState<VarCost[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading,  setLoading]  = useState(true);
@@ -100,6 +102,7 @@ export default function VarCostsPage() {
         category:  form.category.trim() || null,
       });
       setModalOpen(false);
+      toast('success', 'Coste variable añadido');
       load();
     } catch (e: unknown) {
       setFormError(e instanceof Error ? e.message : 'Error al guardar');
@@ -110,8 +113,13 @@ export default function VarCostsPage() {
 
   async function handleDelete(id: string) {
     if (!window.confirm('¿Eliminar este coste variable?')) return;
-    await api.delete(`/v1/variable-costs/${id}`).catch(() => {});
-    load();
+    try {
+      await api.delete(`/v1/variable-costs/${id}`);
+      toast('success', 'Coste variable eliminado');
+      load();
+    } catch {
+      toast('error', 'Error al eliminar el coste variable');
+    }
   }
 
   const projectOptions = [

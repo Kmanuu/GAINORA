@@ -7,13 +7,14 @@ import { Play, Square, Plus, Clock, AlertCircle, RefreshCw, Trash2 } from 'lucid
 import clsx from 'clsx';
 import { api }   from '@/lib/api';
 import type { TimeEntry, Project } from '@/types';
-import Card      from '@/components/ui/Card';
-import Badge     from '@/components/ui/Badge';
-import Button    from '@/components/ui/Button';
-import Modal     from '@/components/ui/Modal';
-import Input     from '@/components/ui/Input';
-import Select    from '@/components/ui/Select';
-import Toggle    from '@/components/ui/Toggle';
+import Card         from '@/components/ui/Card';
+import Badge        from '@/components/ui/Badge';
+import Button       from '@/components/ui/Button';
+import Modal        from '@/components/ui/Modal';
+import Input        from '@/components/ui/Input';
+import Select       from '@/components/ui/Select';
+import Toggle       from '@/components/ui/Toggle';
+import { useToast } from '@/components/ui/Toast';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -42,10 +43,16 @@ function fmtDate(iso: string) {
 // ---------------------------------------------------------------------------
 
 export default function HorasPage() {
+  const { toast } = useToast();
   const [entries,  setEntries]  = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState('');
+
+  // Filtros
+  const [filterProject, setFilterProject] = useState('');
+  const [filterFrom,    setFilterFrom]    = useState('');
+  const [filterTo,      setFilterTo]      = useState('');
 
   // Timer
   const [running,      setRunning]      = useState(false);
@@ -110,9 +117,10 @@ export default function HorasPage() {
       });
       setRunning(false); setElapsed(0); setTimerProject('');
       setTimerDesc(''); setTimerBill(true); setTimerStart(null);
+      toast('success', 'Entrada de tiempo guardada');
       load();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Error al guardar');
+      toast('error', e instanceof Error ? e.message : 'Error al guardar');
     } finally {
       setSavingTimer(false);
     }
@@ -133,6 +141,7 @@ export default function HorasPage() {
       });
       setModalOpen(false);
       setManualForm({ projectId: '', description: '', startedAt: '', endedAt: '', isBillable: true });
+      toast('success', 'Entrada añadida manualmente');
       load();
     } catch (e: unknown) {
       setFormError(e instanceof Error ? e.message : 'Error al guardar');
@@ -143,9 +152,41 @@ export default function HorasPage() {
 
   async function handleDelete(id: string) {
     if (!window.confirm('¿Eliminar esta entrada?')) return;
-    await api.delete(`/v1/time-entries/${id}`).catch(() => {});
-    load();
+    try {
+      await api.delete(`/v1/time-entries/${id}`);
+      toast('success', 'Entrada eliminada');
+      load();
+    } catch {
+      toast('error', 'Error al eliminar la entrada');
+    }
   }
+
+  // Filtrar entradas
+  const filteredEntries = entries.filter((e) => {
+    if (filterProject && e.projectId !== filterProject) return false;
+    if (filterFrom) {
+      const entryDate = e.startedAt.slice(0, 10);
+      if (entryDate < filterFrom) return false;
+    }
+    if (filterTo) {
+      const entryDate = e.startedAt.slice(0, 10);
+      if (entryDate > filterTo) return false;
+    }
+    return true;
+  });
+
+  // Agrupar por fecha
+  const groupedEntries = filteredEntries.reduce<Record<string, TimeEntry[]>>((acc, entry) => {
+    const dateKey = entry.startedAt.slice(0, 10);
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(entry);
+    return acc;
+  }, {});
+
+  const sortedDates = Object.keys(groupedEntries).sort((a, b) => b.localeCompare(a));
+
+  // Total horas filtradas
+  const totalMinutes = filteredEntries.reduce((sum, e) => sum + e.durationMin, 0);
 
   const projectOptions = projects.map((p) => ({ value: p.id, label: p.name }));
   const allProjectOptions = [
@@ -294,17 +335,88 @@ export default function HorasPage() {
         </div>
       </Card>
 
-      {/* ——— Lista de entradas ——— */}
+      {/* ——— Filtros ——— */}
+      {entries.length > 0 && (
+        <Card
+          padding="none"
+          className="mb-4 p-3 sm:p-4 animate-fade-up"
+          style={{ animationDelay: '90ms', animationFillMode: 'both' } as React.CSSProperties}
+        >
+          <div className="flex flex-col sm:flex-row gap-2.5 sm:items-end">
+            <div className="flex-1">
+              <Select
+                label="Filtrar por proyecto"
+                value={filterProject}
+                onChange={(e) => setFilterProject(e.target.value)}
+                options={[{ value: '', label: 'Todos los proyectos' }, ...allProjectOptions]}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 sm:w-[280px]">
+              <Input
+                label="Desde"
+                type="date"
+                value={filterFrom}
+                onChange={(e) => setFilterFrom(e.target.value)}
+              />
+              <Input
+                label="Hasta"
+                type="date"
+                value={filterTo}
+                onChange={(e) => setFilterTo(e.target.value)}
+              />
+            </div>
+            {(filterProject || filterFrom || filterTo) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setFilterProject(''); setFilterFrom(''); setFilterTo(''); }}
+              >
+                Limpiar
+              </Button>
+            )}
+          </div>
+          {/* Resumen del filtro */}
+          <div className="flex items-center gap-3 mt-2.5 pt-2.5 border-t border-[rgba(0,0,0,0.05)] text-[12px] text-[#6E6E73]">
+            <span>{filteredEntries.length} entrada{filteredEntries.length !== 1 ? 's' : ''}</span>
+            <span className="text-[#86868B]">·</span>
+            <span className="font-medium text-[#1D1D1F]">{fmtDuration(totalMinutes)}</span>
+          </div>
+        </Card>
+      )}
+
+      {/* ——— Lista de entradas agrupadas por fecha ——— */}
       {entries.length === 0 ? (
         <EmptyEntries />
+      ) : sortedDates.length === 0 ? (
+        <Card padding="md" className="text-center py-8">
+          <p className="text-[14px] text-[#6E6E73]">No hay entradas con los filtros seleccionados</p>
+        </Card>
       ) : (
         <div
-          className="space-y-2 animate-fade-up"
+          className="space-y-4 animate-fade-up"
           style={{ animationDelay: '120ms', animationFillMode: 'both' } as React.CSSProperties}
         >
-          {entries.map((entry, i) => (
-            <EntryRow key={entry.id} entry={entry} index={i} onDelete={() => handleDelete(entry.id)} />
-          ))}
+          {sortedDates.map((date) => {
+            const dayEntries = groupedEntries[date];
+            const dayTotal = dayEntries.reduce((sum, e) => sum + e.durationMin, 0);
+            return (
+              <div key={date}>
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <span className="text-[12px] font-semibold text-[#6E6E73] uppercase tracking-[0.04em]">
+                    {fmtDate(date + 'T00:00:00')}
+                  </span>
+                  <span className="text-[12px] font-medium text-[#1D1D1F] tabular-nums">
+                    {fmtDuration(dayTotal)}
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {dayEntries.map((entry, i) => (
+                    <EntryRow key={entry.id} entry={entry} index={i} onDelete={() => handleDelete(entry.id)} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
