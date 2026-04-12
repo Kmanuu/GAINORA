@@ -17,7 +17,8 @@ import Modal        from '@/components/ui/Modal';
 import Input        from '@/components/ui/Input';
 import Select       from '@/components/ui/Select';
 import Textarea     from '@/components/ui/Textarea';
-import { useToast } from '@/components/ui/Toast';
+import { useToast }    from '@/components/ui/Toast';
+import { useConfirm }  from '@/components/ui/ConfirmDialog';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -98,7 +99,8 @@ function projectToForm(p: Project): ProjectFormState {
 // ---------------------------------------------------------------------------
 
 export default function ProjectsPage() {
-  const { toast } = useToast();
+  const { toast }   = useToast();
+  const { confirm } = useConfirm();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState('');
@@ -188,7 +190,13 @@ export default function ProjectsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm('¿Cancelar este proyecto? Se marcará como cancelado.')) return;
+    const ok = await confirm({
+      title:       'Cancelar proyecto',
+      message:     'El proyecto se marcará como cancelado. Esta acción se puede revertir editando el estado.',
+      confirmText: 'Cancelar proyecto',
+      variant:     'danger',
+    });
+    if (!ok) return;
     try {
       await api.delete(`/v1/projects/${id}`);
       toast('success', 'Proyecto cancelado');

@@ -12,7 +12,8 @@ import Button     from '@/components/ui/Button';
 import Modal      from '@/components/ui/Modal';
 import Input      from '@/components/ui/Input';
 import Select       from '@/components/ui/Select';
-import { useToast } from '@/components/ui/Toast';
+import { useToast }    from '@/components/ui/Toast';
+import { useConfirm }  from '@/components/ui/ConfirmDialog';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -45,7 +46,8 @@ const EMPTY_FORM: FormState = {
 // ---------------------------------------------------------------------------
 
 export default function VarCostsPage() {
-  const { toast } = useToast();
+  const { toast }   = useToast();
+  const { confirm } = useConfirm();
   const [costs,    setCosts]    = useState<VarCost[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading,  setLoading]  = useState(true);
@@ -112,7 +114,13 @@ export default function VarCostsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm('¿Eliminar este coste variable?')) return;
+    const ok = await confirm({
+      title:       'Eliminar coste variable',
+      message:     'Este coste variable se eliminará permanentemente.',
+      confirmText: 'Eliminar',
+      variant:     'danger',
+    });
+    if (!ok) return;
     try {
       await api.delete(`/v1/variable-costs/${id}`);
       toast('success', 'Coste variable eliminado');

@@ -14,7 +14,8 @@ import Modal        from '@/components/ui/Modal';
 import Input        from '@/components/ui/Input';
 import Select       from '@/components/ui/Select';
 import Toggle       from '@/components/ui/Toggle';
-import { useToast } from '@/components/ui/Toast';
+import { useToast }    from '@/components/ui/Toast';
+import { useConfirm }  from '@/components/ui/ConfirmDialog';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,7 +44,8 @@ function fmtDate(iso: string) {
 // ---------------------------------------------------------------------------
 
 export default function HorasPage() {
-  const { toast } = useToast();
+  const { toast }   = useToast();
+  const { confirm } = useConfirm();
   const [entries,  setEntries]  = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading,  setLoading]  = useState(true);
@@ -151,7 +153,13 @@ export default function HorasPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm('¿Eliminar esta entrada?')) return;
+    const ok = await confirm({
+      title:       'Eliminar entrada',
+      message:     'Esta entrada de tiempo se eliminará permanentemente.',
+      confirmText: 'Eliminar',
+      variant:     'danger',
+    });
+    if (!ok) return;
     try {
       await api.delete(`/v1/time-entries/${id}`);
       toast('success', 'Entrada eliminada');
