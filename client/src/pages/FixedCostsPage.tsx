@@ -3,9 +3,10 @@
 // ============================================================================
 
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Receipt, Trash2, Pencil, AlertCircle, RefreshCw } from 'lucide-react';
+import { Plus, Receipt, Trash2, Pencil, AlertCircle, RefreshCw, Download } from 'lucide-react';
 import clsx from 'clsx';
-import { api }   from '@/lib/api';
+import { api }       from '@/lib/api';
+import { exportCsv } from '@/lib/csv';
 import type { FixedCost, CostFrequency } from '@/types';
 import Card      from '@/components/ui/Card';
 import Badge     from '@/components/ui/Badge';
@@ -178,9 +179,30 @@ export default function FixedCostsPage() {
           <h1 className="text-[28px] font-semibold text-[#1D1D1F]">Costes fijos</h1>
           <p className="text-[14px] text-[#6E6E73] mt-0.5">{costs.length} coste{costs.length !== 1 ? 's' : ''}</p>
         </div>
-        <Button variant="primary" icon={<Plus className="w-4 h-4" strokeWidth={2.5} />} onClick={openCreate}>
-          Nuevo coste
-        </Button>
+        <div className="flex items-center gap-2">
+          {costs.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<Download className="w-4 h-4" strokeWidth={2} />}
+              onClick={() => {
+                exportCsv('costes-fijos-horaspro', [
+                  { header: 'Nombre',     value: (c: FixedCost) => c.name },
+                  { header: 'Importe',    value: (c: FixedCost) => c.amount },
+                  { header: 'Frecuencia', value: (c: FixedCost) => FREQ_LABEL[c.frequency] },
+                  { header: 'Categoría',  value: (c: FixedCost) => c.category ?? '' },
+                  { header: 'Activo',     value: (c: FixedCost) => c.isActive ? 'Sí' : 'No' },
+                ], costs);
+                toast('success', `${costs.length} costes exportados`);
+              }}
+            >
+              <span className="hidden sm:inline">Exportar</span>
+            </Button>
+          )}
+          <Button variant="primary" icon={<Plus className="w-4 h-4" strokeWidth={2.5} />} onClick={openCreate}>
+            Nuevo coste
+          </Button>
+        </div>
       </header>
 
       {/* Resumen mensual */}

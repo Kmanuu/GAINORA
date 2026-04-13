@@ -3,9 +3,10 @@
 // ============================================================================
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Play, Square, Plus, Clock, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { Play, Square, Plus, Clock, AlertCircle, RefreshCw, Trash2, Download } from 'lucide-react';
 import clsx from 'clsx';
-import { api }   from '@/lib/api';
+import { api }       from '@/lib/api';
+import { exportCsv } from '@/lib/csv';
 import type { TimeEntry, Project } from '@/types';
 import Card         from '@/components/ui/Card';
 import Badge        from '@/components/ui/Badge';
@@ -196,6 +197,17 @@ export default function HorasPage() {
   // Total horas filtradas
   const totalMinutes = filteredEntries.reduce((sum, e) => sum + e.durationMin, 0);
 
+  function handleExport() {
+    exportCsv('horas-horaspro', [
+      { header: 'Fecha',       value: (e) => e.startedAt.slice(0, 10) },
+      { header: 'Proyecto',    value: (e) => e.project?.name ?? '' },
+      { header: 'Descripción', value: (e) => e.description ?? '' },
+      { header: 'Duración (min)', value: (e) => e.durationMin },
+      { header: 'Facturable',  value: (e) => e.isBillable ? 'Sí' : 'No' },
+    ], filteredEntries);
+    toast('success', `${filteredEntries.length} entradas exportadas`);
+  }
+
   const projectOptions = projects.map((p) => ({ value: p.id, label: p.name }));
   const allProjectOptions = [
     ...projects,
@@ -242,15 +254,27 @@ export default function HorasPage() {
             {entries.length} entrada{entries.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          icon={<Plus className="w-4 h-4" strokeWidth={2.5} />}
-          onClick={() => { setModalOpen(true); setFormError(''); }}
-        >
-          <span className="hidden sm:inline">Añadir manual</span>
-          <span className="sm:hidden">Manual</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          {filteredEntries.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<Download className="w-4 h-4" strokeWidth={2} />}
+              onClick={handleExport}
+            >
+              <span className="hidden sm:inline">Exportar</span>
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Plus className="w-4 h-4" strokeWidth={2.5} />}
+            onClick={() => { setModalOpen(true); setFormError(''); }}
+          >
+            <span className="hidden sm:inline">Añadir manual</span>
+            <span className="sm:hidden">Manual</span>
+          </Button>
+        </div>
       </header>
 
       {/* ——— Timer Widget ——— */}

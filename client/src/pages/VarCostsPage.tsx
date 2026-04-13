@@ -3,8 +3,9 @@
 // ============================================================================
 
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, TrendingDown, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
-import { api }    from '@/lib/api';
+import { Plus, TrendingDown, Trash2, AlertCircle, RefreshCw, Download } from 'lucide-react';
+import { api }       from '@/lib/api';
+import { exportCsv } from '@/lib/csv';
 import type { VarCost, Project } from '@/types';
 import Card       from '@/components/ui/Card';
 import Badge      from '@/components/ui/Badge';
@@ -168,9 +169,30 @@ export default function VarCostsPage() {
           <h1 className="text-[28px] font-semibold text-[#1D1D1F]">Costes variables</h1>
           <p className="text-[14px] text-[#6E6E73] mt-0.5">{costs.length} registro{costs.length !== 1 ? 's' : ''}</p>
         </div>
-        <Button variant="primary" icon={<Plus className="w-4 h-4" strokeWidth={2.5} />} onClick={openCreate}>
-          Añadir coste
-        </Button>
+        <div className="flex items-center gap-2">
+          {costs.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<Download className="w-4 h-4" strokeWidth={2} />}
+              onClick={() => {
+                exportCsv('costes-variables-horaspro', [
+                  { header: 'Nombre',    value: (c: VarCost) => c.name },
+                  { header: 'Importe',   value: (c: VarCost) => c.amount },
+                  { header: 'Fecha',     value: (c: VarCost) => c.date.slice(0, 10) },
+                  { header: 'Proyecto',  value: (c: VarCost) => c.project?.name ?? '' },
+                  { header: 'Categoría', value: (c: VarCost) => c.category ?? '' },
+                ], costs);
+                toast('success', `${costs.length} costes exportados`);
+              }}
+            >
+              <span className="hidden sm:inline">Exportar</span>
+            </Button>
+          )}
+          <Button variant="primary" icon={<Plus className="w-4 h-4" strokeWidth={2.5} />} onClick={openCreate}>
+            Añadir coste
+          </Button>
+        </div>
       </header>
 
       {/* Resumen */}
