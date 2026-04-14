@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus, FolderKanban, AlertCircle, RefreshCw,
   MoreHorizontal, Pencil, Trash2, Clock, DollarSign,
@@ -101,6 +102,7 @@ function projectToForm(p: Project): ProjectFormState {
 export default function ProjectsPage() {
   const { toast }   = useToast();
   const { confirm } = useConfirm();
+  const navigate    = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState('');
@@ -284,6 +286,7 @@ export default function ProjectsPage() {
               index={i}
               menuOpen={menuOpen === p.id}
               onMenuToggle={(e) => { e.stopPropagation(); setMenuOpen(menuOpen === p.id ? null : p.id); }}
+              onClick={() => navigate(`/proyectos/${p.id}`)}
               onEdit={() => openEdit(p)}
               onDelete={() => handleDelete(p.id)}
             />
@@ -382,12 +385,13 @@ export default function ProjectsPage() {
 // ---------------------------------------------------------------------------
 
 function ProjectCard({
-  project, index, menuOpen, onMenuToggle, onEdit, onDelete,
+  project, index, menuOpen, onMenuToggle, onClick, onEdit, onDelete,
 }: {
   project:      Project;
   index:        number;
   menuOpen:     boolean;
   onMenuToggle: (e: React.MouseEvent) => void;
+  onClick:      () => void;
   onEdit:       () => void;
   onDelete:     () => void;
 }) {
@@ -400,6 +404,7 @@ function ProjectCard({
       padding="md"
       className="animate-fade-up relative"
       style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' } as React.CSSProperties}
+      onClick={onClick}
     >
       {/* Header de la card */}
       <div className="flex items-start justify-between mb-3">
