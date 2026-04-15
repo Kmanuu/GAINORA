@@ -7,7 +7,7 @@ import {
   LayoutDashboard,
   FolderKanban,
   Clock,
-  Receipt,
+  BarChart3,
   Settings,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -22,7 +22,7 @@ const TABS: Tab[] = [
   { label: 'Inicio',     path: '/dashboard',    icon: LayoutDashboard },
   { label: 'Proyectos',  path: '/proyectos',    icon: FolderKanban    },
   { label: 'Horas',      path: '/horas',        icon: Clock           },
-  { label: 'Costes',     path: '/costes-fijos', icon: Receipt         },
+  { label: 'Informes',   path: '/informes',     icon: BarChart3       },
   { label: 'Ajustes',    path: '/ajustes',      icon: Settings        },
 ];
 

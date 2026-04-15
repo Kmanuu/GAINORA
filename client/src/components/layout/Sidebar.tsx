@@ -9,6 +9,7 @@ import {
   Clock,
   Receipt,
   TrendingDown,
+  BarChart3,
   Settings,
   LogOut,
   Zap,
@@ -35,6 +36,10 @@ const mainNav: NavItem[] = [
 const costsNav: NavItem[] = [
   { label: 'Costes fijos',    path: '/costes-fijos',    icon: Receipt      },
   { label: 'Costes variables', path: '/costes-variables', icon: TrendingDown },
+];
+
+const analysisNav: NavItem[] = [
+  { label: 'Informes', path: '/informes', icon: BarChart3 },
 ];
 
 // ---------------------------------------------------------------------------
@@ -96,6 +101,13 @@ export default function Sidebar() {
           <SectionLabel label="Costes" />
         </div>
         {costsNav.map((item) => (
+          <NavItem key={item.path} {...item} />
+        ))}
+
+        <div className="pt-4">
+          <SectionLabel label="Análisis" />
+        </div>
+        {analysisNav.map((item) => (
           <NavItem key={item.path} {...item} />
         ))}
       </nav>

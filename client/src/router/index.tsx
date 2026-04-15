@@ -14,6 +14,7 @@ import FixedCostsPage     from '@/pages/FixedCostsPage';
 import VarCostsPage       from '@/pages/VarCostsPage';
 import SettingsPage       from '@/pages/SettingsPage';
 import ProjectDetailPage from '@/pages/ProjectDetailPage';
+import ReportsPage       from '@/pages/ReportsPage';
 import type { ReactNode } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -79,6 +80,7 @@ export const router = createBrowserRouter([
       { path: '/horas',             element: <HorasPage />      },
       { path: '/costes-fijos',      element: <FixedCostsPage /> },
       { path: '/costes-variables',  element: <VarCostsPage />   },
+      { path: '/informes',          element: <ReportsPage />    },
       { path: '/ajustes',           element: <SettingsPage /> },
     ],
   },
