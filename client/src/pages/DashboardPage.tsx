@@ -3,16 +3,18 @@
 // ============================================================================
 
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   TrendingUp, TrendingDown, Clock, Receipt,
   AlertCircle, RefreshCw, ChevronRight,
+  Plus, BarChart3,
 } from 'lucide-react';
 import { api }     from '@/lib/api';
 import Card        from '@/components/ui/Card';
 import Badge       from '@/components/ui/Badge';
 import Button      from '@/components/ui/Button';
 import { useAuth } from '@/context/AuthContext';
-import type { DashboardData, ApiResponse, ProjectMetrics } from '@/types';
+import type { DashboardData, ApiResponse, ProjectMetrics, TimeEntry } from '@/types';
 import clsx from 'clsx';
 
 // ---------------------------------------------------------------------------
@@ -51,16 +53,23 @@ function greeting() {
 
 export default function DashboardPage() {
   const { user }  = useAuth();
+  const navigate  = useNavigate();
   const [data,    setData]    = useState<DashboardData | null>(null);
+  const [recent,  setRecent]  = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
 
   function load() {
     setLoading(true);
     setError('');
-    api
-      .get<ApiResponse<DashboardData>>('/v1/dashboard')
-      .then((res) => setData(res.data))
+    Promise.all([
+      api.get<ApiResponse<DashboardData>>('/v1/dashboard'),
+      api.get<TimeEntry[]>('/v1/time-entries'),
+    ])
+      .then(([res, entries]) => {
+        setData(res.data);
+        setRecent(entries.slice(0, 5));
+      })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
   }
@@ -196,6 +205,82 @@ export default function DashboardPage() {
       ) : (
         <EmptyProjects />
       )}
+
+      {/* ——— Acciones rápidas + Actividad reciente ——— */}
+      <section
+        className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6 lg:mt-8 animate-fade-up"
+        style={{ animationDelay: '0.3s', animationFillMode: 'both' }}
+      >
+        {/* Acciones rápidas */}
+        <Card padding="md">
+          <h3 className="text-[14px] font-semibold text-[#1D1D1F] mb-3">Acciones rápidas</h3>
+          <div className="space-y-2">
+            <QuickAction
+              icon={<Clock className="w-4 h-4" />}
+              color="#0A84FF"
+              label="Fichar horas"
+              sub="Iniciar timer o añadir manualmente"
+              onClick={() => navigate('/horas')}
+            />
+            <QuickAction
+              icon={<Plus className="w-4 h-4" />}
+              color="#30D158"
+              label="Nuevo proyecto"
+              sub="Crear un nuevo proyecto"
+              onClick={() => navigate('/proyectos')}
+            />
+            <QuickAction
+              icon={<BarChart3 className="w-4 h-4" />}
+              color="#BF5AF2"
+              label="Ver informes"
+              sub="Análisis de productividad"
+              onClick={() => navigate('/informes')}
+            />
+          </div>
+        </Card>
+
+        {/* Actividad reciente */}
+        <Card padding="md">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[14px] font-semibold text-[#1D1D1F]">Actividad reciente</h3>
+            {recent.length > 0 && (
+              <button
+                onClick={() => navigate('/horas')}
+                className="text-[12px] font-medium text-[#0A84FF] hover:text-[#0070E0] transition-colors"
+              >
+                Ver todo
+              </button>
+            )}
+          </div>
+          {recent.length === 0 ? (
+            <p className="text-[13px] text-[#6E6E73] text-center py-6">Sin actividad reciente</p>
+          ) : (
+            <div className="space-y-2">
+              {recent.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-center gap-2.5 py-1.5"
+                >
+                  <div className="w-7 h-7 rounded-[8px] bg-[rgba(10,132,255,0.08)] flex items-center justify-center shrink-0">
+                    <Clock className="w-3.5 h-3.5 text-[#0A84FF]" strokeWidth={2} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12.5px] font-medium text-[#1D1D1F] truncate">
+                      {entry.project?.name ?? 'Sin proyecto'}
+                    </p>
+                    <p className="text-[11px] text-[#86868B]">
+                      {fmt(entry.durationMin / 60, 1)}h · {new Date(entry.startedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                    </p>
+                  </div>
+                  {entry.isBillable && (
+                    <Badge variant="blue">€</Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </section>
     </div>
   );
 }
@@ -353,6 +438,33 @@ function ProjectMobileCard({ project, index }: { project: ProjectMetrics; index:
         </div>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Quick Action
+// ---------------------------------------------------------------------------
+
+function QuickAction({ icon, color, label, sub, onClick }: {
+  icon: React.ReactNode; color: string; label: string; sub: string; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[12px] hover:bg-[rgba(0,0,0,0.03)] transition-colors text-left"
+    >
+      <div
+        className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0"
+        style={{ background: `${color}14`, color }}
+      >
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-medium text-[#1D1D1F]">{label}</p>
+        <p className="text-[11px] text-[#86868B]">{sub}</p>
+      </div>
+      <ChevronRight className="w-4 h-4 text-[#C7C7CC] shrink-0" strokeWidth={1.5} />
+    </button>
   );
 }
 
