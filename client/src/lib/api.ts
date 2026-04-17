@@ -4,10 +4,31 @@
 
 const BASE_URL = "http://localhost:3001/api";
 
+// ---------------------------------------------------------------------------
+// Error tipado
+// ---------------------------------------------------------------------------
+
+export class ApiError extends Error {
+  status: number;
+  code?:  string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name   = 'ApiError';
+    this.status = status;
+    this.code   = code;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fetch wrapper
+// ---------------------------------------------------------------------------
+
 /**
  * Wrapper de fetch preconfigurado.
  * Añade Authorization header si hay token en localStorage.
  * Parsea la respuesta como JSON.
+ * Lanza ApiError en caso de error HTTP.
  */
 export async function apiFetch<T = unknown>(
   path: string,
@@ -26,7 +47,11 @@ export async function apiFetch<T = unknown>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(body.error || `HTTP ${res.status}`);
+    throw new ApiError(
+      body.error || body.message || `HTTP ${res.status}`,
+      res.status,
+      body.code,
+    );
   }
 
   // 204 No Content
@@ -35,7 +60,9 @@ export async function apiFetch<T = unknown>(
   return res.json();
 }
 
-// --- Shortcuts ---
+// ---------------------------------------------------------------------------
+// Shortcuts
+// ---------------------------------------------------------------------------
 
 export const api = {
   get: <T = unknown>(path: string) => apiFetch<T>(path),
@@ -45,6 +72,9 @@ export const api = {
 
   patch: <T = unknown>(path: string, body: unknown) =>
     apiFetch<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
+
+  put: <T = unknown>(path: string, body: unknown) =>
+    apiFetch<T>(path, { method: "PUT", body: JSON.stringify(body) }),
 
   delete: (path: string) =>
     apiFetch(path, { method: "DELETE" }),
