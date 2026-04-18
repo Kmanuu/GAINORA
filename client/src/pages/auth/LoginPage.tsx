@@ -5,13 +5,15 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Zap } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth }   from '@/context/AuthContext';
+import { useToast }  from '@/components/ui/Toast';
 import Button from '@/components/ui/Button';
 import Input  from '@/components/ui/Input';
 
 export default function LoginPage() {
   const navigate  = useNavigate();
   const { login } = useAuth();
+  const { toast } = useToast();
 
   const [form, setForm] = useState({
     tenantSlug: '',
@@ -39,6 +41,7 @@ export default function LoginPage() {
     setError('');
     try {
       await login(form);
+      toast('success', 'Sesión iniciada correctamente');
       navigate('/dashboard');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al iniciar sesión');

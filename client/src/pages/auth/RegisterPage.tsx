@@ -4,8 +4,10 @@
 
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Zap, Building2, User, Mail, Lock, Hash } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import { Eye, EyeOff, Zap, Building2, User, Mail, Lock, Hash, Check } from 'lucide-react';
+import clsx from 'clsx';
+import { useAuth }   from '@/context/AuthContext';
+import { useToast }  from '@/components/ui/Toast';
 import Button from '@/components/ui/Button';
 import Input  from '@/components/ui/Input';
 
@@ -34,6 +36,7 @@ function slugify(str: string) {
 export default function RegisterPage() {
   const navigate     = useNavigate();
   const { register } = useAuth();
+  const { toast }    = useToast();
 
   const [form, setForm] = useState<FormState>({
     tenantName: '',
@@ -102,6 +105,7 @@ export default function RegisterPage() {
         email:      form.email,
         password:   form.password,
       });
+      toast('success', 'Cuenta creada correctamente. Bienvenido a HorasPRO.');
       navigate('/dashboard');
     } catch (err: unknown) {
       setApiError(err instanceof Error ? err.message : 'Error al registrar');
@@ -212,6 +216,8 @@ export default function RegisterPage() {
                   </button>
                 }
               />
+              {form.password.length > 0 && <PasswordStrength password={form.password} />}
+
               <Input
                 label="Confirmar contraseña"
                 type={showPass ? 'text' : 'password'}
@@ -258,6 +264,45 @@ export default function RegisterPage() {
 // ---------------------------------------------------------------------------
 // Sub-componente: divisor de sección
 // ---------------------------------------------------------------------------
+
+function PasswordStrength({ password }: { password: string }) {
+  const checks = [
+    { label: '8+ caracteres', ok: password.length >= 8 },
+    { label: 'Mayúscula',     ok: /[A-Z]/.test(password) },
+    { label: 'Número',        ok: /\d/.test(password) },
+  ];
+  const strength = checks.filter((c) => c.ok).length;
+  const colors = ['#FF453A', '#FF9F0A', '#30D158'];
+  const barColor = strength === 0 ? '#D1D1D6' : colors[strength - 1];
+
+  return (
+    <div className="px-1 space-y-1.5">
+      <div className="flex gap-1">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="flex-1 h-1 rounded-full transition-all duration-300"
+            style={{ background: i < strength ? barColor : 'rgba(0,0,0,0.08)' }}
+          />
+        ))}
+      </div>
+      <div className="flex gap-3">
+        {checks.map((c) => (
+          <span
+            key={c.label}
+            className={clsx(
+              'flex items-center gap-1 text-[10px] font-medium transition-colors',
+              c.ok ? 'text-[#30D158]' : 'text-[#C7C7CC]',
+            )}
+          >
+            <Check className="w-3 h-3" strokeWidth={2.5} />
+            {c.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function SectionDivider({ label, icon: Icon }: { label: string; icon: React.ElementType }) {
   return (
