@@ -4,14 +4,15 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import {
-  User, Lock, Building2, CheckCircle, AlertCircle,
+  User, Lock, Building2,
   ChevronDown, ChevronUp,
 } from 'lucide-react';
-import { api }      from '@/lib/api';
-import { useAuth }  from '@/context/AuthContext';
-import Card         from '@/components/ui/Card';
-import Input        from '@/components/ui/Input';
-import Button       from '@/components/ui/Button';
+import { api }         from '@/lib/api';
+import { useAuth }     from '@/context/AuthContext';
+import { useToast }    from '@/components/ui/Toast';
+import Card            from '@/components/ui/Card';
+import Input           from '@/components/ui/Input';
+import Button          from '@/components/ui/Button';
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -24,8 +25,6 @@ interface MeResponse {
   };
   tenant: { id: string; name: string; slug: string; plan: string; };
 }
-
-type ToastState = { type: 'success' | 'error'; message: string } | null;
 
 // ---------------------------------------------------------------------------
 // Datos de la guía
@@ -95,27 +94,6 @@ const GUIDE_STEPS: GuideStep[] = [
 // ---------------------------------------------------------------------------
 // Componentes auxiliares
 // ---------------------------------------------------------------------------
-
-function Toast({ state }: { state: ToastState }) {
-  if (!state) return null;
-  const ok = state.type === 'success';
-  return (
-    <div
-      className={`flex items-center gap-2 px-3 py-2.5 rounded-[10px] border text-[13px] ${
-        ok
-          ? 'bg-[rgba(48,209,88,0.08)] border-[rgba(48,209,88,0.20)] text-[#25A244]'
-          : 'bg-[rgba(255,69,58,0.08)] border-[rgba(255,69,58,0.15)] text-[#D93025]'
-      }`}
-      role="alert"
-    >
-      {ok
-        ? <CheckCircle className="w-4 h-4 shrink-0" strokeWidth={2} />
-        : <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={2} />
-      }
-      {state.message}
-    </div>
-  );
-}
 
 function SectionCard({
   icon, title, accentColor, accentBg, children,
@@ -272,10 +250,10 @@ function ProfileSection({
 }: {
   initialName: string; initialEmail: string; initialHourlyCost: string;
 }) {
+  const { toast } = useToast();
   const [fullName,   setFullName]   = useState(initialName);
   const [hourlyCost, setHourlyCost] = useState(initialHourlyCost);
   const [saving,     setSaving]     = useState(false);
-  const [toast,      setToast]      = useState<ToastState>(null);
 
   useEffect(() => { setFullName(initialName); },        [initialName]);
   useEffect(() => { setHourlyCost(initialHourlyCost); }, [initialHourlyCost]);
@@ -283,16 +261,15 @@ function ProfileSection({
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!fullName.trim()) return;
-    setSaving(true); setToast(null);
+    setSaving(true);
     try {
       await api.patch('/v1/me', {
         fullName:   fullName.trim(),
         hourlyCost: parseFloat(hourlyCost) || 0,
       });
-      setToast({ type: 'success', message: 'Perfil actualizado correctamente' });
-      setTimeout(() => setToast(null), 4000);
+      toast('success', 'Perfil actualizado correctamente');
     } catch (err: unknown) {
-      setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al guardar' });
+      toast('error', err instanceof Error ? err.message : 'Error al guardar');
     } finally {
       setSaving(false);
     }
@@ -329,7 +306,6 @@ function ProfileSection({
           min="0"
           hint="Se usa para calcular la rentabilidad de tus proyectos"
         />
-        <Toast state={toast} />
         <div className="flex justify-end pt-1">
           <Button type="submit" variant="primary" size="sm" loading={saving}>
             Guardar cambios
@@ -345,18 +321,17 @@ function ProfileSection({
 // ---------------------------------------------------------------------------
 
 function PasswordSection() {
+  const { toast } = useToast();
   const [form, setForm] = useState({
     currentPassword: '', newPassword: '', confirmPassword: '',
   });
   const [saving, setSaving] = useState(false);
-  const [toast,  setToast]  = useState<ToastState>(null);
   const [errors, setErrors] = useState<Partial<typeof form>>({});
 
   function handleField(field: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement>) => {
       setForm((p) => ({ ...p, [field]: e.target.value }));
       setErrors((p) => ({ ...p, [field]: '' }));
-      setToast(null);
     };
   }
 
@@ -372,17 +347,16 @@ function PasswordSection() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!validate()) return;
-    setSaving(true); setToast(null);
+    setSaving(true);
     try {
       await api.patch('/v1/me/password', {
         currentPassword: form.currentPassword,
         newPassword:     form.newPassword,
       });
-      setToast({ type: 'success', message: 'Contraseña actualizada correctamente' });
+      toast('success', 'Contraseña actualizada correctamente');
       setForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setTimeout(() => setToast(null), 4000);
     } catch (err: unknown) {
-      setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al cambiar contraseña' });
+      toast('error', err instanceof Error ? err.message : 'Error al cambiar contraseña');
     } finally {
       setSaving(false);
     }
@@ -422,7 +396,6 @@ function PasswordSection() {
             autoComplete="new-password"
           />
         </div>
-        <Toast state={toast} />
         <div className="flex justify-end pt-1">
           <Button type="submit" variant="primary" size="sm" loading={saving}>
             Cambiar contraseña
