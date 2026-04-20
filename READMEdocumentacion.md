@@ -405,6 +405,61 @@ Se construyeron componentes UI base (Card, Button, Input, Modal). Los modales so
 - **Registro de horas**: temporizador interactivo en primera pantalla con animaciones de "pulsación" y listado de horas.
 - **Ajustes y Guía Interactiva**: Se diseñó una experiencia de "Guía de uso" estilo Apple con formato acordeón para reducir fricción en nuevos usuarios y explicar los conceptos del sistema.
 
+### Sesión 6 — 10-19 Abril 2026
+
+#### 1. Sistema de Notificaciones (Toast)
+Se implementó un sistema de notificaciones global (`ToastProvider`) con soporte para tres tipos: `success`, `error` e `info`. Las notificaciones aparecen en la esquina superior derecha con animación fade-up y se auto-descartan a los 4 segundos. Se reemplazaron todos los `alert()` y componentes Toast inline por el sistema global.
+
+#### 2. Componentes UI adicionales
+- **Textarea**: Componente con label flotante consistente con Input, para textos largos (descripciones de proyecto).
+- **ConfirmDialog**: Diálogo de confirmación estilo Apple que reemplaza `window.confirm()` en todas las acciones destructivas (eliminar costes, cancelar proyectos, borrar entradas).
+- **EmptyState**: Componente reutilizable para estados vacíos con icono, título, descripción y acción opcional.
+
+#### 3. Filtros avanzados en Horas
+Se añadieron filtros por proyecto, rango de fechas (desde/hasta) y un resumen del filtro con total de entradas y duración. Las entradas se agrupan ahora por fecha con totales diarios visibles.
+
+#### 4. Vista de detalle de proyecto
+Nueva página `/proyectos/:id` con:
+- KPIs del proyecto (horas, coste directo, costes variables, margen neto)
+- Barra de progreso de horas consumidas vs. presupuestadas
+- Pestañas: Resumen financiero, Historial de horas, Costes variables
+- Desglose financiero completo con barra de rentabilidad
+- Exportación CSV por pestaña
+
+Las cards de proyectos en la vista principal ahora navegan al detalle al hacer click.
+
+#### 5. Módulo de Informes
+Nueva sección "Informes" (`/informes`) accesible desde sidebar y navegación móvil:
+- Filtros por período: semana actual, mes actual, trimestre actual
+- KPIs: horas totales, porcentaje facturable, media diaria, costes fijos
+- Gráfico de barras horizontal de distribución de horas por proyecto
+- Gráfico de barras vertical de distribución semanal (lunes a domingo)
+- Resumen de costes fijos + variables con tarifa mínima recomendada
+
+#### 6. Dashboard enriquecido
+Se añadieron dos secciones nuevas al dashboard:
+- **Acciones rápidas**: enlaces directos a fichar horas, crear proyecto y ver informes
+- **Actividad reciente**: últimas 5 entradas de tiempo con proyecto, duración y fecha
+
+#### 7. Exportación CSV
+Utilidad genérica `exportCsv()` con BOM UTF-8 y separador `;` para compatibilidad con Excel. Botones de exportación en:
+- Horas (con filtros aplicados)
+- Costes fijos
+- Costes variables
+- Detalle de proyecto (horas y costes)
+- Informes
+
+#### 8. Mejoras en API y utilidades
+- `ApiError`: Error tipado con `status` y `code` para mejor manejo en el frontend
+- `format.ts`: Módulo con funciones de formato reutilizables (`fmt`, `fmtDuration`, `fmtDate`, `fmtCurrency`, `toNum`, `greeting`)
+
+#### 9. Mejoras en autenticación
+- Indicador visual de fortaleza de contraseña en registro (longitud, mayúscula, número) con barra de progreso de 3 niveles
+- Feedback via Toast tras login y registro exitosos
+
+#### 10. Refactorización de Ajustes
+Se migró la página de Ajustes al sistema Toast global, eliminando el componente `Toast` inline y el estado `ToastState` local tanto en `ProfileSection` como en `PasswordSection`.
+
 ---
 
 ### Estado actual
@@ -415,13 +470,18 @@ Se construyeron componentes UI base (Card, Button, Input, Modal). Los modales so
 | PostgreSQL (Docker)       | Configurado                                       |
 | Schema Prisma (6 modelos) | Sincronizado con BD                               |
 | Express server            | Arranca, health check OK                          |
-| Autenticación JWT        | Register, login y refresh completos               |
+| Autenticación JWT         | Register, login y refresh completos               |
 | CRUD Endpoints            | Listos (Costes, Proyectos, Horas, Variables)      |
 | Validaciones & Errors     | Middleware de Zod en toda la API                  |
-| Dashboard rentabilidad    | Completo (API + Servicio)                         |
+| Dashboard rentabilidad    | Completo (API + Servicio + Acciones rápidas)      |
 | Frontend UI               | Completado: Navegación, Dashboard, CRUDs          |
 | Responsive Design         | Completado: UX Adaptativa (Bottom Sheet, etc)     |
 | UX / Onboarding           | Guía interactiva completada                       |
+| Detalle de proyecto       | Completo (métricas, pestañas, exportación)        |
+| Informes y análisis       | Completo (productividad, distribución, costes)    |
+| Exportación CSV           | Implementado en todas las vistas de datos         |
+| Sistema de notificaciones | Toast global + ConfirmDialog en acciones críticas |
+| Indicador contraseña      | Fortaleza visual en registro                      |
 
 ### Siguiente paso
 
