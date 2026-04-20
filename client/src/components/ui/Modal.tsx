@@ -17,7 +17,7 @@ interface ModalProps {
   width?:    'sm' | 'md' | 'lg';
 }
 
-const widthMap = { sm: 'lg:max-w-[400px]', md: 'lg:max-w-[480px]', lg: 'lg:max-w-[560px]' };
+const widthMap = { sm: 'lg:max-w-[420px]', md: 'lg:max-w-[500px]', lg: 'lg:max-w-[620px]' };
 
 export default function Modal({
   open,
@@ -46,41 +46,35 @@ export default function Modal({
     <>
       {/* ── MÓVIL: Bottom Sheet ──────────────────────────────────────────── */}
       <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
-        {/* Overlay */}
         <div
-          className="absolute inset-0 bg-black/30 backdrop-blur-[2px] animate-fade-in"
+          className="absolute inset-0 bg-black/40 backdrop-blur-[4px] animate-fade-in"
           onClick={onClose}
         />
-        {/* Sheet */}
         <div
-          className="relative flex flex-col bg-[#F5F5F7] rounded-t-[24px] max-h-[92dvh]"
+          className="relative flex flex-col bg-[var(--color-bg)] rounded-t-[24px] max-h-[92dvh] border-t border-[var(--color-border)] shadow-[var(--shadow-floating)]"
           style={{
-            animation: 'slideUpSheet 0.3s cubic-bezier(0.32,0,0.67,0) forwards',
+            animation: 'slideUpSheet 0.36s cubic-bezier(0.19, 1, 0.22, 1) forwards',
             paddingBottom: 'env(safe-area-inset-bottom)',
           }}
         >
-          {/* Handle */}
           <div className="flex justify-center pt-3 pb-1">
-            <div className="w-10 h-1 rounded-full bg-[rgba(0,0,0,0.15)]" />
+            <div className="w-10 h-1 rounded-full bg-[rgba(0,0,0,0.15)] dark:bg-[rgba(255,255,255,0.20)]" />
           </div>
-          {/* Header */}
-          <div className="flex items-start justify-between px-5 pt-2 pb-3 border-b border-[rgba(0,0,0,0.06)]">
+          <div className="flex items-start justify-between px-5 pt-2 pb-3 border-b border-[var(--color-border)]">
             <div>
-              <h2 className="text-[17px] font-semibold text-[#1D1D1F]">{title}</h2>
-              {subtitle && <p className="text-[13px] text-[#6E6E73] mt-0.5">{subtitle}</p>}
+              <h2 className="text-[17px] font-semibold text-[var(--color-text)] tracking-tight">{title}</h2>
+              {subtitle && <p className="text-[13px] text-[var(--color-text-secondary)] mt-0.5">{subtitle}</p>}
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-[rgba(0,0,0,0.06)] flex items-center justify-center text-[#6E6E73] ml-3 shrink-0"
+              className="w-8 h-8 rounded-full bg-[rgba(0,0,0,0.06)] dark:bg-[rgba(255,255,255,0.08)] flex items-center justify-center text-[var(--color-text-secondary)] ml-3 shrink-0 hover:bg-[rgba(0,0,0,0.10)] dark:hover:bg-[rgba(255,255,255,0.12)] transition-colors"
             >
               <X className="w-4 h-4" strokeWidth={2} />
             </button>
           </div>
-          {/* Contenido */}
           <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
-          {/* Footer */}
           {footer && (
-            <div className="px-5 py-3 border-t border-[rgba(0,0,0,0.06)] bg-white">
+            <div className="px-5 py-3 border-t border-[var(--color-border)] bg-[var(--color-surface)]">
               {footer}
             </div>
           )}
@@ -89,37 +83,35 @@ export default function Modal({
 
       {/* ── DESKTOP: Panel lateral derecho ───────────────────────────────── */}
       <div className="hidden lg:flex fixed inset-0 z-50 items-start justify-end">
-        {/* Overlay */}
         <div
-          className="absolute inset-0 bg-black/20 backdrop-blur-[2px] animate-fade-in"
+          className="absolute inset-0 bg-black/25 backdrop-blur-[4px] animate-fade-in"
           onClick={onClose}
         />
-        {/* Panel */}
         <div
           className={clsx(
             'relative h-full w-full flex flex-col',
-            'bg-[#F5F5F7]',
-            'border-l border-[rgba(0,0,0,0.08)]',
-            'shadow-[-8px_0_40px_rgba(0,0,0,0.12)]',
+            'bg-[var(--color-bg)]',
+            'border-l border-[var(--color-border-medium)]',
+            'shadow-[-12px_0_48px_rgba(0,0,0,0.16)]',
             widthMap[width],
           )}
-          style={{ animation: 'slideInRight 0.28s cubic-bezier(0.32,0,0.67,0) forwards' }}
+          style={{ animation: 'slideInRight 0.32s cubic-bezier(0.19, 1, 0.22, 1) forwards' }}
         >
-          <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-[rgba(0,0,0,0.06)] bg-white">
+          <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
             <div>
-              <h2 className="text-[18px] font-semibold text-[#1D1D1F]">{title}</h2>
-              {subtitle && <p className="text-[13px] text-[#6E6E73] mt-0.5">{subtitle}</p>}
+              <h2 className="text-[20px] font-semibold text-[var(--color-text)] tracking-tight">{title}</h2>
+              {subtitle && <p className="text-[13px] text-[var(--color-text-secondary)] mt-0.5">{subtitle}</p>}
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-[rgba(0,0,0,0.06)] flex items-center justify-center text-[#6E6E73] ml-4 shrink-0 hover:bg-[rgba(0,0,0,0.10)] transition-colors"
+              className="w-8 h-8 rounded-full bg-[rgba(0,0,0,0.06)] dark:bg-[rgba(255,255,255,0.08)] flex items-center justify-center text-[var(--color-text-secondary)] ml-4 shrink-0 hover:bg-[rgba(0,0,0,0.10)] dark:hover:bg-[rgba(255,255,255,0.12)] transition-colors"
             >
               <X className="w-4 h-4" strokeWidth={2} />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
           {footer && (
-            <div className="px-6 py-4 border-t border-[rgba(0,0,0,0.06)] bg-white">
+            <div className="px-6 py-4 border-t border-[var(--color-border)] bg-[var(--color-surface)]">
               {footer}
             </div>
           )}
@@ -128,11 +120,11 @@ export default function Modal({
 
       <style>{`
         @keyframes slideInRight {
-          from { transform: translateX(100%); opacity: 0.5; }
+          from { transform: translateX(100%); opacity: 0.4; }
           to   { transform: translateX(0);    opacity: 1; }
         }
         @keyframes slideUpSheet {
-          from { transform: translateY(100%); opacity: 0.6; }
+          from { transform: translateY(100%); opacity: 0.5; }
           to   { transform: translateY(0);    opacity: 1; }
         }
       `}</style>

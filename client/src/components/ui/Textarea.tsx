@@ -29,19 +29,19 @@ export default function Textarea({
       <div
         className={clsx(
           'relative',
-          'bg-white border rounded-[10px]',
+          'bg-[var(--color-surface)] border rounded-[12px]',
           'transition-all duration-150',
           error
-            ? 'border-[#FF453A] ring-2 ring-[rgba(255,69,58,0.15)]'
+            ? 'border-[var(--color-red)] ring-2 ring-[rgba(255,69,58,0.15)]'
             : focused
-              ? 'border-[#0A84FF] ring-2 ring-[rgba(10,132,255,0.15)]'
-              : 'border-[rgba(0,0,0,0.10)] hover:border-[rgba(0,0,0,0.18)]',
-          'shadow-[0_1px_3px_rgba(0,0,0,0.04)]',
+              ? 'border-[var(--color-blue)] ring-[3px] ring-[rgba(10,132,255,0.20)]'
+              : 'border-[var(--color-border-medium)] hover:border-[var(--color-border-strong)]',
+          'shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
         )}
       >
         <label
           htmlFor={inputId}
-          className="absolute left-3 top-1.5 text-[10px] font-medium text-[#6E6E73] pointer-events-none select-none"
+          className="absolute left-3 top-1.5 text-[10.5px] font-semibold text-[var(--color-text-secondary)] tracking-wide uppercase pointer-events-none select-none"
         >
           {label}
         </label>
@@ -54,7 +54,7 @@ export default function Textarea({
           onBlur={(e)  => { setFocused(false); props.onBlur?.(e);  }}
           className={clsx(
             'w-full bg-transparent outline-none resize-none',
-            'text-[14px] text-[#1D1D1F] placeholder:text-[#86868B]',
+            'text-[14px] text-[var(--color-text)] placeholder:text-[var(--color-text-tertiary)]',
             'px-3 pb-2.5 pt-5',
             'transition-all duration-150',
           )}
@@ -62,7 +62,7 @@ export default function Textarea({
       </div>
 
       {(error || hint) && (
-        <p className={clsx('text-[12px] pl-1', error ? 'text-[#FF453A]' : 'text-[#6E6E73]')}>
+        <p className={clsx('text-[12px] pl-1', error ? 'text-[var(--color-red)]' : 'text-[var(--color-text-secondary)]')}>
           {error ?? hint}
         </p>
       )}
