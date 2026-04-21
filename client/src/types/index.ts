@@ -37,20 +37,25 @@ export type ProjectStatus =
   | 'COMPLETED'
   | 'CANCELLED';
 
+export type BillingMode = 'FIXED' | 'HOURLY' | 'HYBRID';
+
 export interface Project {
-  id:           string;
-  tenantId:     string;
-  clientName:   string | null;
-  clientTaxId:  string | null;
-  name:         string;
-  description:  string | null;
-  status:       ProjectStatus;
-  budgetHours:  number | null;
-  budgetAmount: string | null;   // Prisma Decimal → string en JSON
-  startDate:    string | null;
-  endDate:      string | null;
-  createdAt:    string;
-  updatedAt:    string;
+  id:             string;
+  tenantId:       string;
+  clientName:     string | null;
+  clientTaxId:    string | null;
+  name:           string;
+  description:    string | null;
+  status:         ProjectStatus;
+  billingMode:    BillingMode;
+  budgetHours:    number | null;
+  budgetAmount:   string | null;   // Prisma Decimal → string en JSON
+  hourlyRate:     string | null;   // Prisma Decimal → string en JSON
+  partsMarkupPct: string | null;   // Prisma Decimal → string en JSON
+  startDate:      string | null;
+  endDate:        string | null;
+  createdAt:      string;
+  updatedAt:      string;
   _count?: {
     timeEntries: number;
     varCosts:    number;
@@ -92,14 +97,18 @@ export interface FixedCost {
 // --- Costes Variables -------------------------------------------------------
 
 export interface VarCost {
-  id:        string;
-  tenantId:  string;
-  projectId: string | null;
-  name:      string;
-  amount:    string;          // Prisma Decimal → string en JSON
-  date:      string;
-  category:  string | null;
-  project?:  { id: string; name: string } | null;
+  id:               string;
+  tenantId:         string;
+  projectId:        string | null;
+  name:             string;
+  amount:           string;          // Prisma Decimal → string en JSON
+  quantity:         string;          // Decimal → string
+  priceIncludesVat: boolean;
+  vatRate:          string;          // Decimal → string
+  markupPct:        string | null;   // Decimal → string (nullable)
+  date:             string;
+  category:         string | null;
+  project?:         { id: string; name: string } | null;
 }
 
 // --- Dashboard --------------------------------------------------------------

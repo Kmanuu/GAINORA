@@ -5,7 +5,7 @@
 // Persiste tokens en localStorage. Restaura sesión al recargar la página.
 // ============================================================================
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { api } from '@/lib/api';
 import type { AuthUser, AuthTenant, AuthResponse } from '@/types';
 
@@ -21,12 +21,12 @@ interface AuthContextValue {
   login:           (params: LoginParams) => Promise<void>;
   register:        (params: RegisterParams) => Promise<void>;
   logout:          () => void;
+  updateUser:      (partial: Partial<AuthUser>) => void;
 }
 
 interface LoginParams {
   email:      string;
   password:   string;
-  tenantSlug: string;
 }
 
 interface RegisterParams {
@@ -81,19 +81,9 @@ function loadSession(): { user: AuthUser; tenant: AuthTenant } | null {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user,      setUser]      = useState<AuthUser   | null>(null);
-  const [tenant,    setTenant]    = useState<AuthTenant | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Restaurar sesión al montar (refresca token si es necesario)
-  useEffect(() => {
-    const session = loadSession();
-    if (session) {
-      setUser(session.user);
-      setTenant(session.tenant);
-    }
-    setIsLoading(false);
-  }, []);
+  const [user,      setUser]      = useState<AuthUser   | null>(() => loadSession()?.user ?? null);
+  const [tenant,    setTenant]    = useState<AuthTenant | null>(() => loadSession()?.tenant ?? null);
+  const [isLoading] = useState(false);
 
   const login = useCallback(async (params: LoginParams) => {
     const res = await api.post<AuthResponse>('/auth/login', params);
@@ -115,6 +105,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTenant(null);
   }, []);
 
+  const updateUser = useCallback((partial: Partial<AuthUser>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...partial };
+      localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -125,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        updateUser,
       }}
     >
       {children}
@@ -136,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 // Hook
 // ---------------------------------------------------------------------------
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth debe usarse dentro de <AuthProvider>');

@@ -103,12 +103,12 @@ function SectionCard({
 }) {
   return (
     <Card padding="md" className="animate-fade-up" style={{ animationFillMode: 'both' } as React.CSSProperties}>
-      <div className="flex items-center gap-2.5 mb-4 pb-3.5 border-b border-[rgba(0,0,0,0.05)]">
+      <div className="flex items-center gap-2.5 mb-4 pb-3.5 border-b border-[var(--color-border)]">
         <div className="w-7 h-7 rounded-[8px] flex items-center justify-center"
           style={{ background: accentBg, color: accentColor }}>
           {icon}
         </div>
-        <h2 className="text-[15px] font-semibold text-[#1D1D1F]">{title}</h2>
+        <h2 className="text-[15px] font-semibold text-[var(--color-text)]">{title}</h2>
       </div>
       {children}
     </Card>
@@ -118,8 +118,8 @@ function SectionCard({
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[11px] font-medium text-[#86868B] uppercase tracking-[0.05em] mb-0.5">{label}</p>
-      <div className="text-[14px] font-medium text-[#1D1D1F]">{value}</div>
+      <p className="text-[11px] font-medium text-[var(--color-text-tertiary)] uppercase tracking-[0.05em] mb-0.5">{label}</p>
+      <div className="text-[14px] font-medium text-[var(--color-text)]">{value}</div>
     </div>
   );
 }
@@ -143,7 +143,7 @@ function GuideSection() {
       accentBg="rgba(191,90,242,0.08)"
     >
       {/* Intro */}
-      <p className="text-[13px] text-[#6E6E73] mb-4 leading-relaxed">
+      <p className="text-[13px] text-[var(--color-text-secondary)] mb-4 leading-relaxed">
         7 pasos para sacarle todo el partido a HorasPRO. Sin tecnicismos, sin rollos.
       </p>
 
@@ -155,8 +155,8 @@ function GuideSection() {
               key={i}
               className={`rounded-[12px] border overflow-hidden transition-all duration-200 ${
                 isOpen
-                  ? 'border-[rgba(10,132,255,0.20)] bg-[rgba(10,132,255,0.02)]'
-                  : 'border-[rgba(0,0,0,0.06)] bg-white hover:border-[rgba(0,0,0,0.12)]'
+                  ? 'border-[rgba(10,132,255,0.20)] bg-[var(--color-blue-subtle)]'
+                  : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-border-medium)]'
               }`}
             >
               {/* Cabecera clickable */}
@@ -168,7 +168,7 @@ function GuideSection() {
                 <div className="flex items-center gap-2.5 shrink-0">
                   <span
                     className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
-                      isOpen ? 'bg-[#0A84FF] text-white' : 'bg-[rgba(0,0,0,0.06)] text-[#6E6E73]'
+                      isOpen ? 'bg-[var(--color-blue)] text-white' : 'bg-[var(--color-border)] text-[var(--color-text-secondary)]'
                     }`}
                   >
                     {i + 1}
@@ -179,7 +179,7 @@ function GuideSection() {
                 {/* Título + badge + resumen */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[14px] font-semibold text-[#1D1D1F]">{step.title}</span>
+                    <span className="text-[14px] font-semibold text-[var(--color-text)]">{step.title}</span>
                     {step.badge && (
                       <span
                         className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
@@ -193,12 +193,12 @@ function GuideSection() {
                     )}
                   </div>
                   {!isOpen && (
-                    <p className="text-[12px] text-[#6E6E73] mt-0.5 truncate">{step.summary}</p>
+                    <p className="text-[12px] text-[var(--color-text-secondary)] mt-0.5 truncate">{step.summary}</p>
                   )}
                 </div>
 
                 {/* Chevron */}
-                <div className={`shrink-0 text-[#86868B] transition-transform duration-200 ${isOpen ? 'rotate-0' : ''}`}>
+                <div className="shrink-0 text-[var(--color-text-tertiary)] transition-transform duration-200">
                   {isOpen
                     ? <ChevronUp  className="w-4 h-4" strokeWidth={1.8} />
                     : <ChevronDown className="w-4 h-4" strokeWidth={1.8} />
@@ -209,16 +209,22 @@ function GuideSection() {
               {/* Contenido expandido */}
               {isOpen && (
                 <div className="px-4 pb-4 border-t border-[rgba(10,132,255,0.10)]">
-                  <p className="text-[13px] text-[#6E6E73] font-medium mt-3 mb-2">{step.summary}</p>
+                  <p className="text-[13px] text-[var(--color-text-secondary)] font-medium mt-3 mb-2">{step.summary}</p>
                   {step.detail.split('\n').map((line, li) => (
                     line.trim() === ''
                       ? <div key={li} className="h-2" />
-                      : <p key={li} className="text-[13.5px] text-[#1D1D1F] leading-relaxed">{line}</p>
+                      : <p key={li} className="text-[13.5px] text-[var(--color-text)] leading-relaxed">{line}</p>
                   ))}
                   {step.tip && (
-                    <div className="mt-3 flex gap-2.5 bg-[rgba(255,159,10,0.08)] border border-[rgba(255,159,10,0.20)] rounded-[10px] px-3.5 py-2.5">
+                    <div
+                      className="mt-3 flex gap-2.5 rounded-[10px] px-3.5 py-2.5 border"
+                      style={{
+                        background:  'var(--color-orange-subtle)',
+                        borderColor: 'rgba(255,159,10,0.20)',
+                      }}
+                    >
                       <span className="text-[14px] shrink-0 mt-0.5">💡</span>
-                      <p className="text-[12.5px] text-[#8B6800] leading-relaxed">{step.tip}</p>
+                      <p className="text-[12.5px] text-[var(--color-orange)] leading-relaxed">{step.tip}</p>
                     </div>
                   )}
                 </div>
@@ -229,11 +235,17 @@ function GuideSection() {
       </div>
 
       {/* Footer motivacional */}
-      <div className="mt-5 px-4 py-3.5 bg-[rgba(48,209,88,0.06)] border border-[rgba(48,209,88,0.16)] rounded-[12px] text-center">
-        <p className="text-[13px] font-semibold text-[#1D1D1F] mb-0.5">
+      <div
+        className="mt-5 px-4 py-3.5 rounded-[12px] text-center border"
+        style={{
+          background:  'var(--color-green-subtle)',
+          borderColor: 'rgba(48,209,88,0.18)',
+        }}
+      >
+        <p className="text-[13px] font-semibold text-[var(--color-text)] mb-0.5">
           ¿Ya lo tienes todo configurado? 🎉
         </p>
-        <p className="text-[12px] text-[#6E6E73]">
+        <p className="text-[12px] text-[var(--color-text-secondary)]">
           Ahora solo queda trabajar — y dejar que HorasPRO te diga si merece la pena.
         </p>
       </div>
@@ -246,11 +258,13 @@ function GuideSection() {
 // ---------------------------------------------------------------------------
 
 function ProfileSection({
-  initialName, initialEmail, initialHourlyCost,
+  initialName, initialEmail, initialHourlyCost, onSaved,
 }: {
   initialName: string; initialEmail: string; initialHourlyCost: string;
+  onSaved?: (name: string) => void;
 }) {
-  const { toast } = useToast();
+  const { toast }       = useToast();
+  const { updateUser }  = useAuth();
   const [fullName,   setFullName]   = useState(initialName);
   const [hourlyCost, setHourlyCost] = useState(initialHourlyCost);
   const [saving,     setSaving]     = useState(false);
@@ -267,6 +281,8 @@ function ProfileSection({
         fullName:   fullName.trim(),
         hourlyCost: parseFloat(hourlyCost) || 0,
       });
+      updateUser({ fullName: fullName.trim() });
+      onSaved?.(fullName.trim());
       toast('success', 'Perfil actualizado correctamente');
     } catch (err: unknown) {
       toast('error', err instanceof Error ? err.message : 'Error al guardar');
@@ -439,17 +455,17 @@ export default function SettingsPage() {
   const tenantPlan   = meData?.tenant.plan    ?? 'STARTER';
 
   const PLAN_BADGE: Record<string, string> = {
-    STARTER: 'bg-[rgba(0,0,0,0.06)] text-[#6E6E73]',
-    GROWTH:  'bg-[rgba(10,132,255,0.10)] text-[#0A84FF]',
-    EMPIRE:  'bg-[rgba(191,90,242,0.10)] text-[#9A33C7]',
+    STARTER: 'bg-[var(--color-border)] text-[var(--color-text-secondary)]',
+    GROWTH:  'bg-[var(--color-blue-subtle)] text-[var(--color-blue)]',
+    EMPIRE:  'bg-[var(--color-purple-subtle)] text-[var(--color-purple)]',
   };
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-[720px] mx-auto">
 
       <header className="mb-6 animate-fade-up">
-        <h1 className="text-[24px] sm:text-[28px] font-semibold text-[#1D1D1F]">Ajustes</h1>
-        <p className="text-[13px] text-[#6E6E73] mt-0.5">Perfil, seguridad y guía de uso</p>
+        <h1 className="text-[24px] sm:text-[28px] font-semibold text-[var(--color-text)]">Ajustes</h1>
+        <p className="text-[13px] text-[var(--color-text-secondary)] mt-0.5">Perfil, seguridad y guía de uso</p>
       </header>
 
       <div className="space-y-4">
@@ -498,8 +514,8 @@ export default function SettingsPage() {
         >
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <p className="text-[14px] font-medium text-[#1D1D1F]">Cerrar sesión</p>
-              <p className="text-[12px] text-[#6E6E73] mt-0.5">
+              <p className="text-[14px] font-medium text-[var(--color-text)]">Cerrar sesión</p>
+              <p className="text-[12px] text-[var(--color-text-secondary)] mt-0.5">
                 Conectado como <span className="font-medium">{displayEmail}</span>
               </p>
             </div>

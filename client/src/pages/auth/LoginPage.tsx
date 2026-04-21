@@ -15,11 +15,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const { toast } = useToast();
 
-  const [form, setForm] = useState({
-    tenantSlug: '',
-    email:      '',
-    password:   '',
-  });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [showPass,  setShowPass]  = useState(false);
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState('');
@@ -33,7 +29,7 @@ export default function LoginPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!form.tenantSlug || !form.email || !form.password) {
+    if (!form.email || !form.password) {
       setError('Completa todos los campos');
       return;
     }
@@ -51,20 +47,21 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F5F5F7] px-4 py-12">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg)] px-4 py-12 relative">
 
-      {/* Fondo decorativo */}
-      <div
-        className="fixed inset-0 pointer-events-none overflow-hidden"
-        aria-hidden
-      >
+      {/* Aurora background */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden>
         <div
-          className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full opacity-[0.06]"
-          style={{ background: 'radial-gradient(circle, #0A84FF 0%, transparent 70%)' }}
+          className="absolute -top-40 -right-40 w-[620px] h-[620px] rounded-full opacity-60 blur-3xl"
+          style={{ background: 'radial-gradient(circle, rgba(10,132,255,0.18) 0%, transparent 70%)' }}
         />
         <div
-          className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full opacity-[0.04]"
-          style={{ background: 'radial-gradient(circle, #30D158 0%, transparent 70%)' }}
+          className="absolute -bottom-40 -left-40 w-[520px] h-[520px] rounded-full opacity-55 blur-3xl"
+          style={{ background: 'radial-gradient(circle, rgba(48,209,88,0.14) 0%, transparent 70%)' }}
+        />
+        <div
+          className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[420px] h-[420px] rounded-full opacity-35 blur-3xl"
+          style={{ background: 'radial-gradient(circle, rgba(191,90,242,0.14) 0%, transparent 70%)' }}
         />
       </div>
 
@@ -74,37 +71,35 @@ export default function LoginPage() {
         style={{ animationFillMode: 'both' }}
       >
         <div
-          className="bg-white rounded-[24px] border border-[rgba(0,0,0,0.07)]"
-          style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.10), 0 0 1px rgba(0,0,0,0.04)' }}
+          className="rounded-[24px] border"
+          style={{
+            background:   'var(--color-surface)',
+            borderColor:  'var(--color-border)',
+            boxShadow:    'var(--shadow-floating, 0 8px 40px rgba(0,0,0,0.10))',
+          }}
         >
           <div className="px-8 pt-8 pb-8">
             {/* Logo */}
             <div className="flex flex-col items-center mb-8">
               <div
                 className="w-14 h-14 rounded-[16px] flex items-center justify-center mb-4"
-                style={{ background: '#0A84FF', boxShadow: '0 4px 16px rgba(10,132,255,0.35)' }}
+                style={{
+                  background: 'linear-gradient(180deg, #0A84FF 0%, #0060C0 100%)',
+                  boxShadow:  '0 8px 24px rgba(10,132,255,0.45), inset 0 1px 0 rgba(255,255,255,0.3)',
+                }}
               >
-                <Zap className="w-7 h-7 text-white" strokeWidth={2.5} />
+                <Zap className="w-7 h-7 text-white" strokeWidth={2.5} fill="white" />
               </div>
-              <h1 className="text-[22px] font-semibold text-[#1D1D1F] leading-tight">
+              <h1 className="text-[24px] font-semibold text-[var(--color-text)] leading-tight tracking-[-0.02em]">
                 Iniciar sesión
               </h1>
-              <p className="text-[14px] text-[#6E6E73] mt-1">
+              <p className="text-[14px] text-[var(--color-text-secondary)] mt-1">
                 Accede a HorasPRO
               </p>
             </div>
 
             {/* Formulario */}
             <form onSubmit={handleSubmit} noValidate className="space-y-3">
-              <Input
-                label="Slug de empresa"
-                type="text"
-                value={form.tenantSlug}
-                onChange={handleChange('tenantSlug')}
-                autoComplete="organization"
-                spellCheck={false}
-                placeholder="mi-agencia"
-              />
               <Input
                 label="Correo electrónico"
                 type="email"
@@ -125,6 +120,7 @@ export default function LoginPage() {
                     onClick={() => setShowPass((v) => !v)}
                     tabIndex={-1}
                     className="flex items-center"
+                    aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   >
                     {showPass
                       ? <EyeOff className="w-4 h-4" strokeWidth={1.8} />
@@ -134,14 +130,17 @@ export default function LoginPage() {
                 }
               />
 
-              {/* Mensaje de error */}
               {error && (
                 <div
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-[10px] bg-[rgba(255,69,58,0.08)] border border-[rgba(255,69,58,0.15)]"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-[10px] border"
+                  style={{
+                    background:   'var(--color-red-subtle)',
+                    borderColor:  'rgba(255,69,58,0.18)',
+                  }}
                   role="alert"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF453A] shrink-0" />
-                  <p className="text-[13px] text-[#D93025]">{error}</p>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] shrink-0" />
+                  <p className="text-[13px] text-[var(--color-red)]">{error}</p>
                 </div>
               )}
 
@@ -152,18 +151,18 @@ export default function LoginPage() {
                   size="lg"
                   loading={loading}
                   fullWidth
+                  glow
                 >
                   Entrar
                 </Button>
               </div>
             </form>
 
-            {/* Enlace a registro */}
-            <p className="mt-6 text-center text-[13px] text-[#6E6E73]">
+            <p className="mt-6 text-center text-[13px] text-[var(--color-text-secondary)]">
               ¿Sin cuenta?{' '}
               <Link
                 to="/register"
-                className="text-[#0A84FF] font-medium hover:underline"
+                className="text-[var(--color-blue)] font-semibold hover:underline"
               >
                 Crear empresa
               </Link>
@@ -172,8 +171,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Footer */}
-      <p className="mt-8 text-[12px] text-[#86868B]">
+      <p className="mt-8 text-[12px] text-[var(--color-text-tertiary)] relative">
         HorasPRO © {new Date().getFullYear()}
       </p>
     </div>

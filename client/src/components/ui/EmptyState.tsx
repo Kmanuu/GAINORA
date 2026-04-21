@@ -18,7 +18,7 @@ interface EmptyStateProps {
 
 export default function EmptyState({
   icon,
-  iconBg = 'rgba(10,132,255,0.08)',
+  iconBg = 'var(--color-blue-subtle)',
   title,
   description,
   actionLabel,
@@ -26,15 +26,19 @@ export default function EmptyState({
   onAction,
 }: EmptyStateProps) {
   return (
-    <Card padding="lg" className="flex flex-col items-center py-12 text-center animate-fade-up">
+    <Card padding="lg" className="flex flex-col items-center py-14 text-center animate-fade-up">
       <div
-        className="w-14 h-14 rounded-full flex items-center justify-center mb-4"
+        className="relative w-16 h-16 rounded-full flex items-center justify-center mb-4 animate-float"
         style={{ background: iconBg }}
       >
-        {icon}
+        <span
+          className="absolute inset-0 rounded-full opacity-40"
+          style={{ background: iconBg, filter: 'blur(20px)' }}
+        />
+        <span className="relative">{icon}</span>
       </div>
-      <p className="text-[16px] font-semibold text-[#1D1D1F]">{title}</p>
-      <p className="text-[14px] text-[#6E6E73] mt-1 max-w-[280px]">
+      <p className="text-[17px] font-semibold text-[var(--color-text)] tracking-tight">{title}</p>
+      <p className="text-[14px] text-[var(--color-text-secondary)] mt-1 max-w-[320px] leading-relaxed">
         {description}
       </p>
       {actionLabel && onAction && (
@@ -42,7 +46,7 @@ export default function EmptyState({
           variant="primary"
           icon={actionIcon}
           onClick={onAction}
-          className="mt-5"
+          className="mt-6"
         >
           {actionLabel}
         </Button>

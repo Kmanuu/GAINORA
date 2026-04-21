@@ -28,7 +28,7 @@ export default function Toggle({ checked, onChange, label, disabled }: TogglePro
         className={clsx(
           'relative inline-flex w-[44px] h-[26px] rounded-full',
           'transition-colors duration-200',
-          checked ? 'bg-[#30D158]' : 'bg-[#D1D1D6]',
+          checked ? 'bg-[#30D158]' : 'bg-[#D1D1D6] dark:bg-[#3A3A3C]',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1',
         )}
       >
@@ -42,7 +42,7 @@ export default function Toggle({ checked, onChange, label, disabled }: TogglePro
         />
       </span>
       {label && (
-        <span className="text-[14px] font-medium text-[#1D1D1F]">{label}</span>
+        <span className="text-[14px] font-medium text-[var(--color-text)]">{label}</span>
       )}
     </label>
   );
