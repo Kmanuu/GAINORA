@@ -2,6 +2,7 @@
 // BottomNav.tsx — Barra de navegación inferior estilo iOS (solo móvil/tablet)
 // ============================================================================
 
+import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -26,7 +27,18 @@ const TABS: Tab[] = [
   { label: 'Ajustes',    path: '/ajustes',      icon: Settings        },
 ];
 
+function useTimerActive() {
+  const [active, setActive] = useState(() => !!localStorage.getItem('hp_timer_start'));
+  useEffect(() => {
+    const check = () => setActive(!!localStorage.getItem('hp_timer_start'));
+    const id = setInterval(check, 2000);
+    return () => clearInterval(id);
+  }, []);
+  return active;
+}
+
 export default function BottomNav() {
+  const timerActive = useTimerActive();
   return (
     <nav
       className={clsx(
@@ -58,7 +70,7 @@ export default function BottomNav() {
             <>
               <span
                 className={clsx(
-                  'flex items-center justify-center w-8 h-8 rounded-[10px]',
+                  'relative flex items-center justify-center w-8 h-8 rounded-[10px]',
                   'transition-all duration-150',
                   isActive
                     ? 'bg-[rgba(10,132,255,0.10)] scale-[1.08]'
@@ -69,6 +81,9 @@ export default function BottomNav() {
                   className="w-5 h-5"
                   strokeWidth={isActive ? 2.2 : 1.8}
                 />
+                {tab.path === '/horas' && timerActive && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#FF453A] animate-pulse border-2 border-white" />
+                )}
               </span>
               <span
                 className={clsx(

@@ -2,6 +2,8 @@
 // router/index.tsx — Definición de rutas con React Router
 // ============================================================================
 
+/* eslint-disable react-refresh/only-export-components */
+
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { useAuth }        from '@/context/AuthContext';
 import AppLayout          from '@/components/layout/AppLayout';
@@ -14,7 +16,8 @@ import FixedCostsPage     from '@/pages/FixedCostsPage';
 import VarCostsPage       from '@/pages/VarCostsPage';
 import SettingsPage       from '@/pages/SettingsPage';
 import ProjectDetailPage from '@/pages/ProjectDetailPage';
-import ReportsPage       from '@/pages/ReportsPage';
+import NotFoundPage       from '@/pages/NotFoundPage';
+import ReportsPage        from '@/pages/ReportsPage';
 import type { ReactNode } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -88,6 +91,6 @@ export const router = createBrowserRouter([
   // 404
   {
     path: '*',
-    element: <Navigate to="/dashboard" replace />,
+    element: <NotFoundPage />,
   },
 ]);

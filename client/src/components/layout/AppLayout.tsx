@@ -6,8 +6,10 @@
 
 import { type ReactNode } from 'react';
 import { Outlet } from 'react-router-dom';
-import Sidebar    from './Sidebar';
-import BottomNav  from './BottomNav';
+import Sidebar          from './Sidebar';
+import BottomNav        from './BottomNav';
+import OnboardingWizard from '@/components/OnboardingWizard';
+import CommandPalette   from '@/components/ui/CommandPalette';
 
 interface AppLayoutProps {
   children?: ReactNode;
@@ -15,7 +17,7 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   return (
-    <div className="flex h-full bg-[#F5F5F7]">
+    <div className="flex h-full bg-[var(--color-bg)] transition-colors duration-300">
 
       {/* Sidebar — solo visible en desktop (lg+) */}
       <div className="hidden lg:block">
@@ -26,9 +28,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <main
         className={[
           'flex-1 overflow-y-auto overflow-x-hidden',
-          // Desktop: margen izquierdo por el sidebar
           'lg:ml-[240px]',
-          // Móvil: padding inferior para la barra de navegación (56px + safe area)
           'pb-[calc(56px+env(safe-area-inset-bottom))] lg:pb-0',
         ].join(' ')}
       >
@@ -37,6 +37,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       {/* BottomNav — solo visible en móvil/tablet */}
       <BottomNav />
+
+      {/* Wizard de onboarding — se renderiza encima de todo dentro del contexto del router */}
+      <OnboardingWizard />
+
+      {/* Command Palette global — ⌘K / Ctrl+K */}
+      <CommandPalette />
     </div>
   );
 }
