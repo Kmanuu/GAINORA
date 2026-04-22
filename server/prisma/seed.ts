@@ -1,5 +1,16 @@
 import { env } from "../src/config/env.js";
-import { PrismaClient, Plan, Role, Status, Freq } from "@prisma/client";
+import {
+  PrismaClient,
+  Plan,
+  Role,
+  Status,
+  Freq,
+  BillingMode,
+  ContractTier,
+  ContractStatus,
+  MaintenanceMode,
+  PaymentStatus,
+} from "@prisma/client";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
@@ -8,19 +19,22 @@ const pool = new Pool({ connectionString: env.DATABASE_URL });
 const adapter = new PrismaPg(pool as any);
 const prisma = new PrismaClient({ adapter });
 
-
 async function main() {
   console.log("Iniciando el volcado de datos (seed)...");
 
-  // Limpiar datos existentes (opcional, cuidado en producción)
+  // Orden importa por FKs. Borrar hijos antes que padres.
+  await prisma.payment.deleteMany();
   await prisma.variableCost.deleteMany();
-  await prisma.fixedCost.deleteMany();
   await prisma.timeEntry.deleteMany();
+  await prisma.issue.deleteMany();
+  await prisma.contract.deleteMany();
+  await prisma.client.deleteMany();
+  await prisma.fixedCost.deleteMany();
   await prisma.project.deleteMany();
   await prisma.user.deleteMany();
   await prisma.tenant.deleteMany();
 
-  // 1. Crear Tenant (Agencia)
+  // 1. Tenant
   const tenant = await prisma.tenant.create({
     data: {
       name: "Agencia Creativa Demo",
@@ -29,11 +43,11 @@ async function main() {
       plan: Plan.GROWTH,
     },
   });
-  console.log(`✅ Tenant creado: ${tenant.name}`);
+  console.log(`✅ Tenant: ${tenant.name}`);
 
-  // 2. Crear Usuarios (OWNER, ADMIN, EMPLOYEE)
+  // 2. Usuarios
   const passwordHash = await bcrypt.hash("password123", 10);
-  
+
   const owner = await prisma.user.create({
     data: {
       tenantId: tenant.id,
@@ -55,22 +69,85 @@ async function main() {
       hourlyCost: 25.0,
     },
   });
-  console.log(`✅ Usuarios creados: ${owner.email}, ${employee.email}`);
+  console.log(`✅ Usuarios: ${owner.email}, ${employee.email}`);
 
-  // 3. Crear Proyecto
+  // 3. Clientes
+  const clientImportante = await prisma.client.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Cliente Importante S.A.",
+      taxId: "A87654321",
+      email: "contacto@cliente-importante.com",
+    },
+  });
+
+  const clientTaller = await prisma.client.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Taller Mecánico López",
+      email: "info@tallerlopez.es",
+    },
+  });
+  console.log(`✅ Clientes: ${clientImportante.name}, ${clientTaller.name}`);
+
+  // 4. Proyecto / Producto (mantenemos clientName legacy para compatibilidad UI actual)
   const project = await prisma.project.create({
     data: {
       tenantId: tenant.id,
       name: "Rediseño Web Corporativa",
-      clientName: "Cliente Importante S.A.",
+      clientName: clientImportante.name,
+      clientTaxId: clientImportante.taxId,
       status: Status.ACTIVE,
+      billingMode: BillingMode.FIXED,
       budgetHours: 100,
       budgetAmount: 5000.0,
     },
   });
-  console.log(`✅ Proyecto creado: ${project.name}`);
 
-  // 4. Crear Costes Fijos (Alquiler, Software)
+  const productoHoraspro = await prisma.project.create({
+    data: {
+      tenantId: tenant.id,
+      name: "HorasPRO (Suscripción)",
+      description: "Producto propio en modo suscripción",
+      status: Status.ACTIVE,
+      billingMode: BillingMode.SUBSCRIPTION,
+      productMaintenanceCost: 5.0,
+    },
+  });
+  console.log(`✅ Proyectos: ${project.name}, ${productoHoraspro.name}`);
+
+  // 5. Contratos
+  const contractRediseno = await prisma.contract.create({
+    data: {
+      tenantId: tenant.id,
+      projectId: project.id,
+      clientId: clientImportante.id,
+      tier: ContractTier.PRO,
+      billingMode: BillingMode.FIXED,
+      price: 5000.0,
+      status: ContractStatus.ACTIVE,
+      startedAt: new Date(),
+    },
+  });
+
+  const contractTallerSub = await prisma.contract.create({
+    data: {
+      tenantId: tenant.id,
+      projectId: productoHoraspro.id,
+      clientId: clientTaller.id,
+      tier: ContractTier.PRO,
+      billingMode: BillingMode.SUBSCRIPTION,
+      price: 10.0,
+      maintenanceMode: MaintenanceMode.SHARED,
+      maintenanceExtraPct: 20,
+      billingDay: 1,
+      status: ContractStatus.ACTIVE,
+      startedAt: new Date(),
+    },
+  });
+  console.log(`✅ Contratos: ${contractRediseno.id.slice(0, 8)}, ${contractTallerSub.id.slice(0, 8)}`);
+
+  // 6. Costes Fijos
   await prisma.fixedCost.createMany({
     data: [
       {
@@ -89,22 +166,41 @@ async function main() {
       },
     ],
   });
-  console.log(`✅ Costes fijos añadidos.`);
+  console.log(`✅ Costes fijos.`);
 
-  // 5. Crear Entradas de Tiempo (Time Entries)
+  // 7. Time Entries
   await prisma.timeEntry.create({
     data: {
       tenantId: tenant.id,
       userId: employee.id,
       projectId: project.id,
+      contractId: contractRediseno.id,
       description: "Diseño de prototipos en Figma",
       startedAt: new Date(new Date().setHours(new Date().getHours() - 4)),
       endedAt: new Date(),
-      durationMin: 240, // 4 horas
+      durationMin: 240,
       isBillable: true,
     },
   });
-  console.log(`✅ Entradas de tiempo registradas.`);
+  console.log(`✅ Entradas de tiempo.`);
+
+  // 8. Pago pendiente del primer periodo de la suscripción del taller
+  const periodStart = new Date();
+  periodStart.setDate(1);
+  periodStart.setHours(0, 0, 0, 0);
+  const periodEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0);
+
+  await prisma.payment.create({
+    data: {
+      tenantId: tenant.id,
+      contractId: contractTallerSub.id,
+      periodStart,
+      periodEnd,
+      amount: 10.0,
+      status: PaymentStatus.PENDING,
+    },
+  });
+  console.log(`✅ Pago demo creado (pendiente).`);
 
   console.log("🎉 Seed completado con éxito.");
 }

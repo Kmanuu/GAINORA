@@ -2,224 +2,345 @@
 // profitability.ts — Funciones puras de cálculo de rentabilidad
 // ============================================================================
 // SIN imports de Prisma, SIN acceso a BD, SIN llamadas externas.
-// Solo matemáticas. Los datos llegan ya preparados por el controller/service
-// que haga las queries y los pase aquí como parámetro.
+// Solo matemáticas. Los datos llegan ya preparados por el controller.
+//
+// v3 (Fase 5 - Suscripciones):
+//   - billingMode se amplía con SUBSCRIPTION
+//   - calculateContractProfitability reemplaza al antiguo por-proyecto
+//   - Mantenimiento proporcional (SHARED) entre contratos del mismo producto
+//   - issues no facturables restan margen como coste extra
 // ============================================================================
 
-// ---------------------------------------------------------------------------
-// INTERFACES DE ENTRADA
-// ---------------------------------------------------------------------------
+export type BillingMode = "FIXED" | "HOURLY" | "HYBRID" | "SUBSCRIPTION";
+export type MaintenanceMode = "NONE" | "SHARED" | "CUSTOM";
 
-/** Una entrada de tiempo ya procesada: solo necesitamos minutos y coste/hora */
 export interface TimeEntryInput {
-  /** Duración en minutos */
   durationMin: number;
-  /** Coste por hora del empleado que hizo esta entrada (€/h) */
   hourlyCost: number;
-  /** ¿Es facturable? Solo las facturables cuentan para tarifa mínima */
   isBillable: boolean;
 }
 
-/** Un coste variable ya extraído de la BD */
 export interface VariableCostInput {
-  /** Importe del coste en € */
   amount: number;
+  quantity?: number;
+  priceIncludesVat?: boolean;
+  vatRate?: number;
+  markupPct?: number | null;
 }
 
-/** Un coste fijo ya normalizado a importe MENSUAL */
-export interface FixedCostMonthlyInput {
-  /** Importe mensual equivalente en € (si es trimestral → amount/3, anual → amount/12) */
-  monthlyAmount: number;
-}
-
-/** Datos de entrada para calcular la rentabilidad de UN proyecto */
-export interface ProjectProfitabilityInput {
-  /** Lo que se le cobra al cliente (budget_amount del proyecto) */
-  budgetAmount: number;
-  /** Todas las entradas de tiempo asociadas a este proyecto */
-  timeEntries: TimeEntryInput[];
-  /** Todos los costes variables asociados a este proyecto */
-  variableCosts: VariableCostInput[];
-  /** Suma mensual de TODOS los costes fijos del tenant (ya normalizados) */
-  totalFixedCostsMonthly: number;
-  /** Número de proyectos activos del tenant (para repartir costes fijos) */
-  activeProjectCount: number;
-}
-
-/** Datos de entrada para calcular métricas globales del negocio */
 export interface BusinessMetricsInput {
-  /** Suma de TODOS los costes del mes: fijos (normalizados) + variables + coste de horas */
   totalMonthlyCosts: number;
-  /** Total de horas facturables del mes (en horas, no minutos) */
   totalBillableHours: number;
 }
 
-// ---------------------------------------------------------------------------
-// INTERFACES DE SALIDA
-// ---------------------------------------------------------------------------
-
-/** Resultado de rentabilidad de un proyecto */
-export interface ProjectProfitabilityResult {
-  /** Ingresos = budget_amount */
-  revenue: number;
-  /** Σ(horas × coste_hora) + Σ(costes_variables) */
-  directCost: number;
-  /** Σ(costes_fijos_mes) / nº proyectos activos */
-  indirectCost: number;
-  /** Ingresos − Coste directo − Coste indirecto */
-  netMargin: number;
-  /** (Margen neto / Ingresos) × 100 — 0 si ingresos = 0 */
-  profitabilityPct: number;
-}
-
-/** Métricas globales del negocio */
 export interface BusinessMetricsResult {
-  /** Σ(todos los costes) / Σ(horas facturables) — 0 si no hay horas */
   realHourlyCost: number;
-  /** Coste/hora real × 1.3 (margen mínimo del 30%) */
   minimumRate: number;
 }
 
 // ---------------------------------------------------------------------------
-// FUNCIONES AUXILIARES (privadas)
+// Entrada/Salida: Rentabilidad por CONTRATO (Fase 5)
 // ---------------------------------------------------------------------------
 
-/**
- * Convierte minutos a horas decimales.
- * Ej: 150 min → 2.5 h
- */
+export interface ContractProfitabilityInput {
+  billingMode: BillingMode;
+  // SUBSCRIPTION
+  price: number;               // cuota recurrente
+  // FIXED / HYBRID
+  budgetAmount: number;        // importe cerrado del contrato
+  setupFee: number;            // importe one-shot al iniciar (si aplica)
+  // HOURLY / HYBRID
+  hourlyRate: number;
+  // Piezas
+  partsMarkupPct: number;      // margen por defecto sobre piezas
+  // Mantenimiento
+  maintenanceMode: MaintenanceMode;
+  maintenanceExtraPct: number; // % extra sobre el coste base (para SHARED)
+  maintenanceFixedAmount: number; // importe fijo (para CUSTOM)
+  productMaintenanceCost: number; // coste base mensual del producto
+  activeContractsOfProduct: number; // contratos activos del mismo producto
+  // Rango temporal
+  monthsInRange: number;       // cuántos meses cubre el cálculo
+  startedInRange: boolean;     // si el contrato arrancó dentro del rango
+  // Datos brutos
+  timeEntries: TimeEntryInput[];
+  variableCosts: VariableCostInput[];
+  // Impacto de issues no facturables (labor interno + partes con IVA)
+  nonBillableIssueCost: number;
+  // Globales
+  totalMonthlyCosts: number;   // del tenant, YA multiplicado por monthsInRange
+  activeContractsCount: number;
+}
+
+export interface ContractProfitabilityResult {
+  revenue: number;
+  recurringRevenue: number;
+  setupRevenue: number;
+  laborRevenue: number;
+  partsRevenue: number;
+  maintenanceRevenue: number;
+  directCost: number;
+  laborCost: number;
+  partsCost: number;
+  issueCost: number;
+  maintenanceCost: number;
+  indirectCost: number;
+  netMargin: number;
+  profitabilityPct: number;
+  totalHours: number;
+  billableHours: number;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers internos
+// ---------------------------------------------------------------------------
+
 function minutesToHours(minutes: number): number {
   return minutes / 60;
 }
 
-/**
- * Redondea a 2 decimales para evitar errores de punto flotante.
- * Ej: 33.33333333 → 33.33
- */
-function round2(value: number): number {
+export function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-/**
- * División segura: si el divisor es 0 o negativo, devuelve 0.
- * Evita NaN e Infinity en los cálculos.
- */
 function safeDivide(numerator: number, denominator: number): number {
   if (denominator <= 0) return 0;
   return numerator / denominator;
 }
 
 // ---------------------------------------------------------------------------
-// FUNCIÓN EXPORTADA: Normalizar coste fijo a mensual
+// Normalizar coste fijo a mensual
 // ---------------------------------------------------------------------------
 
-/**
- * Convierte un coste fijo a su equivalente mensual según la frecuencia.
- *
- * - MONTHLY    → se queda igual
- * - QUARTERLY  → amount / 3
- * - YEARLY     → amount / 12
- *
- * El controller llama a esto ANTES de pasar los datos a calculateProjectProfitability.
- */
 export function normalizeToMonthly(
   amount: number,
   frequency: "MONTHLY" | "QUARTERLY" | "YEARLY",
 ): number {
   switch (frequency) {
-    case "MONTHLY":
-      return round2(amount);
-    case "QUARTERLY":
-      return round2(amount / 3);
-    case "YEARLY":
-      return round2(amount / 12);
+    case "MONTHLY":   return round2(amount);
+    case "QUARTERLY": return round2(amount / 3);
+    case "YEARLY":    return round2(amount / 12);
   }
 }
 
 // ---------------------------------------------------------------------------
-// FUNCIÓN EXPORTADA: Rentabilidad de UN proyecto
+// Desglose económico de una pieza: realCost (con IVA) + clientPrice (con margen)
 // ---------------------------------------------------------------------------
 
-/**
- * Calcula la rentabilidad de un proyecto concreto.
- *
- * Fórmula:
- *   Ingresos        = budget_amount
- *   Coste directo   = Σ(horas × coste_hora_empleado) + Σ(costes_variables)
- *   Coste indirecto = Σ(costes_fijos_mes) / nº proyectos activos
- *   Margen neto     = Ingresos − Coste directo − Coste indirecto
- *   % Rentabilidad  = (Margen neto / Ingresos) × 100
- *
- * Caso límite: si budgetAmount = 0, profitabilityPct devuelve 0 (no Infinity).
- * Caso límite: si activeProjectCount = 0, indirectCost devuelve 0.
- */
-export function calculateProjectProfitability(
-  data: ProjectProfitabilityInput,
-): ProjectProfitabilityResult {
-  // --- 1. Ingresos: lo que se le cobra al cliente ---
-  const revenue = round2(data.budgetAmount);
+export function calculatePartBreakdown(
+  part: VariableCostInput,
+  defaultMarkupPct: number = 0,
+): { realCost: number; clientPrice: number } {
+  const quantity = part.quantity ?? 1;
+  const vat      = part.vatRate ?? 21;
+  const markup   = part.markupPct ?? defaultMarkupPct;
 
-  // --- 2. Coste directo: horas trabajadas + gastos puntuales ---
-  // 2a. Coste de las horas: cada entrada × (minutos→horas × €/h del empleado)
-  const laborCost = data.timeEntries.reduce((sum, entry) => {
-    const hours = minutesToHours(entry.durationMin);
-    return sum + hours * entry.hourlyCost;
-  }, 0);
+  const basePerUnit = part.priceIncludesVat
+    ? part.amount
+    : part.amount * (1 + vat / 100);
 
-  // 2b. Costes variables: suma directa de importes
-  const variableCostTotal = data.variableCosts.reduce(
-    (sum, cost) => sum + cost.amount,
-    0,
-  );
-
-  const directCost = round2(laborCost + variableCostTotal);
-
-  // --- 3. Coste indirecto: costes fijos repartidos entre proyectos activos ---
-  const indirectCost = round2(
-    safeDivide(data.totalFixedCostsMonthly, data.activeProjectCount),
-  );
-
-  // --- 4. Margen neto ---
-  const netMargin = round2(revenue - directCost - indirectCost);
-
-  // --- 5. Porcentaje de rentabilidad ---
-  // Si revenue = 0, evitamos división por cero → 0%
-  const profitabilityPct = round2(safeDivide(netMargin, revenue) * 100);
+  const realCost    = basePerUnit * quantity;
+  const clientPrice = realCost * (1 + markup / 100);
 
   return {
-    revenue,
-    directCost,
-    indirectCost,
-    netMargin,
-    profitabilityPct,
+    realCost:    round2(realCost),
+    clientPrice: round2(clientPrice),
   };
 }
 
 // ---------------------------------------------------------------------------
-// FUNCIÓN EXPORTADA: Métricas globales del negocio
+// Mantenimiento compartido: lo que cada contrato aporta del coste base
 // ---------------------------------------------------------------------------
 
-/**
- * Calcula el coste/hora real y la tarifa mínima recomendada del negocio.
- *
- * Fórmula:
- *   Coste/hora real = Σ(todos los costes del mes) / Σ(horas facturables del mes)
- *   Tarifa mínima   = Coste/hora real × 1.3
- *
- * Caso límite: si totalBillableHours = 0, ambos valores devuelven 0.
- */
+export function calculateSharedMaintenance(
+  productMaintenanceCost: number,
+  activeContractsOfProduct: number,
+): number {
+  return round2(safeDivide(productMaintenanceCost, Math.max(1, activeContractsOfProduct)));
+}
+
+// ---------------------------------------------------------------------------
+// Rentabilidad por contrato (NUEVO — Fase 5)
+// ---------------------------------------------------------------------------
+
+export function calculateContractProfitability(
+  d: ContractProfitabilityInput,
+): ContractProfitabilityResult {
+  const mode = d.billingMode;
+  const months = Math.max(1, d.monthsInRange);
+
+  // --- Horas y mano de obra ---
+  const totalMinutes    = d.timeEntries.reduce((s, e) => s + e.durationMin, 0);
+  const billableMinutes = d.timeEntries.filter((e) => e.isBillable).reduce((s, e) => s + e.durationMin, 0);
+  const totalHours      = minutesToHours(totalMinutes);
+  const billableHours   = minutesToHours(billableMinutes);
+  const laborCost       = d.timeEntries.reduce(
+    (s, e) => s + minutesToHours(e.durationMin) * e.hourlyCost,
+    0,
+  );
+
+  // --- Piezas ---
+  const defaultMarkup = d.partsMarkupPct ?? 0;
+  let partsCost    = 0;
+  let partsRevenue = 0;
+  for (const part of d.variableCosts) {
+    const br = calculatePartBreakdown(part, defaultMarkup);
+    partsCost    += br.realCost;
+    partsRevenue += br.clientPrice;
+  }
+
+  // --- Mantenimiento (sólo aplicable a SUBSCRIPTION en general) ---
+  let maintenanceRevenue = 0;
+  let maintenanceCostInternal = 0;
+  if (mode === "SUBSCRIPTION") {
+    const shared = calculateSharedMaintenance(d.productMaintenanceCost, d.activeContractsOfProduct);
+    maintenanceCostInternal = shared * months;
+    if (d.maintenanceMode === "SHARED") {
+      maintenanceRevenue = shared * (1 + (d.maintenanceExtraPct ?? 0) / 100) * months;
+    } else if (d.maintenanceMode === "CUSTOM") {
+      maintenanceRevenue = (d.maintenanceFixedAmount ?? 0) * months;
+    }
+  }
+
+  // --- Ingresos por mano de obra ---
+  let laborRevenue = 0;
+  const rate = d.hourlyRate ?? 0;
+  if (mode === "HOURLY" || mode === "HYBRID") {
+    laborRevenue = totalHours * rate;
+  }
+
+  // --- Ingresos recurrentes / cerrados ---
+  let recurringRevenue = 0;
+  if (mode === "SUBSCRIPTION") {
+    recurringRevenue = (d.price ?? 0) * months;
+  } else if (mode === "FIXED" || mode === "HYBRID") {
+    // El presupuesto cerrado se cobra una vez, al inicio del contrato
+    recurringRevenue = d.startedInRange ? (d.budgetAmount ?? 0) : 0;
+  }
+
+  // --- Setup fee (one-shot al iniciar) ---
+  const setupRevenue = d.startedInRange ? (d.setupFee ?? 0) : 0;
+
+  // --- Ingresos totales ---
+  const revenue = recurringRevenue + setupRevenue + laborRevenue + partsRevenue + maintenanceRevenue;
+
+  // --- Costes ---
+  const issueCost    = d.nonBillableIssueCost ?? 0;
+  const directCost   = laborCost + partsCost + issueCost + maintenanceCostInternal;
+  const indirectCost = safeDivide(d.totalMonthlyCosts, d.activeContractsCount);
+
+  // --- Margen ---
+  const netMargin        = revenue - directCost - indirectCost;
+  const profitabilityPct = safeDivide(netMargin, revenue) * 100;
+
+  return {
+    revenue:            round2(revenue),
+    recurringRevenue:   round2(recurringRevenue),
+    setupRevenue:       round2(setupRevenue),
+    laborRevenue:       round2(laborRevenue),
+    partsRevenue:       round2(partsRevenue),
+    maintenanceRevenue: round2(maintenanceRevenue),
+    directCost:         round2(directCost),
+    laborCost:          round2(laborCost),
+    partsCost:          round2(partsCost),
+    issueCost:          round2(issueCost),
+    maintenanceCost:    round2(maintenanceCostInternal),
+    indirectCost:       round2(indirectCost),
+    netMargin:          round2(netMargin),
+    profitabilityPct:   round2(profitabilityPct),
+    totalHours:         round2(totalHours),
+    billableHours:      round2(billableHours),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Métricas globales del negocio (sin cambios — sigue siendo €/hora y mínima)
+// ---------------------------------------------------------------------------
+
 export function calculateBusinessMetrics(
   data: BusinessMetricsInput,
 ): BusinessMetricsResult {
   const realHourlyCost = round2(
     safeDivide(data.totalMonthlyCosts, data.totalBillableHours),
   );
-
-  // Margen mínimo del 30% sobre el coste real
   const minimumRate = round2(realHourlyCost * 1.3);
 
+  return { realHourlyCost, minimumRate };
+}
+
+// ---------------------------------------------------------------------------
+// LEGACY — calculateProjectProfitability (deprecado, pero mantenido para no
+// romper código externo que pueda seguir llamándolo)
+// ---------------------------------------------------------------------------
+
+export interface ProjectProfitabilityInput {
+  billingMode?: "FIXED" | "HOURLY" | "HYBRID";
+  budgetAmount: number;
+  hourlyRate?: number;
+  partsMarkupPct?: number;
+  timeEntries: TimeEntryInput[];
+  variableCosts: VariableCostInput[];
+  totalFixedCostsMonthly: number;
+  activeProjectCount: number;
+}
+
+export interface ProjectProfitabilityResult {
+  revenue: number;
+  laborRevenue: number;
+  partsRevenue: number;
+  directCost: number;
+  laborCost: number;
+  partsCost: number;
+  indirectCost: number;
+  netMargin: number;
+  profitabilityPct: number;
+  totalHours: number;
+}
+
+export function calculateProjectProfitability(
+  data: ProjectProfitabilityInput,
+): ProjectProfitabilityResult {
+  const mode = data.billingMode ?? "FIXED";
+  const totalMinutes = data.timeEntries.reduce((s, e) => s + e.durationMin, 0);
+  const totalHours   = minutesToHours(totalMinutes);
+  const laborCost    = data.timeEntries.reduce(
+    (s, e) => s + minutesToHours(e.durationMin) * e.hourlyCost,
+    0,
+  );
+
+  const defaultMarkup = data.partsMarkupPct ?? 0;
+  let partsCost    = 0;
+  let partsRevenue = 0;
+  for (const part of data.variableCosts) {
+    const br = calculatePartBreakdown(part, defaultMarkup);
+    partsCost    += br.realCost;
+    partsRevenue += br.clientPrice;
+  }
+
+  let laborRevenue = 0;
+  const rate = data.hourlyRate ?? 0;
+  if (mode === "HOURLY" || mode === "HYBRID") laborRevenue = totalHours * rate;
+
+  let revenue: number;
+  if (mode === "FIXED")       revenue = data.budgetAmount + partsRevenue;
+  else if (mode === "HOURLY") revenue = laborRevenue + partsRevenue;
+  else                        revenue = data.budgetAmount + laborRevenue + partsRevenue;
+
+  const directCost   = laborCost + partsCost;
+  const indirectCost = safeDivide(data.totalFixedCostsMonthly, data.activeProjectCount);
+  const netMargin        = revenue - directCost - indirectCost;
+  const profitabilityPct = safeDivide(netMargin, revenue) * 100;
+
   return {
-    realHourlyCost,
-    minimumRate,
+    revenue:          round2(revenue),
+    laborRevenue:     round2(laborRevenue),
+    partsRevenue:     round2(partsRevenue),
+    directCost:       round2(directCost),
+    laborCost:        round2(laborCost),
+    partsCost:        round2(partsCost),
+    indirectCost:     round2(indirectCost),
+    netMargin:        round2(netMargin),
+    profitabilityPct: round2(profitabilityPct),
+    totalHours:       round2(totalHours),
   };
 }

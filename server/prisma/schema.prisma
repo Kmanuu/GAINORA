@@ -33,6 +33,37 @@ enum Freq {
   YEARLY
 }
 
+enum BillingMode {
+  FIXED         // Presupuesto cerrado (importe pactado)
+  HOURLY        // Por horas (tarifa × tiempo real)
+  HYBRID        // Presupuesto de referencia + tarifa horaria
+  SUBSCRIPTION  // Cuota recurrente periódica
+}
+
+enum ContractTier {
+  FREE
+  PRO
+  MAX
+}
+
+enum ContractStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum MaintenanceMode {
+  NONE    // Sin cobro de mantenimiento
+  SHARED  // Coste base del producto repartido entre contratos activos
+  CUSTOM  // Importe fijo por contrato
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+}
+
 model Tenant {
   id          String      @id @default(uuid()) @db.Uuid
   name        String
@@ -45,6 +76,10 @@ model Tenant {
   users       User[]
   projects    Project[]
   fixedCosts  FixedCost[]
+  clients     Client[]
+  contracts   Contract[]
+  issues      Issue[]
+  payments    Payment[]
   @@map("tenants")
 }
 
@@ -65,38 +100,145 @@ model User {
 }
 
 model Project {
-  id            String      @id @default(uuid()) @db.Uuid
-  tenantId      String      @map("tenant_id") @db.Uuid
-  clientName    String?     @map("client_name")
-  clientTaxId   String?     @map("client_tax_id")
-  name          String
-  description   String?
-  status        Status      @default(DRAFT)
-  budgetHours   Decimal?    @map("budget_hours") @db.Decimal(10,2)
-  budgetAmount  Decimal?    @map("budget_amount") @db.Decimal(12,2)
-  startDate     DateTime?   @map("start_date") @db.Date
-  endDate       DateTime?   @map("end_date") @db.Date
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
-  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  timeEntries   TimeEntry[]
-  varCosts      VariableCost[]
+  id                     String         @id @default(uuid()) @db.Uuid
+  tenantId               String         @map("tenant_id") @db.Uuid
+  // LEGACY: mantenidos durante transición a Client/Contract; se purgan cuando el frontend migre
+  clientName             String?        @map("client_name")
+  clientTaxId            String?        @map("client_tax_id")
+  name                   String
+  description            String?
+  status                 Status         @default(DRAFT)
+  billingMode            BillingMode    @default(FIXED) @map("billing_mode")
+  budgetHours            Decimal?       @map("budget_hours") @db.Decimal(10,2)
+  budgetAmount           Decimal?       @map("budget_amount") @db.Decimal(12,2)
+  hourlyRate             Decimal?       @map("hourly_rate") @db.Decimal(10,2)
+  partsMarkupPct         Decimal?       @map("parts_markup_pct") @db.Decimal(5,2)
+  // Coste base de mantener este producto (se reparte entre contratos activos con MaintenanceMode.SHARED)
+  productMaintenanceCost Decimal?       @map("product_maintenance_cost") @db.Decimal(12,2)
+  startDate              DateTime?      @map("start_date") @db.Date
+  endDate                DateTime?      @map("end_date") @db.Date
+  createdAt              DateTime       @default(now()) @map("created_at")
+  updatedAt              DateTime       @updatedAt @map("updated_at")
+  tenant                 Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  timeEntries            TimeEntry[]
+  varCosts               VariableCost[]
+  contracts              Contract[]
   @@map("projects")
 }
 
-model TimeEntry {
-  id            String      @id @default(uuid()) @db.Uuid
-  tenantId      String      @map("tenant_id") @db.Uuid
-  userId        String      @map("user_id") @db.Uuid
-  projectId     String      @map("project_id") @db.Uuid
+model Client {
+  id         String     @id @default(uuid()) @db.Uuid
+  tenantId   String     @map("tenant_id") @db.Uuid
+  name       String
+  taxId      String?    @map("tax_id")
+  email      String?
+  phone      String?
+  notes      String?
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contracts  Contract[]
+  @@index([tenantId])
+  @@map("clients")
+}
+
+model Contract {
+  id                     String          @id @default(uuid()) @db.Uuid
+  tenantId               String          @map("tenant_id") @db.Uuid
+  projectId              String          @map("project_id") @db.Uuid
+  clientId               String          @map("client_id") @db.Uuid
+  tier                   ContractTier    @default(FREE)
+  billingMode            BillingMode     @default(FIXED) @map("billing_mode")
+  price                  Decimal         @default(0) @db.Decimal(12,2)
+  setupFee               Decimal?        @map("setup_fee") @db.Decimal(12,2)
+  hourlyRate             Decimal?        @map("hourly_rate") @db.Decimal(10,2)
+  budgetHours            Decimal?        @map("budget_hours") @db.Decimal(10,2)
+  partsMarkupPct         Decimal?        @map("parts_markup_pct") @db.Decimal(5,2)
+  maintenanceMode        MaintenanceMode @default(NONE) @map("maintenance_mode")
+  maintenanceExtraPct    Decimal?        @map("maintenance_extra_pct") @db.Decimal(5,2)
+  maintenanceFixedAmount Decimal?        @map("maintenance_fixed_amount") @db.Decimal(12,2)
+  billingDay             Int?            @map("billing_day")
+  priceIncludesVat       Boolean         @default(false) @map("price_includes_vat")
+  vatRate                Decimal         @default(21) @map("vat_rate") @db.Decimal(5,2)
+  status                 ContractStatus  @default(ACTIVE)
+  startedAt              DateTime        @map("started_at") @db.Date
+  endedAt                DateTime?       @map("ended_at") @db.Date
+  notes                  String?
+  createdAt              DateTime        @default(now()) @map("created_at")
+  updatedAt              DateTime        @updatedAt @map("updated_at")
+  tenant                 Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project                Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  client                 Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  timeEntries            TimeEntry[]
+  varCosts               VariableCost[]
+  issues                 Issue[]
+  payments               Payment[]
+  @@index([tenantId, status])
+  @@index([projectId])
+  @@index([clientId])
+  @@map("contracts")
+}
+
+model Issue {
+  id            String         @id @default(uuid()) @db.Uuid
+  tenantId      String         @map("tenant_id") @db.Uuid
+  contractId    String         @map("contract_id") @db.Uuid
+  title         String
   description   String?
-  startedAt     DateTime    @map("started_at")
-  endedAt       DateTime?   @map("ended_at")
-  durationMin   Int         @map("duration_min")
-  isBillable    Boolean     @default(true) @map("is_billable")
-  createdAt     DateTime    @default(now()) @map("created_at")
-  user          User        @relation(fields: [userId], references: [id])
-  project       Project     @relation(fields: [projectId], references: [id])
+  isBillable    Boolean        @default(false) @map("is_billable")
+  internalFault Boolean        @default(false) @map("internal_fault")
+  openedAt      DateTime       @default(now()) @map("opened_at")
+  closedAt      DateTime?      @map("closed_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contract      Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  timeEntries   TimeEntry[]
+  varCosts      VariableCost[]
+  @@index([tenantId])
+  @@index([contractId])
+  @@map("issues")
+}
+
+model Payment {
+  id          String        @id @default(uuid()) @db.Uuid
+  tenantId    String        @map("tenant_id") @db.Uuid
+  contractId  String        @map("contract_id") @db.Uuid
+  periodStart DateTime      @map("period_start") @db.Date
+  periodEnd   DateTime      @map("period_end") @db.Date
+  amount      Decimal       @db.Decimal(12,2)
+  paidAmount  Decimal       @default(0) @map("paid_amount") @db.Decimal(12,2)
+  status      PaymentStatus @default(PENDING)
+  paidAt      DateTime?     @map("paid_at")
+  notes       String?
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contract    Contract      @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  @@unique([contractId, periodStart])
+  @@index([tenantId, status])
+  @@map("payments")
+}
+
+model TimeEntry {
+  id            String     @id @default(uuid()) @db.Uuid
+  tenantId      String     @map("tenant_id") @db.Uuid
+  userId        String     @map("user_id") @db.Uuid
+  projectId     String     @map("project_id") @db.Uuid
+  contractId    String?    @map("contract_id") @db.Uuid
+  issueId       String?    @map("issue_id") @db.Uuid
+  description   String?
+  startedAt     DateTime   @map("started_at")
+  endedAt       DateTime?  @map("ended_at")
+  durationMin   Int        @map("duration_min")
+  isBillable    Boolean    @default(true) @map("is_billable")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  user          User       @relation(fields: [userId], references: [id])
+  project       Project    @relation(fields: [projectId], references: [id])
+  contract      Contract?  @relation(fields: [contractId], references: [id])
+  issue         Issue?     @relation(fields: [issueId], references: [id])
+  @@index([contractId])
+  @@index([issueId])
   @@map("time_entries")
 }
 
@@ -114,14 +256,24 @@ model FixedCost {
 }
 
 model VariableCost {
-  id          String      @id @default(uuid()) @db.Uuid
-  tenantId    String      @map("tenant_id") @db.Uuid
-  projectId   String?     @map("project_id") @db.Uuid
-  name        String
-  amount      Decimal     @db.Decimal(12,2)
-  date        DateTime    @db.Date
-  category    String?
-  createdAt   DateTime    @default(now()) @map("created_at")
-  project     Project?    @relation(fields: [projectId], references: [id])
+  id               String    @id @default(uuid()) @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  projectId        String?   @map("project_id") @db.Uuid
+  contractId       String?   @map("contract_id") @db.Uuid
+  issueId          String?   @map("issue_id") @db.Uuid
+  name             String
+  amount           Decimal   @db.Decimal(12,2)
+  quantity         Decimal   @default(1) @db.Decimal(10,2)
+  priceIncludesVat Boolean   @default(false) @map("price_includes_vat")
+  vatRate          Decimal   @default(21) @map("vat_rate") @db.Decimal(5,2)
+  markupPct        Decimal?  @map("markup_pct") @db.Decimal(5,2)
+  date             DateTime  @db.Date
+  category         String?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  project          Project?  @relation(fields: [projectId], references: [id])
+  contract         Contract? @relation(fields: [contractId], references: [id])
+  issue            Issue?    @relation(fields: [issueId], references: [id])
+  @@index([contractId])
+  @@index([issueId])
   @@map("variable_costs")
 }
