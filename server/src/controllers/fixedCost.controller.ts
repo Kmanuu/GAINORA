@@ -15,7 +15,7 @@ export async function listFixedCosts(req: Request, res: Response) {
 
 export async function createFixedCost(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
-  const { name, amount, frequency, category } = req.body;
+  const { name, amount, frequency, category, isActive } = req.body;
 
   const fixedCost = await prisma.fixedCost.create({
     data: {
@@ -24,6 +24,7 @@ export async function createFixedCost(req: Request, res: Response) {
       frequency,
       category,
       tenantId,
+      ...(isActive !== undefined && { isActive }),
     },
   });
 

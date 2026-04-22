@@ -22,26 +22,49 @@ export async function listVarCosts(req: Request, res: Response) {
 
 export async function createVarCost(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
-  const { projectId, name, amount, date, category } = req.body;
+  const {
+    projectId, contractId, issueId, name, amount, quantity,
+    priceIncludesVat, vatRate, markupPct, date, category,
+  } = req.body;
 
-  // Verificar que el proyecto pertenece al tenant si se proporciona
   if (projectId) {
     const project = await prisma.project.findUnique({
       where: { id: projectId, tenantId },
     });
+    if (!project) throw new AppError(404, "Proyecto no encontrado");
+  }
 
-    if (!project) {
-      throw new AppError(404, "Proyecto no encontrado");
+  if (contractId) {
+    const contract = await prisma.contract.findUnique({
+      where: { id: contractId, tenantId },
+    });
+    if (!contract) throw new AppError(404, "Contrato no encontrado");
+    if (projectId && contract.projectId !== projectId) {
+      throw new AppError(400, "El contrato no pertenece al proyecto indicado");
+    }
+  }
+
+  if (issueId) {
+    const issue = await prisma.issue.findUnique({ where: { id: issueId, tenantId } });
+    if (!issue) throw new AppError(404, "Inconveniente no encontrado");
+    if (contractId && issue.contractId !== contractId) {
+      throw new AppError(400, "El inconveniente no pertenece al contrato indicado");
     }
   }
 
   const varCost = await prisma.variableCost.create({
     data: {
       tenantId,
-      projectId,
+      projectId:        projectId  ?? null,
+      contractId:       contractId ?? null,
+      issueId:          issueId    ?? null,
       name,
       amount,
-      date: new Date(date),
+      quantity:         quantity         ?? 1,
+      priceIncludesVat: priceIncludesVat ?? false,
+      vatRate:          vatRate          ?? 21,
+      markupPct:        markupPct        ?? null,
+      date:             new Date(date),
       category,
     },
     include: {

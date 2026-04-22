@@ -30,23 +30,40 @@ export async function listTimeEntries(req: Request, res: Response) {
 export async function createTimeEntry(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
   const userId = req.user!.userId;
-  const { projectId, description, startedAt, endedAt, durationMin, isBillable } = req.body;
+  const { projectId, contractId, issueId, description, startedAt, endedAt, durationMin, isBillable } = req.body;
 
-  // Verificar que el proyecto pertenece al tenant
   const project = await prisma.project.findUnique({
     where: { id: projectId, tenantId },
   });
+  if (!project) throw new AppError(404, "Proyecto no encontrado");
 
-  if (!project) {
-    throw new AppError(404, "Proyecto no encontrado");
+  // Si viene contractId, validar que pertenece al tenant y al mismo proyecto
+  if (contractId) {
+    const contract = await prisma.contract.findUnique({
+      where: { id: contractId, tenantId },
+    });
+    if (!contract) throw new AppError(404, "Contrato no encontrado");
+    if (contract.projectId !== projectId) {
+      throw new AppError(400, "El contrato no pertenece al proyecto indicado");
+    }
   }
 
-  // Calcular duración si se proporcionan startedAt y endedAt
+  // Si viene issueId, validar que pertenece al tenant y al contrato
+  if (issueId) {
+    const issue = await prisma.issue.findUnique({
+      where: { id: issueId, tenantId },
+    });
+    if (!issue) throw new AppError(404, "Inconveniente no encontrado");
+    if (contractId && issue.contractId !== contractId) {
+      throw new AppError(400, "El inconveniente no pertenece al contrato indicado");
+    }
+  }
+
   let duration = durationMin;
   if (startedAt && endedAt && !durationMin) {
     const start = new Date(startedAt);
     const end = new Date(endedAt);
-    duration = Math.round((end.getTime() - start.getTime()) / 60000);
+    duration = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
   }
 
   const entry = await prisma.timeEntry.create({
@@ -54,14 +71,16 @@ export async function createTimeEntry(req: Request, res: Response) {
       tenantId,
       userId,
       projectId,
+      contractId:  contractId ?? null,
+      issueId:     issueId    ?? null,
       description,
-      startedAt: new Date(startedAt),
-      endedAt: endedAt ? new Date(endedAt) : null,
+      startedAt:   new Date(startedAt),
+      endedAt:     endedAt ? new Date(endedAt) : null,
       durationMin: duration,
-      isBillable: isBillable ?? true,
+      isBillable:  isBillable ?? true,
     },
     include: {
-      user: { select: { id: true, fullName: true } },
+      user:    { select: { id: true, fullName: true } },
       project: { select: { id: true, name: true } },
     },
   });
@@ -87,7 +106,7 @@ export async function updateTimeEntry(req: Request, res: Response) {
   const endedAt = data.endedAt ? new Date(data.endedAt) : existing.endedAt;
 
   if ((data.startedAt || data.endedAt) && endedAt && !data.durationMin) {
-    data.durationMin = Math.round((endedAt.getTime() - startedAt.getTime()) / 60000);
+    data.durationMin = Math.max(1, Math.round((endedAt.getTime() - startedAt.getTime()) / 60000));
   }
 
   if (data.startedAt) data.startedAt = new Date(data.startedAt);

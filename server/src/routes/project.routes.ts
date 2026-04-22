@@ -15,27 +15,35 @@ const router = Router();
 router.use(requireAuth);
 
 const createProjectSchema = z.object({
-  name: z.string().min(2),
-  clientName: z.string().optional(),
-  clientTaxId: z.string().optional(),
-  description: z.string().optional(),
-  status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"]).optional(),
-  budgetHours: z.number().positive().optional(),
-  budgetAmount: z.number().positive().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
+  name:                    z.string().min(2),
+  clientName:              z.string().nullish(),
+  clientTaxId:             z.string().nullish(),
+  description:             z.string().nullish(),
+  status:                  z.enum(["DRAFT", "ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"]).optional(),
+  billingMode:             z.enum(["FIXED", "HOURLY", "HYBRID", "SUBSCRIPTION"]).optional(),
+  budgetHours:             z.number().positive().nullish(),
+  budgetAmount:            z.number().positive().nullish(),
+  hourlyRate:              z.number().nonnegative().nullish(),
+  partsMarkupPct:          z.number().min(-100).max(1000).nullish(),
+  productMaintenanceCost:  z.number().nonnegative().nullish(),
+  startDate:               z.string().nullish(),
+  endDate:                 z.string().nullish(),
 });
 
 const updateProjectSchema = z.object({
-  name: z.string().min(2).optional(),
-  clientName: z.string().optional(),
-  clientTaxId: z.string().optional(),
-  description: z.string().optional(),
-  status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"]).optional(),
-  budgetHours: z.number().positive().optional(),
-  budgetAmount: z.number().positive().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
+  name:                    z.string().min(2).optional(),
+  clientName:              z.string().nullish(),
+  clientTaxId:             z.string().nullish(),
+  description:             z.string().nullish(),
+  status:                  z.enum(["DRAFT", "ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"]).optional(),
+  billingMode:             z.enum(["FIXED", "HOURLY", "HYBRID", "SUBSCRIPTION"]).optional(),
+  budgetHours:             z.number().positive().nullish(),
+  budgetAmount:            z.number().positive().nullish(),
+  hourlyRate:              z.number().nonnegative().nullish(),
+  partsMarkupPct:          z.number().min(-100).max(1000).nullish(),
+  productMaintenanceCost:  z.number().nonnegative().nullish(),
+  startDate:               z.string().nullish(),
+  endDate:                 z.string().nullish(),
 });
 
 router.get("/", listProjects);

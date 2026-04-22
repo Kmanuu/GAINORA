@@ -14,20 +14,24 @@ const router = Router();
 router.use(requireAuth);
 
 const createTimeEntrySchema = z.object({
-  projectId: z.string().uuid(),
-  description: z.string().optional(),
-  startedAt: z.string(),
-  endedAt: z.string().optional(),
+  projectId:   z.string().uuid(),
+  contractId:  z.string().uuid().nullish(),
+  issueId:     z.string().uuid().nullish(),
+  description: z.string().nullish(),
+  startedAt:   z.string(),
+  endedAt:     z.string().nullish(),
   durationMin: z.number().int().positive().optional(),
-  isBillable: z.boolean().optional(),
+  isBillable:  z.boolean().optional(),
 });
 
 const updateTimeEntrySchema = z.object({
-  description: z.string().optional(),
-  startedAt: z.string().optional(),
-  endedAt: z.string().optional(),
+  contractId:  z.string().uuid().nullish(),
+  issueId:     z.string().uuid().nullish(),
+  description: z.string().nullish(),
+  startedAt:   z.string().optional(),
+  endedAt:     z.string().nullish(),
   durationMin: z.number().int().positive().optional(),
-  isBillable: z.boolean().optional(),
+  isBillable:  z.boolean().optional(),
 });
 
 router.get("/", listTimeEntries);

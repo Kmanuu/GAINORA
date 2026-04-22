@@ -14,7 +14,6 @@ const registerSchema = z.object({
 });
 
 const loginSchema = z.object({
-  tenantSlug: z.string(),
   email: z.email(),
   password: z.string(),
 });

@@ -59,19 +59,15 @@ export async function register(req: Request, res: Response) {
 }
 
 export async function login(req: Request, res: Response) {
-  const { email, password, tenantSlug } = req.body;
+  const { email, password } = req.body;
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { slug: tenantSlug },
+  // Busca el primer usuario activo con el correo ingresado e incluye datos de su empresa
+  const user = await prisma.user.findFirst({
+    where: { email, isActive: true },
+    include: { tenant: true },
   });
-  if (!tenant) {
-    throw new AppError(401, "Credenciales incorrectas");
-  }
 
-  const user = await prisma.user.findUnique({
-    where: { tenantId_email: { tenantId: tenant.id, email } },
-  });
-  if (!user || !user.isActive) {
+  if (!user || !user.tenant) {
     throw new AppError(401, "Credenciales incorrectas");
   }
 
@@ -82,13 +78,13 @@ export async function login(req: Request, res: Response) {
 
   const tokens = signTokens({
     userId: user.id,
-    tenantId: tenant.id,
+    tenantId: user.tenant.id,
     role: user.role,
   });
 
   res.json({
     user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role },
-    tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
+    tenant: { id: user.tenant.id, name: user.tenant.name, slug: user.tenant.slug },
     ...tokens,
   });
 }

@@ -24,7 +24,11 @@ export async function listProjects(req: Request, res: Response) {
 
 export async function createProject(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
-  const { clientName, clientTaxId, name, description, status, budgetHours, budgetAmount, startDate, endDate } = req.body;
+  const {
+    clientName, clientTaxId, name, description, status,
+    billingMode, budgetHours, budgetAmount, hourlyRate, partsMarkupPct,
+    startDate, endDate,
+  } = req.body;
 
   const project = await prisma.project.create({
     data: {
@@ -34,8 +38,11 @@ export async function createProject(req: Request, res: Response) {
       name,
       description,
       status,
+      billingMode,
       budgetHours,
       budgetAmount,
+      hourlyRate,
+      partsMarkupPct,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
     },
@@ -102,11 +109,12 @@ export async function deleteProject(req: Request, res: Response) {
     throw new AppError(404, "Proyecto no encontrado");
   }
 
-  // Soft delete: marcar como CANCELLED
-  await prisma.project.update({
-    where: { id: id as string },
-    data: { status: "CANCELLED" },
-  });
+  // Eliminación real en cascada (time entries → variable costs → proyecto)
+  await prisma.$transaction([
+    prisma.timeEntry.deleteMany({ where: { projectId: id as string } }),
+    prisma.variableCost.deleteMany({ where: { projectId: id as string } }),
+    prisma.project.delete({ where: { id: id as string } }),
+  ]);
 
   res.status(204).send();
 }

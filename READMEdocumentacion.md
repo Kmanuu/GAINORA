@@ -108,8 +108,8 @@ Esto generó:
 
 Se escribió el schema completo con 7 modelos y 4 enums en `prisma/schema.prisma`:
 
-| Modelo           | Descripción                                     |
-| ---------------- | ------------------------------------------------ |
+| Modelo         | Descripción                                      |
+| -------------- | ------------------------------------------------ |
 | `Tenant`       | Negocio/empresa (multi-tenant)                   |
 | `User`         | Usuario con rol (OWNER, ADMIN, EMPLOYEE, VIEWER) |
 | `Project`      | Proyecto con cliente, presupuesto y estado       |
@@ -228,11 +228,11 @@ Se creó `middleware/tenant.ts` con `tenantScope`, que verifica que el usuario a
 
 Se implementó `controllers/auth.controller.ts` y `routes/auth.routes.ts`:
 
-| Endpoint                    | Descripción                                         |
-| --------------------------- | ---------------------------------------------------- |
+| Endpoint                  | Descripción                                          |
+| ------------------------- | ---------------------------------------------------- |
 | `POST /api/auth/register` | Crea un nuevo tenant + usuario OWNER                 |
 | `POST /api/auth/login`    | Verifica credenciales y devuelve tokens JWT          |
-| `POST /api/auth/refresh`  | Renueva el access token con un refresh token válido |
+| `POST /api/auth/refresh`  | Renueva el access token con un refresh token válido  |
 
 **Flujo de registro:**
 
@@ -253,12 +253,12 @@ Se implementó `controllers/auth.controller.ts` y `routes/auth.routes.ts`:
 
 Se implementó el primer módulo CRUD completo: `controllers/fixedCost.controller.ts` y `routes/fixedCost.routes.ts`.
 
-| Endpoint                    | Método    | Descripción                   |
-| --------------------------- | ---------- | ------------------------------ |
-| `/api/v1/fixed-costs`     | `GET`    | Listar costes fijos del tenant |
-| `/api/v1/fixed-costs`     | `POST`   | Crear un coste fijo            |
-| `/api/v1/fixed-costs/:id` | `PATCH`  | Actualizar un coste fijo       |
-| `/api/v1/fixed-costs/:id` | `DELETE` | Eliminar un coste fijo         |
+| Endpoint                  | Método     | Descripción                    |
+| ------------------------- | ---------- | ------------------------------ |
+| `/api/v1/fixed-costs`     | `GET`      | Listar costes fijos del tenant |
+| `/api/v1/fixed-costs`     | `POST`     | Crear un coste fijo            |
+| `/api/v1/fixed-costs/:id` | `PATCH`    | Actualizar un coste fijo       |
+| `/api/v1/fixed-costs/:id` | `DELETE`   | Eliminar un coste fijo         |
 
 Todas las rutas están protegidas con `requireAuth`. Cada operación filtra por `tenantId` para garantizar el aislamiento multi-tenant.
 
@@ -291,13 +291,13 @@ app.use(errorHandler);
 
 Se implementó el módulo completo de gestión de proyectos en `controllers/project.controller.ts` y `routes/project.routes.ts`:
 
-| Endpoint                 | Método    | Descripción                         |
-| ------------------------ | ---------- | ------------------------------------ |
-| `/api/v1/projects`     | `GET`    | Listar proyectos (filtro por status) |
-| `/api/v1/projects`     | `POST`   | Crear un proyecto                    |
-| `/api/v1/projects/:id` | `GET`    | Detalle con time entries y costes    |
-| `/api/v1/projects/:id` | `PATCH`  | Actualizar un proyecto               |
-| `/api/v1/projects/:id` | `DELETE` | Soft delete (marca como CANCELLED)   |
+| Endpoint               | Método     | Descripción                          |
+| ---------------------- | ---------- | ------------------------------------ |
+| `/api/v1/projects`     | `GET`      | Listar proyectos (filtro por status) |
+| `/api/v1/projects`     | `POST`     | Crear un proyecto                    |
+| `/api/v1/projects/:id` | `GET`      | Detalle con time entries y costes    |
+| `/api/v1/projects/:id` | `PATCH`    | Actualizar un proyecto               |
+| `/api/v1/projects/:id` | `DELETE`   | Soft delete (marca como CANCELLED)   |
 
 El endpoint de detalle (`GET /:id`) incluye las relaciones: devuelve las entradas de tiempo con el nombre y coste/hora del empleado, y los costes variables asociados. Esto permite al frontend calcular y mostrar la rentabilidad del proyecto.
 
@@ -323,11 +323,11 @@ const createProjectSchema = z.object({
 
 Se implementó el módulo de fichaje de horas en `controllers/timeEntry.controller.ts` y `routes/timeEntry.routes.ts`:
 
-| Endpoint                     | Método   | Descripción                                        |
-| ---------------------------- | --------- | --------------------------------------------------- |
-| `/api/v1/time-entries`     | `GET`   | Listar horas (filtro por proyecto, usuario, fechas) |
-| `/api/v1/time-entries`     | `POST`  | Registrar horas                                     |
-| `/api/v1/time-entries/:id` | `PATCH` | Editar entrada de tiempo                            |
+| Endpoint                   | Método    | Descripción                                         |
+| -------------------------- | --------- | --------------------------------------------------- |
+| `/api/v1/time-entries`     | `GET`     | Listar horas (filtro por proyecto, usuario, fechas) |
+| `/api/v1/time-entries`     | `POST`    | Registrar horas                                     |
+| `/api/v1/time-entries/:id` | `PATCH`   | Editar entrada de tiempo                            |
 
 Características implementadas:
 
@@ -351,10 +351,10 @@ const createTimeEntrySchema = z.object({
 
 Se implementó el módulo de costes variables en `controllers/varCost.controller.ts` y `routes/varCost.routes.ts`:
 
-| Endpoint                   | Método  | Descripción                                  |
-| -------------------------- | -------- | --------------------------------------------- |
-| `/api/v1/variable-costs` | `GET`  | Listar costes variables (filtro por proyecto) |
-| `/api/v1/variable-costs` | `POST` | Crear un coste variable                       |
+| Endpoint                 | Método    | Descripción                                   |
+| ------------------------ | --------- | --------------------------------------------- |
+| `/api/v1/variable-costs` | `GET`     | Listar costes variables (filtro por proyecto) |
+| `/api/v1/variable-costs` | `POST`    | Crear un coste variable                       |
 
 Los costes variables se pueden asociar opcionalmente a un proyecto. Al crear uno, se valida que el proyecto existe y pertenece al tenant. El listado incluye el nombre del proyecto asociado.
 
@@ -370,7 +370,7 @@ app.use("/api/v1/variable-costs", varCostRoutes);
 
 ---
 
-### Sesión 4 — Finalización de Backend y base de Frontend 9 Abril
+### Sesión 4 — 9 de abril de 2026 (Finalización de Backend y base de Frontend)
 
 #### 1. Servicios auxiliares (Mocks)
 
@@ -385,41 +385,54 @@ El dashboard agrupa datos de:
 - Costes fijos del tenant
 - Total de entradas de tiempo
 - Total de costes variables
-  Y con ello se calcula el margen neto de rentabilidad tanto para la empresa global, como individual por proyectos.
+
+Con ello se calcula el margen neto de rentabilidad tanto para la empresa global como de forma individual por proyectos.
 
 #### 3. Frontend Base
 
 Se inicializó el cliente del frontend con Vite (`npm create vite@latest`) y React + TypeScript en la carpeta `client/`, marcando el inicio del desarrollo visual del proyecto.
 
+---
+
 ### Sesión 5 — Abril 2026
 
 #### 1. Desarrollo completo del Frontend
+
 Se ha desarrollado todo el frontend con React y TailwindCSS. La aplicación ahora cuenta con una interfaz premium ("Clean & Premium"), completamente responsiva (mobile-first) con navegación adaptativa (barra inferior tipo iOS en móviles y barra lateral en escritorio) y soporte para Dark/Light mode implícito en la pureza del diseño actual.
 
 #### 2. Componentes UI Reutilizables y Adaptativos
+
 Se construyeron componentes UI base (Card, Button, Input, Modal). Los modales son ahora adaptativos: en escritorio son un panel lateral deslizante y en móvil un "bottom sheet" que asciende desde abajo, con "safe areas" y handle típicos de iOS, mejorando inmensamente la experiencia de usuario móvil.
 
 #### 3. Dashboard y Vistas Completas
+
 - **Dashboard**: Muestra rentabilidad en tiempo real. En escritorio con vista tabular y gráfica; en móvil apilado en tarjetas con indicadores visuales semafóricos ("Verde", "Naranja", "Rojo").
 - **Costes y Proyectos**: Interfaces de gestión con diseño fluido, modales para creación/edición, y listas optimizadas. Se implementó un padding consistente y adaptativo entre dispositivos.
 - **Registro de horas**: temporizador interactivo en primera pantalla con animaciones de "pulsación" y listado de horas.
 - **Ajustes y Guía Interactiva**: Se diseñó una experiencia de "Guía de uso" estilo Apple con formato acordeón para reducir fricción en nuevos usuarios y explicar los conceptos del sistema.
 
-### Sesión 6 — 10-19 Abril 2026
+---
+
+### Sesión 6 — 10-19 de abril de 2026
 
 #### 1. Sistema de Notificaciones (Toast)
+
 Se implementó un sistema de notificaciones global (`ToastProvider`) con soporte para tres tipos: `success`, `error` e `info`. Las notificaciones aparecen en la esquina superior derecha con animación fade-up y se auto-descartan a los 4 segundos. Se reemplazaron todos los `alert()` y componentes Toast inline por el sistema global.
 
 #### 2. Componentes UI adicionales
+
 - **Textarea**: Componente con label flotante consistente con Input, para textos largos (descripciones de proyecto).
 - **ConfirmDialog**: Diálogo de confirmación estilo Apple que reemplaza `window.confirm()` en todas las acciones destructivas (eliminar costes, cancelar proyectos, borrar entradas).
 - **EmptyState**: Componente reutilizable para estados vacíos con icono, título, descripción y acción opcional.
 
 #### 3. Filtros avanzados en Horas
+
 Se añadieron filtros por proyecto, rango de fechas (desde/hasta) y un resumen del filtro con total de entradas y duración. Las entradas se agrupan ahora por fecha con totales diarios visibles.
 
 #### 4. Vista de detalle de proyecto
+
 Nueva página `/proyectos/:id` con:
+
 - KPIs del proyecto (horas, coste directo, costes variables, margen neto)
 - Barra de progreso de horas consumidas vs. presupuestadas
 - Pestañas: Resumen financiero, Historial de horas, Costes variables
@@ -429,7 +442,9 @@ Nueva página `/proyectos/:id` con:
 Las cards de proyectos en la vista principal ahora navegan al detalle al hacer click.
 
 #### 5. Módulo de Informes
+
 Nueva sección "Informes" (`/informes`) accesible desde sidebar y navegación móvil:
+
 - Filtros por período: semana actual, mes actual, trimestre actual
 - KPIs: horas totales, porcentaje facturable, media diaria, costes fijos
 - Gráfico de barras horizontal de distribución de horas por proyecto
@@ -437,12 +452,16 @@ Nueva sección "Informes" (`/informes`) accesible desde sidebar y navegación m�
 - Resumen de costes fijos + variables con tarifa mínima recomendada
 
 #### 6. Dashboard enriquecido
+
 Se añadieron dos secciones nuevas al dashboard:
+
 - **Acciones rápidas**: enlaces directos a fichar horas, crear proyecto y ver informes
 - **Actividad reciente**: últimas 5 entradas de tiempo con proyecto, duración y fecha
 
 #### 7. Exportación CSV
+
 Utilidad genérica `exportCsv()` con BOM UTF-8 y separador `;` para compatibilidad con Excel. Botones de exportación en:
+
 - Horas (con filtros aplicados)
 - Costes fijos
 - Costes variables
@@ -450,38 +469,166 @@ Utilidad genérica `exportCsv()` con BOM UTF-8 y separador `;` para compatibilid
 - Informes
 
 #### 8. Mejoras en API y utilidades
+
 - `ApiError`: Error tipado con `status` y `code` para mejor manejo en el frontend
 - `format.ts`: Módulo con funciones de formato reutilizables (`fmt`, `fmtDuration`, `fmtDate`, `fmtCurrency`, `toNum`, `greeting`)
 
 #### 9. Mejoras en autenticación
+
 - Indicador visual de fortaleza de contraseña en registro (longitud, mayúscula, número) con barra de progreso de 3 niveles
 - Feedback via Toast tras login y registro exitosos
 
 #### 10. Refactorización de Ajustes
+
 Se migró la página de Ajustes al sistema Toast global, eliminando el componente `Toast` inline y el estado `ToastState` local tanto en `ProfileSection` como en `PasswordSection`.
+
+---
+
+### Sesión 7 — 20 de abril de 2026
+
+#### 1. Edición de entradas de tiempo (HorasPage)
+
+Se completó la funcionalidad de edición inline para las entradas de tiempo:
+
+- Estado `editTarget` para distinguir entre crear y editar
+- Función `openEdit(entry)` que precarga el formulario con los datos de la entrada existente
+- `handleSaveManual()` bifurca entre `POST` (crear) y `PATCH` (editar) según `editTarget`
+- Modal adapta título, subtítulo y texto del botón según el modo (crear/editar)
+- Botón de edición (Pencil) junto al de eliminación en cada fila, visible on hover
+
+#### 2. Edición de costes variables (VarCostsPage)
+
+Mismo patrón aplicado a costes variables:
+
+- `editTarget` + `openEdit(cost)` + bifurcación POST/PATCH en `handleSave()`
+- Modal con título y botón dinámicos
+- Pencil button en `CostRow` junto al botón de eliminar
+
+#### 3. Buscador de proyectos (ProjectsPage)
+
+Se añadió un campo de búsqueda con icono de lupa que filtra proyectos en tiempo real:
+
+- Busca por nombre de proyecto y nombre de cliente
+- Compatible con los filtros de estado existentes (Todos/Activos/Pausados/etc.)
+- Diseño responsive: apilado en móvil, en fila en desktop
+- Estilo Apple consistente con el resto de la interfaz
+
+#### 4. Verificación
+
+- TypeScript: `tsc --noEmit` sin errores
+- Build de producción: 415.66 kB JS, 41.17 kB CSS — correcto
+
+#### 5. Exportación CSV en Proyectos
+
+Se añadió botón de exportación CSV en la página de Proyectos, que exporta los proyectos visibles (respetando filtros y búsqueda activos).
+
+#### 6. Duplicar entradas de tiempo
+
+Botón de duplicar (icono Copy, color verde) en cada fila de HorasPage. Crea una copia exacta de la entrada con un solo clic.
+
+#### 7. Búsqueda y filtros en Costes Fijos
+
+- Buscador por nombre y categoría
+- Filtro por estado: Todos / Activos / Inactivos
+- Exportación CSV respeta los filtros aplicados
+- Empty state cuando no hay resultados
+
+#### 8. Búsqueda y filtros en Costes Variables
+
+- Buscador por nombre y categoría
+- Filtro por proyecto asociado con selector
+- Botón "Limpiar" para resetear filtros
+- Exportación CSV respeta los filtros aplicados
+
+#### 9. Timer persistente con localStorage
+
+El timer de HorasPage ahora sobrevive a la navegación entre páginas:
+
+- Al iniciar: guarda `startedAt`, proyecto, descripción y facturable en localStorage
+- Al volver a la página: recupera el estado y calcula el tiempo transcurrido real
+- Al parar: limpia localStorage automáticamente
+
+#### 10. Indicador de timer activo en navegación
+
+Cuando hay un timer corriendo, se muestra un punto rojo pulsante:
+
+- **Sidebar (desktop)**: junto al item "Horas"
+- **BottomNav (móvil)**: badge sobre el icono del reloj
+- Ambos detectan el timer via localStorage cada 2 segundos
+
+#### 11. Verificación final
+
+- TypeScript: `tsc --noEmit` sin errores
+- Build de producción: 421.58 kB JS, 41.60 kB CSS — correcto
+
+---
+
+### Sesión 8 — 22 de abril de 2026 (Refinamiento Core y Entorno Dev)
+
+Esta sesión se centró en pulir la experiencia de usuario (UX), resolver bugs de validación en la base de datos y estabilizar el entorno de desarrollo local.
+
+#### 1. Corrección de validaciones Zod y Base de Datos
+
+Se detectaron bloqueos al enviar campos vacíos desde el frontend:
+
+- **Fix Zod Nullish**: Se cambió `.optional()` a `.nullish()` en las rutas de Proyectos y Costes Variables para aceptar `null` correctamente desde los formularios.
+- **Costes Fijos**: Se corrigió el schema de creación para aceptar el flag `isActive`, permitiendo crear costes inactivos desde el principio.
+- **Exportación CSV**: Se mejoró el utilitario para inyectar dinámicamente el nombre del `Tenant` (empresa) en el nombre del archivo descargado.
+
+#### 2. Mejoras de Navegación y UX (Sidebar y Detalle)
+
+Se eliminó la fricción en la navegación principal:
+
+- El logotipo de HorasPRO ahora es clicable y redirige al Dashboard.
+- El *User Chip* del sidebar ahora abre los ajustes de perfil directamente.
+- Se implementó la actualización en tiempo real del nombre de usuario en el sidebar tras editarlo, inyectando un método `updateUser` en el `AuthContext`.
+- **Vista de Proyecto**: Se añadió el botón "Editar" directamente en el *header* del detalle del proyecto, evitando tener que volver a la lista principal.
+
+#### 3. Estabilización del Timer (Caso Crítico)
+
+Se solucionó un bug severo donde el cronómetro quedaba bloqueado (*Zombie Timer*) si la API fallaba al guardar:
+
+- Ahora el timer se detiene localmente (limpiando `localStorage` y el `interval`) *antes* de realizar la petición HTTP.
+- Se añadió un botón "Descartar" como vía de escape manual.
+- Se añadió protección contra entradas de menos de 5 segundos.
+
+#### 4. Reestructuración del Entorno de Desarrollo (Dev Tools)
+
+El entorno local acumulaba procesos huérfanos de Vite, causando colisiones de puertos:
+
+- **Vite Proxy & Strict Port**: Se activó `strictPort: true` y se configuró un proxy interno para que `/api` apunte automáticamente a `localhost:3001`, eliminando URLs hardcodeadas en el cliente.
+- **CLI de Administración**: Se creó un script de terminal (`src/scripts/admin-users.ts`) ejecutable vía `npm run users` para gestionar usuarios, resetear contraseñas y listar *tenants* directamente contra Prisma sin necesidad de UI.
 
 ---
 
 ### Estado actual
 
-| Componente                | Estado                                            |
-| ------------------------- | ------------------------------------------------- |
-| Repositorio Git           | Inicializado, subido a GitHub                     |
-| PostgreSQL (Docker)       | Configurado                                       |
-| Schema Prisma (6 modelos) | Sincronizado con BD                               |
-| Express server            | Arranca, health check OK                          |
-| Autenticación JWT         | Register, login y refresh completos               |
-| CRUD Endpoints            | Listos (Costes, Proyectos, Horas, Variables)      |
-| Validaciones & Errors     | Middleware de Zod en toda la API                  |
-| Dashboard rentabilidad    | Completo (API + Servicio + Acciones rápidas)      |
-| Frontend UI               | Completado: Navegación, Dashboard, CRUDs          |
-| Responsive Design         | Completado: UX Adaptativa (Bottom Sheet, etc)     |
-| UX / Onboarding           | Guía interactiva completada                       |
-| Detalle de proyecto       | Completo (métricas, pestañas, exportación)        |
-| Informes y análisis       | Completo (productividad, distribución, costes)    |
-| Exportación CSV           | Implementado en todas las vistas de datos         |
-| Sistema de notificaciones | Toast global + ConfirmDialog en acciones críticas |
-| Indicador contraseña      | Fortaleza visual en registro                      |
+| Componente                 | Estado                                             |
+| -------------------------- | -------------------------------------------------- |
+| Repositorio Git            | Inicializado, subido a GitHub                      |
+| PostgreSQL (Docker)        | Configurado                                        |
+| Schema Prisma (6 modelos)  | Sincronizado con BD                                |
+| Express server             | Arranca, health check OK                           |
+| Autenticación JWT          | Register, login y refresh completos                |
+| CRUD Endpoints             | Listos (Costes, Proyectos, Horas, Variables)       |
+| Validaciones & Errors      | Middleware de Zod en toda la API                   |
+| Dashboard rentabilidad     | Completo (API + Servicio + Acciones rápidas)       |
+| Frontend UI                | Completado: Navegación, Dashboard, CRUDs           |
+| Responsive Design          | Completado: UX Adaptativa (Bottom Sheet, etc.)     |
+| UX / Onboarding            | Guía interactiva completada                        |
+| Detalle de proyecto        | Completo (métricas, pestañas, exportación)         |
+| Informes y análisis        | Completo (productividad, distribución, costes)     |
+| Exportación CSV            | Todas las vistas, respeta filtros + nombre tenant  |
+| Sistema de notificaciones  | Toast global + ConfirmDialog en acciones críticas  |
+| Indicador contraseña       | Fortaleza visual en registro                       |
+| Edición inline             | Horas, Costes fijos, Costes variables, Proyectos   |
+| Búsqueda y filtros         | Proyectos, Costes fijos, Costes variables, Horas   |
+| Timer persistente          | Sobrevive a navegación + indicador en nav          |
+| Timer anti-zombie          | Se detiene antes del HTTP + botón Descartar        |
+| Navegación contextual      | Logo y User Chip con destino correcto              |
+| Actualización sidebar live | Nombre de usuario reactivo vía `updateUser`        |
+| Vite proxy & strict port   | `/api` → `localhost:3001`, sin URLs hardcodeadas   |
+| CLI de administración      | `npm run users` para gestión directa contra Prisma |
 
 ### Siguiente paso
 

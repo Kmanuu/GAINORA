@@ -1,13 +1,14 @@
 import { Router } from "express";
-import { getMetrics } from "../controllers/dashboard.controller.js";
+import { getMetrics, getProjection } from "../controllers/dashboard.controller.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 
-// Todas las rutas del dashboard requieren autenticación
 router.use(requireAuth);
 
-// GET /api/v1/dashboard — Métricas de rentabilidad del negocio
-router.get("/", getMetrics);
+// GET /api/v1/dashboard?range=week|month|quarter|year|custom&from=&to=
+router.get("/",           getMetrics);
+// GET /api/v1/dashboard/projection?months=N
+router.get("/projection", getProjection);
 
 export default router;

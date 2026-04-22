@@ -18,14 +18,15 @@ const createFixedCostSchema = z.object({
   name: z.string().min(2),
   amount: z.number().positive(),
   frequency: z.enum(["MONTHLY", "QUARTERLY", "YEARLY"]),
-  category: z.string().optional(),
+  category: z.string().nullish(),
+  isActive: z.boolean().optional(),
 });
 
 const updateFixedCostSchema = z.object({
   name: z.string().min(2).optional(),
   amount: z.number().positive().optional(),
   frequency: z.enum(["MONTHLY", "QUARTERLY", "YEARLY"]).optional(),
-  category: z.string().optional(),
+  category: z.string().nullish(),
   isActive: z.boolean().optional(),
 });
 
