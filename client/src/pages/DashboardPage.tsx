@@ -9,16 +9,21 @@ import {
   AlertCircle, RefreshCw, ChevronRight,
   Plus, BarChart3, Sparkles, Wand2, Target,
   AlertTriangle, Lightbulb, Calendar as CalendarIcon,
+  Repeat, Wallet, LineChart,
 } from 'lucide-react';
 import { api }     from '@/lib/api';
 import Card        from '@/components/ui/Card';
 import Badge       from '@/components/ui/Badge';
 import Button      from '@/components/ui/Button';
 import KpiCard     from '@/components/ui/KpiCard';
+import SegmentedControl from '@/components/ui/SegmentedControl';
 import { useAuth }        from '@/context/AuthContext';
 import { useOnboarding }  from '@/context/OnboardingContext';
 import { fmt, fmtCurrency, greeting, toNum } from '@/lib/format';
-import type { DashboardData, ApiResponse, ProjectMetrics, TimeEntry } from '@/types';
+import type {
+  DashboardData, ApiResponse, ProjectMetrics, TimeEntry,
+  DashboardProjection, DashboardRangeKey,
+} from '@/types';
 import clsx from 'clsx';
 
 // ---------------------------------------------------------------------------
@@ -55,29 +60,33 @@ export default function DashboardPage() {
   const { user }  = useAuth();
   const navigate  = useNavigate();
   const { open: openTutorial } = useOnboarding();
-  const [data,    setData]    = useState<DashboardData | null>(null);
-  const [entries, setEntries] = useState<TimeEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState('');
+  const [data,       setData]       = useState<DashboardData | null>(null);
+  const [projection, setProjection] = useState<DashboardProjection | null>(null);
+  const [entries,    setEntries]    = useState<TimeEntry[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState('');
+  const [range,      setRange]      = useState<DashboardRangeKey>('month');
 
-  const load = useCallback(async (silent = false) => {
+  const load = useCallback(async (silent = false, currentRange: DashboardRangeKey = range) => {
     if (!silent) setLoading(true);
     setError('');
     try {
-      const [res, all] = await Promise.all([
-        api.get<ApiResponse<DashboardData>>('/v1/dashboard'),
+      const [res, proj, all] = await Promise.all([
+        api.get<ApiResponse<DashboardData>>(`/v1/dashboard?range=${currentRange}`),
+        api.get<ApiResponse<DashboardProjection>>('/v1/dashboard/projection?months=12'),
         api.get<TimeEntry[]>('/v1/time-entries'),
       ]);
       setData(res.data);
+      setProjection(proj.data);
       setEntries(all);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [range]);
 
-  useEffect(() => { load(true); }, [load]);
+  useEffect(() => { load(true, range); }, [load, range]);
 
   const sparkline = useMemo(() => buildHoursSparkline(entries), [entries]);
   const recent    = useMemo(() => entries.slice(0, 5),          [entries]);
@@ -111,7 +120,7 @@ export default function DashboardPage() {
     <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-[1240px] mx-auto">
 
       {/* ═══ Cabecera ═══ */}
-      <header className="flex items-start justify-between mb-6 animate-fade-up">
+      <header className="flex items-start justify-between mb-6 animate-fade-up gap-4 flex-wrap">
         <div>
           <p className="text-[13px] text-[var(--color-text-secondary)] font-medium mb-0.5">
             {greeting()}{firstName ? `, ${firstName}` : ''}
@@ -123,13 +132,25 @@ export default function DashboardPage() {
             {new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
-        <button
-          onClick={() => load()}
-          className="p-2.5 rounded-[12px] text-[var(--color-text-secondary)] hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.06)] transition-colors"
-          title="Actualizar"
-        >
-          <RefreshCw className="w-4 h-4" strokeWidth={2} />
-        </button>
+        <div className="flex items-center gap-2">
+          <SegmentedControl<DashboardRangeKey>
+            value={range}
+            onChange={setRange}
+            options={[
+              { value: 'week',    label: 'Semana' },
+              { value: 'month',   label: 'Mes' },
+              { value: 'quarter', label: 'Trimestre' },
+              { value: 'year',    label: 'Año' },
+            ]}
+          />
+          <button
+            onClick={() => load(false, range)}
+            className="p-2.5 rounded-[12px] text-[var(--color-text-secondary)] hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+            title="Actualizar"
+          >
+            <RefreshCw className="w-4 h-4" strokeWidth={2} />
+          </button>
+        </div>
       </header>
 
       {/* ═══ Hero: Tarifa Mínima (protagonista) ═══ */}
@@ -139,6 +160,16 @@ export default function DashboardPage() {
         onSimulate={() => navigate('/informes?simular=1')}
         onHowTo={() => openTutorial('main')}
       />
+
+      {/* ═══ Suscripciones (solo si hay MRR > 0) ═══ */}
+      {(toNum(summary.recurringRevenue ?? 0) > 0 || (projection?.activeSubscriptions ?? 0) > 0) && (
+        <SubscriptionsBlock
+          mrr={toNum(summary.recurringRevenue ?? projection?.mrr ?? 0)}
+          projection={projection}
+          activeContracts={summary.activeContractCount ?? 0}
+          onOpenCobros={() => navigate('/cobros')}
+        />
+      )}
 
       {/* ═══ KPIs secundarios ═══ */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mt-6 lg:mt-6 mb-6 lg:mb-8">
@@ -349,6 +380,100 @@ export default function DashboardPage() {
 // ===========================================================================
 // Hero — Tarifa mínima
 // ===========================================================================
+
+// ===========================================================================
+// SubscriptionsBlock — Tarjetas MRR + Proyección 12m + nº suscriptores
+// ===========================================================================
+
+function SubscriptionsBlock({
+  mrr, projection, activeContracts, onOpenCobros,
+}: {
+  mrr:             number;
+  projection:      DashboardProjection | null;
+  activeContracts: number;
+  onOpenCobros:    () => void;
+}) {
+  const months = projection?.months ?? 12;
+  const projRev = projection?.projectedRevenue ?? mrr * months;
+  const projProf = projection?.projectedProfit ?? 0;
+  const subs = projection?.activeSubscriptions ?? 0;
+
+  return (
+    <section
+      className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3 animate-fade-up"
+      style={{ animationDelay: '0.10s' }}
+    >
+      <Card padding="md" className="relative overflow-hidden">
+        <div className="absolute -top-8 -right-6 w-32 h-32 rounded-full blur-3xl opacity-50"
+             style={{ background: 'radial-gradient(circle, rgba(48,209,88,0.30), transparent 70%)' }} />
+        <div className="relative">
+          <div className="flex items-start justify-between mb-3">
+            <div className="w-10 h-10 rounded-[12px] flex items-center justify-center bg-[var(--color-green-subtle)] text-[var(--color-green)]">
+              <Repeat className="w-[18px] h-[18px]" strokeWidth={1.9} />
+            </div>
+            <Badge variant="green" dot pulse>MRR</Badge>
+          </div>
+          <p className="text-[12px] font-medium text-[var(--color-text-secondary)] mb-0.5">
+            Ingresos recurrentes (neto)
+          </p>
+          <p className="text-[26px] font-semibold text-[var(--color-text)] leading-tight tracking-[-0.01em] tabular-nums">
+            {fmtCurrency(mrr, 2)}
+          </p>
+          <p className="text-[11.5px] text-[var(--color-text-tertiary)] mt-1">
+            {subs} suscripción{subs !== 1 ? 'es' : ''} activa{subs !== 1 ? 's' : ''} · {activeContracts} contrato{activeContracts !== 1 ? 's' : ''}
+          </p>
+        </div>
+      </Card>
+
+      <Card padding="md" className="relative overflow-hidden">
+        <div className="absolute -top-8 -right-6 w-32 h-32 rounded-full blur-3xl opacity-50"
+             style={{ background: 'radial-gradient(circle, rgba(10,132,255,0.30), transparent 70%)' }} />
+        <div className="relative">
+          <div className="flex items-start justify-between mb-3">
+            <div className="w-10 h-10 rounded-[12px] flex items-center justify-center bg-[var(--color-blue-subtle)] text-[var(--color-blue)]">
+              <LineChart className="w-[18px] h-[18px]" strokeWidth={1.9} />
+            </div>
+            <Badge variant="blue">{months}m</Badge>
+          </div>
+          <p className="text-[12px] font-medium text-[var(--color-text-secondary)] mb-0.5">
+            Ingresos proyectados ({months}m)
+          </p>
+          <p className="text-[26px] font-semibold text-[var(--color-text)] leading-tight tracking-[-0.01em] tabular-nums">
+            {fmtCurrency(projRev, 0)}
+          </p>
+          <p className={clsx(
+            'text-[11.5px] mt-1 tabular-nums font-medium',
+            projProf >= 0 ? 'text-[#25A244] dark:text-[#5CE67D]' : 'text-[#D93025] dark:text-[#FF6961]',
+          )}>
+            Beneficio estimado: {projProf >= 0 ? '+' : ''}{fmtCurrency(projProf, 0)}
+          </p>
+        </div>
+      </Card>
+
+      <Card padding="md" hover onClick={onOpenCobros} className="relative overflow-hidden cursor-pointer">
+        <div className="absolute -top-8 -right-6 w-32 h-32 rounded-full blur-3xl opacity-40"
+             style={{ background: 'radial-gradient(circle, rgba(191,90,242,0.30), transparent 70%)' }} />
+        <div className="relative">
+          <div className="flex items-start justify-between mb-3">
+            <div className="w-10 h-10 rounded-[12px] flex items-center justify-center bg-[var(--color-purple-subtle)] text-[#BF5AF2]">
+              <Wallet className="w-[18px] h-[18px]" strokeWidth={1.9} />
+            </div>
+            <ChevronRight className="w-4 h-4 text-[var(--color-text-tertiary)]" strokeWidth={2} />
+          </div>
+          <p className="text-[12px] font-medium text-[var(--color-text-secondary)] mb-0.5">
+            Centro de cobros
+          </p>
+          <p className="text-[16px] font-semibold text-[var(--color-text)] leading-tight tracking-tight">
+            Generar y marcar pagos
+          </p>
+          <p className="text-[11.5px] text-[var(--color-text-tertiary)] mt-1">
+            Ir a la página de cobros
+          </p>
+        </div>
+      </Card>
+    </section>
+  );
+}
 
 function HeroRateCard({
   minimumRate, realHourlyCost, onSimulate, onHowTo,

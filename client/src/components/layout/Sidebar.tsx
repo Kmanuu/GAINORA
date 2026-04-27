@@ -7,7 +7,9 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   FolderKanban,
+  Users,
   Clock,
+  Wallet,
   Receipt,
   TrendingDown,
   BarChart3,
@@ -36,10 +38,12 @@ interface NavItem {
 const mainNav: NavItem[] = [
   { label: 'Dashboard',   path: '/dashboard',      icon: LayoutDashboard },
   { label: 'Proyectos',   path: '/proyectos',      icon: FolderKanban    },
+  { label: 'Clientes',    path: '/clientes',       icon: Users           },
   { label: 'Horas',       path: '/horas',          icon: Clock           },
 ];
 
 const costsNav: NavItem[] = [
+  { label: 'Cobros',           path: '/cobros',            icon: Wallet       },
   { label: 'Costes fijos',     path: '/costes-fijos',      icon: Receipt      },
   { label: 'Costes variables', path: '/costes-variables',  icon: TrendingDown },
 ];
@@ -71,7 +75,7 @@ export default function Sidebar() {
 
   function handleLogout() {
     logout();
-    navigate('/login');
+    navigate('/');
   }
 
   return (

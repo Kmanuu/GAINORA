@@ -19,7 +19,7 @@ export async function listTimeEntries(req: Request, res: Response) {
     where,
     orderBy: { startedAt: "desc" },
     include: {
-      user: { select: { id: true, fullName: true } },
+      user: { select: { id: true, fullName: true, hourlyCost: true } },
       project: { select: { id: true, name: true } },
     },
   });
@@ -63,7 +63,8 @@ export async function createTimeEntry(req: Request, res: Response) {
   if (startedAt && endedAt && !durationMin) {
     const start = new Date(startedAt);
     const end = new Date(endedAt);
-    duration = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
+    const rawDuration = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
+    duration = Math.min(rawDuration, 1440); // Límite de 24h para evitar bugs de temporizador olvidado
   }
 
   const entry = await prisma.timeEntry.create({
@@ -80,7 +81,7 @@ export async function createTimeEntry(req: Request, res: Response) {
       isBillable:  isBillable ?? true,
     },
     include: {
-      user:    { select: { id: true, fullName: true } },
+      user:    { select: { id: true, fullName: true, hourlyCost: true } },
       project: { select: { id: true, name: true } },
     },
   });
@@ -106,7 +107,8 @@ export async function updateTimeEntry(req: Request, res: Response) {
   const endedAt = data.endedAt ? new Date(data.endedAt) : existing.endedAt;
 
   if ((data.startedAt || data.endedAt) && endedAt && !data.durationMin) {
-    data.durationMin = Math.max(1, Math.round((endedAt.getTime() - startedAt.getTime()) / 60000));
+    const rawDuration = Math.max(1, Math.round((endedAt.getTime() - startedAt.getTime()) / 60000));
+    data.durationMin = Math.min(rawDuration, 1440); // Límite de 24h
   }
 
   if (data.startedAt) data.startedAt = new Date(data.startedAt);
@@ -116,7 +118,7 @@ export async function updateTimeEntry(req: Request, res: Response) {
     where: { id: id as string },
     data,
     include: {
-      user: { select: { id: true, fullName: true } },
+      user: { select: { id: true, fullName: true, hourlyCost: true } },
       project: { select: { id: true, name: true } },
     },
   });

@@ -1,8 +1,15 @@
 node_modules/
 dist/
+client/dist/
+server/dist/
 .env
+.env.local
+.env.*.local
 *.log
 .DS_Store
 /src/generated/prisma
 APUNTES.md
-.testing_hidden
+.testing_hidden.md
+.testing_hidden/
+image/.testing_hidden/
+.vscode/

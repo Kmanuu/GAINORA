@@ -7,7 +7,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Clock, DollarSign, TrendingUp,
   AlertCircle, RefreshCw, FileText, Receipt, Pencil,
-  Plus, Timer, ClipboardList, Layers, Trash2, Info,
+  Plus, Timer, ClipboardList, Layers, Trash2, Info, Repeat,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { api }       from '@/lib/api';
@@ -30,6 +30,7 @@ import TimeInput        from '@/components/ui/TimeInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { useToast }     from '@/components/ui/Toast';
 import { useConfirm }   from '@/components/ui/ConfirmDialog';
+import ContractsTab     from '@/components/contracts/ContractsTab';
 
 // ---------------------------------------------------------------------------
 // Tipos / etiquetas
@@ -46,7 +47,7 @@ const STATUS_BADGE: Record<ProjectStatus, 'gray' | 'green' | 'orange' | 'blue' |
   COMPLETED: 'blue', CANCELLED: 'red',
 };
 
-type Tab = 'resumen' | 'horas' | 'costes';
+type Tab = 'resumen' | 'horas' | 'costes' | 'contratos';
 
 interface ProjectDetail extends Project {
   timeEntries: (TimeEntry & { user?: { fullName: string; hourlyCost?: string | number } })[];
@@ -356,9 +357,10 @@ export default function ProjectDetailPage() {
           value={tab}
           onChange={setTab}
           options={[
-            { value: 'resumen', label: 'Resumen' },
-            { value: 'horas',   label: 'Horas',  count: project.timeEntries.length },
-            { value: 'costes',  label: 'Costes', count: project.varCosts.length },
+            { value: 'resumen',   label: 'Resumen' },
+            { value: 'contratos', label: 'Contratos' },
+            { value: 'horas',     label: 'Horas',  count: project.timeEntries.length },
+            { value: 'costes',    label: 'Costes', count: project.varCosts.length },
           ]}
         />
       </div>
@@ -373,6 +375,9 @@ export default function ProjectDetailPage() {
             onQuickHours={() => setQuickHoursOpen(true)}
             onQuickCost={() => setQuickCostOpen(true)}
           />
+        )}
+        {tab === 'contratos' && (
+          <ContractsTab projectId={project.id} projectName={project.name} />
         )}
         {tab === 'horas' && (
           <HoursTab
@@ -549,9 +554,10 @@ function BillingModePicker({ value, onChange }: { value: BillingMode; onChange: 
     { mode: 'FIXED',  icon: <ClipboardList className="w-4 h-4" strokeWidth={1.9} />, title: 'Cerrado',   caption: 'Precio pactado' },
     { mode: 'HOURLY', icon: <Timer         className="w-4 h-4" strokeWidth={1.9} />, title: 'Por horas', caption: 'Según tiempo' },
     { mode: 'HYBRID', icon: <Layers        className="w-4 h-4" strokeWidth={1.9} />, title: 'Mixto',     caption: 'Fijo + horas' },
+    { mode: 'SUBSCRIPTION', icon: <Repeat className="w-4 h-4" strokeWidth={1.9} />, title: 'Suscripción', caption: 'Recurrente' },
   ];
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
       {opts.map((o) => {
         const active = value === o.mode;
         return (
@@ -717,7 +723,7 @@ function SummaryTab({
               )}
               {metrics.laborRevenue > 0 && (
                 <FinRow
-                  label={`Mano de obra facturada (${fmt(metrics.totalHours, 1)}h × ${fmtCurrency(rate, 2)})`}
+                  label={`Mano de obra facturada (${fmt(metrics.billableHours, 1)}h × ${fmtCurrency(rate, 2)})`}
                   value={metrics.laborRevenue}
                   positive
                 />
@@ -742,6 +748,16 @@ function SummaryTab({
               <Info className="w-3.5 h-3.5 text-[var(--color-blue)] mt-0.5 shrink-0" strokeWidth={2} />
               <p className="text-[11.5px] text-[var(--color-text-secondary)] leading-relaxed">
                 El presupuesto ya incluye la mano de obra. El <span className="font-medium text-[var(--color-text)]">coste interno de mano de obra</span> ({fmtCurrency(metrics.laborCost, 0)}) es lo que te costó al negocio — si quieres cobrarla aparte, cambia el modo a <span className="font-medium text-[var(--color-text)]">Por horas</span> o <span className="font-medium text-[var(--color-text)]">Mixto</span>.
+              </p>
+            </div>
+          )}
+
+          {/* Aviso sobre coste por hora no configurado */}
+          {metrics.totalHours > 0 && metrics.laborCost === 0 && (
+            <div className="mt-2 flex items-start gap-2 px-3 py-2.5 rounded-[10px] bg-[var(--color-orange-subtle)] border border-[rgba(255,159,10,0.15)]">
+              <AlertCircle className="w-3.5 h-3.5 text-[var(--color-orange)] mt-0.5 shrink-0" strokeWidth={2} />
+              <p className="text-[11.5px] text-[var(--color-text-secondary)] leading-relaxed">
+                El <span className="font-medium text-[var(--color-text)]">coste de mano de obra</span> es 0 € porque no tienes configurado tu coste por hora. Ve a <b>Ajustes</b> para configurarlo y ver datos reales.
               </p>
             </div>
           )}
@@ -1198,7 +1214,7 @@ function EditCostModal({ cost, project, onClose, onSaved, toast }: {
   const [err,    setErr]     = useState('');
 
   const preview = amount ? partBreakdown({
-    id: '', tenantId: '', projectId: null, name: '',
+    id: '', tenantId: '', projectId: null, contractId: null, issueId: null, name: '',
     amount: amount || '0', quantity: quantity || '1',
     priceIncludesVat, vatRate: vatRate || '21',
     markupPct: markupPct || null, date: '', category: null,
@@ -1507,7 +1523,7 @@ function QuickCostModal({ open, onClose, project, onSaved }: {
   }
 
   const preview = amount ? partBreakdown({
-    id: '', tenantId: '', projectId: null, name: '',
+    id: '', tenantId: '', projectId: null, contractId: null, issueId: null, name: '',
     amount: amount || '0',
     quantity: quantity || '1',
     priceIncludesVat,

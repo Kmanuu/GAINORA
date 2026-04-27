@@ -1,10 +1,10 @@
 // ============================================================================
-// LoginPage.tsx — Inicio de sesión estilo Apple
+// LoginPage.tsx — Inicio de sesión estilo Gainora (Premium Dark)
 // ============================================================================
 
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Zap } from 'lucide-react';
+import { Eye, EyeOff, Target } from 'lucide-react';
 import { useAuth }   from '@/context/AuthContext';
 import { useToast }  from '@/components/ui/Toast';
 import Button from '@/components/ui/Button';
@@ -47,133 +47,140 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg)] px-4 py-12 relative">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#050A14] px-4 py-12 relative overflow-hidden font-['Inter',sans-serif]">
 
-      {/* Aurora background */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden>
+      {/* Aurora background - Consistent with Landing */}
+      <div className="fixed inset-0 pointer-events-none" aria-hidden>
         <div
-          className="absolute -top-40 -right-40 w-[620px] h-[620px] rounded-full opacity-60 blur-3xl"
-          style={{ background: 'radial-gradient(circle, rgba(10,132,255,0.18) 0%, transparent 70%)' }}
+          className="absolute -top-40 -right-40 w-[620px] h-[620px] rounded-full opacity-30 blur-[100px]"
+          style={{ background: 'radial-gradient(circle, #00D4FF 0%, transparent 70%)' }}
         />
         <div
-          className="absolute -bottom-40 -left-40 w-[520px] h-[520px] rounded-full opacity-55 blur-3xl"
-          style={{ background: 'radial-gradient(circle, rgba(48,209,88,0.14) 0%, transparent 70%)' }}
+          className="absolute -bottom-40 -left-40 w-[520px] h-[520px] rounded-full opacity-20 blur-[100px]"
+          style={{ background: 'radial-gradient(circle, #0066FF 0%, transparent 70%)' }}
         />
         <div
-          className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[420px] h-[420px] rounded-full opacity-35 blur-3xl"
-          style={{ background: 'radial-gradient(circle, rgba(191,90,242,0.14) 0%, transparent 70%)' }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] height-[400px] opacity-10 blur-[120px]"
+          style={{ background: 'radial-gradient(ellipse, #00D4FF 0%, transparent 70%)' }}
         />
       </div>
 
-      {/* Tarjeta */}
+      {/* Login Card */}
       <div
-        className="relative w-full max-w-[400px] animate-scale-in"
+        className="relative w-full max-w-[420px] animate-fade-up"
         style={{ animationFillMode: 'both' }}
       >
         <div
-          className="rounded-[24px] border"
+          className="rounded-[28px] border border-white/10 backdrop-blur-[32px] overflow-hidden"
           style={{
-            background:   'var(--color-surface)',
-            borderColor:  'var(--color-border)',
-            boxShadow:    'var(--shadow-floating, 0 8px 40px rgba(0,0,0,0.10))',
+            background: 'rgba(6, 11, 22, 0.85)',
+            boxShadow:  '0 24px 80px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.15)',
           }}
         >
-          <div className="px-8 pt-8 pb-8">
-            {/* Logo */}
-            <div className="flex flex-col items-center mb-8">
+          {/* Accent line */}
+          <div className="h-1.5 w-full bg-gradient-to-r from-transparent via-[#00D4FF] to-transparent opacity-50" />
+
+          <div className="px-10 pt-10 pb-10">
+            {/* Brand Logo */}
+            <div className="flex flex-col items-center mb-10">
               <div
-                className="w-14 h-14 rounded-[16px] flex items-center justify-center mb-4"
+                className="w-16 h-16 rounded-[20px] flex items-center justify-center mb-5"
                 style={{
-                  background: 'linear-gradient(180deg, #0A84FF 0%, #0060C0 100%)',
-                  boxShadow:  '0 8px 24px rgba(10,132,255,0.45), inset 0 1px 0 rgba(255,255,255,0.3)',
+                  background: 'linear-gradient(180deg, #00D4FF 0%, #0066FF 100%)',
+                  boxShadow:  '0 10px 30px rgba(0, 212, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
                 }}
               >
-                <Zap className="w-7 h-7 text-white" strokeWidth={2.5} fill="white" />
+                <Target className="w-8 h-8 text-[#050A14]" strokeWidth={2.5} />
               </div>
-              <h1 className="text-[24px] font-semibold text-[var(--color-text)] leading-tight tracking-[-0.02em]">
-                Iniciar sesión
+              <h1 className="text-[28px] font-black text-white leading-tight tracking-[-0.03em]">
+                Bienvenido de nuevo
               </h1>
-              <p className="text-[14px] text-[var(--color-text-secondary)] mt-1">
-                Accede a HorasPRO
+              <p className="text-[14px] text-[#6B7280] mt-2 font-medium">
+                Accede a tu panel de rentabilidad
               </p>
             </div>
 
-            {/* Formulario */}
-            <form onSubmit={handleSubmit} noValidate className="space-y-3">
-              <Input
-                label="Correo electrónico"
-                type="email"
-                value={form.email}
-                onChange={handleChange('email')}
-                autoComplete="email"
-                inputMode="email"
-              />
-              <Input
-                label="Contraseña"
-                type={showPass ? 'text' : 'password'}
-                value={form.password}
-                onChange={handleChange('password')}
-                autoComplete="current-password"
-                icon={
-                  <button
-                    type="button"
-                    onClick={() => setShowPass((v) => !v)}
-                    tabIndex={-1}
-                    className="flex items-center"
-                    aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                  >
-                    {showPass
-                      ? <EyeOff className="w-4 h-4" strokeWidth={1.8} />
-                      : <Eye    className="w-4 h-4" strokeWidth={1.8} />
-                    }
-                  </button>
-                }
-              />
+            {/* Form */}
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
+              <div className="space-y-1">
+                <Input
+                  label="Correo electrónico"
+                  type="email"
+                  value={form.email}
+                  onChange={handleChange('email')}
+                  autoComplete="email"
+                  inputMode="email"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-white/20"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Input
+                  label="Contraseña"
+                  type={showPass ? 'text' : 'password'}
+                  value={form.password}
+                  onChange={handleChange('password')}
+                  autoComplete="current-password"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-white/20"
+                  icon={
+                    <button
+                      type="button"
+                      onClick={() => setShowPass((v) => !v)}
+                      tabIndex={-1}
+                      className="flex items-center text-[#4B5563] hover:text-white transition-colors"
+                      aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    >
+                      {showPass
+                        ? <EyeOff className="w-4.5 h-4.5" strokeWidth={1.8} />
+                        : <Eye    className="w-4.5 h-4.5" strokeWidth={1.8} />
+                      }
+                    </button>
+                  }
+                />
+              </div>
 
               {error && (
                 <div
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-[10px] border"
-                  style={{
-                    background:   'var(--color-red-subtle)',
-                    borderColor:  'rgba(255,69,58,0.18)',
-                  }}
+                  className="flex items-center gap-3 px-4 py-3 rounded-[12px] bg-red-500/10 border border-red-500/20"
                   role="alert"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] shrink-0" />
-                  <p className="text-[13px] text-[var(--color-red)]">{error}</p>
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <p className="text-[13.5px] text-red-400 font-medium">{error}</p>
                 </div>
               )}
 
-              <div className="pt-2">
+              <div className="pt-4">
                 <Button
                   type="submit"
-                  variant="primary"
                   size="lg"
                   loading={loading}
                   fullWidth
-                  glow
+                  className="bg-gradient-to-r from-[#00D4FF] to-[#0066FF] text-[#050A14] font-bold text-[16px] h-[54px] rounded-[14px] hover:shadow-[0_8px_30px_rgba(0,212,255,0.4)] transition-all active:scale-[0.98]"
                 >
-                  Entrar
+                  Entrar a Gainora
                 </Button>
               </div>
             </form>
 
-            <p className="mt-6 text-center text-[13px] text-[var(--color-text-secondary)]">
-              ¿Sin cuenta?{' '}
+            <p className="mt-8 text-center text-[14px] text-[#4B5563]">
+              ¿Aún no tienes cuenta?{' '}
               <Link
                 to="/register"
-                className="text-[var(--color-blue)] font-semibold hover:underline"
+                className="text-[#00D4FF] font-bold hover:text-white transition-colors underline underline-offset-4 decoration-[#00D4FF]/30"
               >
-                Crear empresa
+                Crea tu empresa ahora
               </Link>
             </p>
           </div>
         </div>
       </div>
 
-      <p className="mt-8 text-[12px] text-[var(--color-text-tertiary)] relative">
-        HorasPRO © {new Date().getFullYear()}
-      </p>
+      <div className="mt-12 flex items-center gap-6 text-[12px] text-[#1F2937] font-medium relative">
+        <span>© {new Date().getFullYear()} Gainora.io</span>
+        <div className="w-1 h-1 rounded-full bg-[#1F2937]" />
+        <a href="#" className="hover:text-[#4B5563] transition-colors">Privacidad</a>
+        <a href="#" className="hover:text-[#4B5563] transition-colors">Términos</a>
+      </div>
     </div>
   );
 }

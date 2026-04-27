@@ -14,6 +14,7 @@ import clientRoutes from "./routes/client.routes.js";
 import contractRoutes from "./routes/contract.routes.js";
 import issueRoutes from "./routes/issue.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
+import planRoutes from "./routes/plan.routes.js";
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.use("/api/v1/clients",   clientRoutes);
 app.use("/api/v1/contracts", contractRoutes);
 app.use("/api/v1/issues",    issueRoutes);
 app.use("/api/v1/payments",  paymentRoutes);
+app.use("/api/v1/plans",     planRoutes);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });

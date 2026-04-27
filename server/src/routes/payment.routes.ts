@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { z } from "zod/v4";
+import { z } from "zod";
 import {
   listPayments,
   getPayment,
@@ -16,22 +16,33 @@ router.use(requireAuth);
 
 const statusEnum = z.enum(["PENDING", "PARTIAL", "PAID"]);
 
+// El cliente puede mandar amountGross o amountNet (al menos uno).
+// El controlador deriva el otro con el vatRate del body o del contrato.
 const createPaymentSchema = z.object({
   contractId:  z.string().uuid(),
   periodStart: z.string(),
   periodEnd:   z.string(),
-  amount:      z.number().nonnegative(),
-  paidAmount:  z.number().nonnegative().optional(),
+  amountGross: z.number().nonnegative().optional(),
+  amountNet:   z.number().nonnegative().optional(),
+  vatRate:     z.number().min(0).max(100).optional(),
+  amountDue:   z.number().nonnegative().optional(),
+  amountPaid:  z.number().nonnegative().optional(),
   status:      statusEnum.optional(),
   paidAt:      z.string().nullish(),
   notes:       z.string().nullish(),
-});
+}).refine(
+  (d) => d.amountGross !== undefined || d.amountNet !== undefined,
+  { message: "Debes indicar amountGross o amountNet" },
+);
 
 const updatePaymentSchema = z.object({
   periodStart: z.string().optional(),
   periodEnd:   z.string().optional(),
-  amount:      z.number().nonnegative().optional(),
-  paidAmount:  z.number().nonnegative().optional(),
+  amountGross: z.number().nonnegative().optional(),
+  amountNet:   z.number().nonnegative().optional(),
+  vatRate:     z.number().min(0).max(100).optional(),
+  amountDue:   z.number().nonnegative().optional(),
+  amountPaid:  z.number().nonnegative().optional(),
   status:      statusEnum.optional(),
   paidAt:      z.string().nullish(),
   notes:       z.string().nullish(),

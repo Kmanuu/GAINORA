@@ -16,8 +16,12 @@ import FixedCostsPage     from '@/pages/FixedCostsPage';
 import VarCostsPage       from '@/pages/VarCostsPage';
 import SettingsPage       from '@/pages/SettingsPage';
 import ProjectDetailPage from '@/pages/ProjectDetailPage';
+import ClientsPage        from '@/pages/ClientsPage';
+import ContractDetailPage from '@/pages/ContractDetailPage';
+import CobrosPage         from '@/pages/CobrosPage';
 import NotFoundPage       from '@/pages/NotFoundPage';
 import ReportsPage        from '@/pages/ReportsPage';
+import LandingPage        from '@/pages/LandingPage';
 import type { ReactNode } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -28,7 +32,7 @@ import type { ReactNode } from 'react';
 function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   if (isLoading) return null;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -45,10 +49,14 @@ function RequireGuest({ children }: { children: ReactNode }) {
 // ---------------------------------------------------------------------------
 
 export const router = createBrowserRouter([
-  // Raíz → dashboard
+  // Raíz → Landing Page
   {
     path: '/',
-    element: <Navigate to="/dashboard" replace />,
+    element: (
+      <RequireGuest>
+        <LandingPage />
+      </RequireGuest>
+    ),
   },
 
   // Rutas públicas (auth)
@@ -80,6 +88,9 @@ export const router = createBrowserRouter([
       { path: '/dashboard',         element: <DashboardPage />  },
       { path: '/proyectos',         element: <ProjectsPage />       },
       { path: '/proyectos/:id',     element: <ProjectDetailPage />  },
+      { path: '/clientes',          element: <ClientsPage />        },
+      { path: '/contratos/:id',     element: <ContractDetailPage /> },
+      { path: '/cobros',            element: <CobrosPage />         },
       { path: '/horas',             element: <HorasPage />      },
       { path: '/costes-fijos',      element: <FixedCostsPage /> },
       { path: '/costes-variables',  element: <VarCostsPage />   },

@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus, FolderKanban, AlertCircle, RefreshCw,
   MoreHorizontal, Pencil, Trash2, Clock, Search, Download,
-  ClipboardList, Timer, Layers,
+  ClipboardList, Timer, Layers, Repeat,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { api }       from '@/lib/api';
@@ -593,10 +593,11 @@ function BillingModePicker({ value, onChange }: {
     { mode: 'FIXED',  icon: <ClipboardList className="w-4 h-4" strokeWidth={1.9} />, title: 'Cerrado',   caption: 'Precio pactado' },
     { mode: 'HOURLY', icon: <Timer         className="w-4 h-4" strokeWidth={1.9} />, title: 'Por horas', caption: 'Según tiempo real' },
     { mode: 'HYBRID', icon: <Layers        className="w-4 h-4" strokeWidth={1.9} />, title: 'Mixto',     caption: 'Fijo + horas' },
+    { mode: 'SUBSCRIPTION', icon: <Repeat className="w-4 h-4" strokeWidth={1.9} />, title: 'Suscripción', caption: 'Recurrente' },
   ];
 
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
       {opts.map((o) => {
         const active = value === o.mode;
         return (

@@ -24,6 +24,7 @@ import TimeInput        from '@/components/ui/TimeInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { useToast }    from '@/components/ui/Toast';
 import { useConfirm }  from '@/components/ui/ConfirmDialog';
+import ContractIssueFields from '@/components/contracts/ContractIssueFields';
 
 // ---------------------------------------------------------------------------
 // Helpers locales de combinación fecha+hora
@@ -54,6 +55,8 @@ type EntryMode = 'range' | 'duration';
 
 interface ManualForm {
   projectId:   string;
+  contractId:  string;
+  issueId:     string;
   description: string;
   startDate:   string;
   startTime:   string;
@@ -66,7 +69,7 @@ interface ManualForm {
 }
 
 const EMPTY_MANUAL: ManualForm = {
-  projectId: '', description: '',
+  projectId: '', contractId: '', issueId: '', description: '',
   startDate: '', startTime: '',
   endDate: '',   endTime: '',
   isBillable: true,
@@ -94,10 +97,12 @@ export default function HorasPage() {
     const saved = localStorage.getItem('hp_timer_start');
     return saved ? Math.floor((Date.now() - new Date(saved).getTime()) / 1000) : 0;
   });
-  const [timerProject, setTimerProject] = useState(() => localStorage.getItem('hp_timer_project') ?? '');
-  const [timerDesc,    setTimerDesc]    = useState(() => localStorage.getItem('hp_timer_desc') ?? '');
-  const [timerBill,    setTimerBill]    = useState(() => localStorage.getItem('hp_timer_bill') !== 'false');
-  const [timerStart,   setTimerStart]   = useState<Date | null>(() => {
+  const [timerProject,  setTimerProject]  = useState(() => localStorage.getItem('hp_timer_project') ?? '');
+  const [timerContract, setTimerContract] = useState(() => localStorage.getItem('hp_timer_contract') ?? '');
+  const [timerIssue,    setTimerIssue]    = useState(() => localStorage.getItem('hp_timer_issue') ?? '');
+  const [timerDesc,     setTimerDesc]     = useState(() => localStorage.getItem('hp_timer_desc') ?? '');
+  const [timerBill,     setTimerBill]     = useState(() => localStorage.getItem('hp_timer_bill') !== 'false');
+  const [timerStart,    setTimerStart]    = useState<Date | null>(() => {
     const saved = localStorage.getItem('hp_timer_start');
     return saved ? new Date(saved) : null;
   });
@@ -142,9 +147,11 @@ export default function HorasPage() {
           setTimerStart(null);
         }
       }
-      if (e.key === 'hp_timer_project') setTimerProject(e.newValue ?? '');
-      if (e.key === 'hp_timer_desc') setTimerDesc(e.newValue ?? '');
-      if (e.key === 'hp_timer_bill') setTimerBill(e.newValue !== 'false');
+      if (e.key === 'hp_timer_project')  setTimerProject(e.newValue ?? '');
+      if (e.key === 'hp_timer_contract') setTimerContract(e.newValue ?? '');
+      if (e.key === 'hp_timer_issue')    setTimerIssue(e.newValue ?? '');
+      if (e.key === 'hp_timer_desc')     setTimerDesc(e.newValue ?? '');
+      if (e.key === 'hp_timer_bill')     setTimerBill(e.newValue !== 'false');
     }
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
@@ -160,7 +167,6 @@ export default function HorasPage() {
   }, []);
 
   useEffect(() => {
-    // Limpiar siempre antes de crear un nuevo interval (evita duplicados en StrictMode)
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -183,17 +189,23 @@ export default function HorasPage() {
     setRunning(true);
     setElapsed(0);
     setTimerStart(now);
-    localStorage.setItem('hp_timer_start', now.toISOString());
-    localStorage.setItem('hp_timer_project', timerProject);
-    localStorage.setItem('hp_timer_desc', timerDesc);
-    localStorage.setItem('hp_timer_bill', String(timerBill));
+    localStorage.setItem('hp_timer_start',    now.toISOString());
+    localStorage.setItem('hp_timer_project',  timerProject);
+    localStorage.setItem('hp_timer_contract', timerContract);
+    localStorage.setItem('hp_timer_issue',    timerIssue);
+    localStorage.setItem('hp_timer_desc',     timerDesc);
+    localStorage.setItem('hp_timer_bill',     String(timerBill));
   }
 
   function clearTimerState() {
     if (intervalRef.current) clearInterval(intervalRef.current);
     setRunning(false); setElapsed(0); setTimerStart(null);
-    setTimerProject(''); setTimerDesc(''); setTimerBill(true);
-    ['hp_timer_start','hp_timer_project','hp_timer_desc','hp_timer_bill'].forEach((k) => localStorage.removeItem(k));
+    setTimerProject(''); setTimerContract(''); setTimerIssue('');
+    setTimerDesc(''); setTimerBill(true);
+    [
+      'hp_timer_start','hp_timer_project','hp_timer_contract',
+      'hp_timer_issue','hp_timer_desc','hp_timer_bill',
+    ].forEach((k) => localStorage.removeItem(k));
   }
 
   async function stopTimer() {
@@ -201,12 +213,12 @@ export default function HorasPage() {
     const startedAt = timerStart.toISOString();
     const endedAt   = new Date().toISOString();
     const project   = timerProject;
+    const contract  = timerContract;
+    const issue     = timerIssue;
     const desc      = timerDesc.trim() || null;
     const billable  = timerBill;
     const elapsedSec = Math.max(1, Math.floor((Date.now() - timerStart.getTime()) / 1000));
 
-    // Si el timer corrió menos de 5 segundos, probablemente fue un error.
-    // Preguntamos antes de guardar para no ensuciar el histórico con entradas de 0m.
     if (elapsedSec < 5) {
       const keep = await confirm({
         title:       'Timer demasiado corto',
@@ -221,12 +233,13 @@ export default function HorasPage() {
       }
     }
 
-    // Parar el timer inmediatamente — nunca dejar al usuario atrapado
     clearTimerState();
     setSavingTimer(true);
     try {
       await api.post<TimeEntry>('/v1/time-entries', {
         projectId:   project,
+        contractId:  contract || null,
+        issueId:     issue    || null,
         description: desc,
         startedAt,
         endedAt,
@@ -261,6 +274,8 @@ export default function HorasPage() {
     setEditTarget(entry);
     setManualForm({
       projectId:   entry.projectId,
+      contractId:  entry.contractId ?? '',
+      issueId:     entry.issueId    ?? '',
       description: entry.description ?? '',
       startDate:   start.date, startTime: start.time,
       endDate:     end.date,   endTime:   end.time,
@@ -274,7 +289,7 @@ export default function HorasPage() {
   }
 
   async function handleSaveManual() {
-    const { projectId, mode, startDate, startTime, endDate, endTime, durationH, durationM } = manualForm;
+    const { projectId, contractId, issueId, mode, startDate, startTime, endDate, endTime, durationH, durationM } = manualForm;
     if (!projectId) { setFormError('Selecciona un proyecto'); return; }
 
     let payload: Record<string, unknown>;
@@ -288,6 +303,8 @@ export default function HorasPage() {
       const startedAt = new Date(endedAt.getTime() - totalMin * 60 * 1000);
       payload = {
         projectId,
+        contractId:  contractId || null,
+        issueId:     issueId    || null,
         description: manualForm.description.trim() || null,
         startedAt:   startedAt.toISOString(),
         endedAt:     endedAt.toISOString(),
@@ -305,6 +322,8 @@ export default function HorasPage() {
       }
       payload = {
         projectId,
+        contractId:  contractId || null,
+        issueId:     issueId    || null,
         description: manualForm.description.trim() || null,
         startedAt:   new Date(startISO).toISOString(),
         endedAt:     new Date(endISO).toISOString(),
@@ -353,6 +372,8 @@ export default function HorasPage() {
     try {
       await api.post<TimeEntry>('/v1/time-entries', {
         projectId:   entry.projectId,
+        contractId:  entry.contractId ?? null,
+        issueId:     entry.issueId    ?? null,
         description: entry.description || null,
         startedAt:   entry.startedAt,
         endedAt:     entry.endedAt,
@@ -511,7 +532,7 @@ export default function HorasPage() {
               <Select
                 label="Proyecto *"
                 value={timerProject}
-                onChange={(e) => setTimerProject(e.target.value)}
+                onChange={(e) => { setTimerProject(e.target.value); setTimerContract(''); setTimerIssue(''); }}
                 options={projectOptions}
                 placeholder="Selecciona un proyecto"
                 disabled={running}
@@ -562,6 +583,20 @@ export default function HorasPage() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Selectores opcionales contrato/issue del timer */}
+          <div className="mt-3">
+            <ContractIssueFields
+              projectId={timerProject}
+              contractId={timerContract}
+              issueId={timerIssue}
+              disabled={running}
+              onChange={({ contractId, issueId }) => {
+                setTimerContract(contractId);
+                setTimerIssue(issueId);
+              }}
+            />
           </div>
         </div>
       </Card>
@@ -679,10 +714,20 @@ export default function HorasPage() {
           <Select
             label="Proyecto *"
             value={manualForm.projectId}
-            onChange={(e) => setManualForm((p) => ({ ...p, projectId: e.target.value }))}
+            onChange={(e) => setManualForm((p) => ({ ...p, projectId: e.target.value, contractId: '', issueId: '' }))}
             options={allProjectOptions}
             placeholder="Selecciona un proyecto"
           />
+
+          <ContractIssueFields
+            projectId={manualForm.projectId}
+            contractId={manualForm.contractId}
+            issueId={manualForm.issueId}
+            onChange={({ contractId, issueId }) =>
+              setManualForm((p) => ({ ...p, contractId, issueId }))
+            }
+          />
+
           <Input
             label="Descripción"
             type="text"
@@ -691,7 +736,6 @@ export default function HorasPage() {
             placeholder="Ej: cambio de turbo, revisión..."
           />
 
-          {/* Selector de modo — solo al crear */}
           {!editTarget && (
             <SegmentedControl<EntryMode>
               value={manualForm.mode}
@@ -716,25 +760,16 @@ export default function HorasPage() {
               </div>
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <Input
-                  label="Horas"
-                  type="number"
+                  label="Horas" type="number"
                   value={manualForm.durationH}
                   onChange={(e) => setManualForm((p) => ({ ...p, durationH: e.target.value }))}
-                  min="0"
-                  step="1"
-                  placeholder="0"
-                  suffix="h"
+                  min="0" step="1" placeholder="0" suffix="h"
                 />
                 <Input
-                  label="Minutos"
-                  type="number"
+                  label="Minutos" type="number"
                   value={manualForm.durationM}
                   onChange={(e) => setManualForm((p) => ({ ...p, durationM: e.target.value }))}
-                  min="0"
-                  max="59"
-                  step="5"
-                  placeholder="0"
-                  suffix="min"
+                  min="0" max="59" step="5" placeholder="0" suffix="min"
                 />
               </div>
               {(manualForm.durationH || manualForm.durationM) && (
@@ -746,9 +781,7 @@ export default function HorasPage() {
           ) : (
             <>
               <div className="rounded-[14px] bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.03)] p-3 space-y-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
-                  Inicio
-                </p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">Inicio</p>
                 <div className="grid grid-cols-2 gap-3">
                   <DatePicker
                     label="Fecha"
@@ -764,9 +797,7 @@ export default function HorasPage() {
               </div>
 
               <div className="rounded-[14px] bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.03)] p-3 space-y-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
-                  Fin
-                </p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">Fin</p>
                 <div className="grid grid-cols-2 gap-3">
                   <DatePicker
                     label="Fecha"
@@ -819,6 +850,7 @@ function EntryRow({ entry, onEdit, onDuplicate, onDelete }: {
             {entry.project?.name ?? 'Sin proyecto'}
           </span>
           {entry.isBillable && <Badge variant="blue">Facturable</Badge>}
+          {entry.issueId    && <Badge variant="orange" size="sm">Inconveniente</Badge>}
         </div>
         {entry.description && (
           <p className="text-[12px] text-[var(--color-text-secondary)] truncate mt-0.5">{entry.description}</p>

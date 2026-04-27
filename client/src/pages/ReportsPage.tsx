@@ -501,7 +501,6 @@ function TrendChart({ data }: { data: number[] }) {
 
 function DonutChart({ data, total }: { data: { value: number; color: string }[]; total: number }) {
   const size = 120, stroke = 14, r = (size - stroke) / 2, c = 2 * Math.PI * r;
-  let offset = 0;
 
   if (total === 0) {
     return (
@@ -515,7 +514,8 @@ function DonutChart({ data, total }: { data: { value: number; color: string }[];
       {data.map((d, i) => {
         const pct = d.value / total;
         const dash = pct * c;
-        const circle = (
+        const currentOffset = data.slice(0, i).reduce((sum, prev) => sum + (prev.value / total) * c, 0);
+        return (
           <circle
             key={i}
             cx={size / 2}
@@ -526,11 +526,9 @@ function DonutChart({ data, total }: { data: { value: number; color: string }[];
             strokeWidth={stroke}
             strokeLinecap="butt"
             strokeDasharray={`${dash} ${c - dash}`}
-            strokeDashoffset={-offset}
+            strokeDashoffset={-currentOffset}
           />
         );
-        offset += dash;
-        return circle;
       })}
     </svg>
   );

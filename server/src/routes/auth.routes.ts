@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { register, login, refreshToken } from "../controllers/auth.controller.js";
 import { validate } from "../middleware/validate.js";
 

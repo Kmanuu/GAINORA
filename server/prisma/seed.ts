@@ -1,7 +1,7 @@
 import { env } from "../src/config/env.js";
 import {
   PrismaClient,
-  Plan,
+  TenantPlan,
   Role,
   Status,
   Freq,
@@ -28,6 +28,7 @@ async function main() {
   await prisma.timeEntry.deleteMany();
   await prisma.issue.deleteMany();
   await prisma.contract.deleteMany();
+  await prisma.plan.deleteMany();
   await prisma.client.deleteMany();
   await prisma.fixedCost.deleteMany();
   await prisma.project.deleteMany();
@@ -40,7 +41,7 @@ async function main() {
       name: "Agencia Creativa Demo",
       slug: "agencia-demo",
       taxId: "B12345678",
-      plan: Plan.GROWTH,
+      plan: TenantPlan.GROWTH,
     },
   });
   console.log(`✅ Tenant: ${tenant.name}`);
@@ -90,7 +91,53 @@ async function main() {
   });
   console.log(`✅ Clientes: ${clientImportante.name}, ${clientTaller.name}`);
 
-  // 4. Proyecto / Producto (mantenemos clientName legacy para compatibilidad UI actual)
+  // 4. Catálogo de planes que ofrece este tenant a sus clientes
+  const planFree = await prisma.plan.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Free",
+      tier: ContractTier.FREE,
+      description: "Acceso básico de prueba",
+      billingMode: BillingMode.SUBSCRIPTION,
+      price: 0,
+      maintenanceMode: MaintenanceMode.NONE,
+      features: ["dashboard_basico", "max_1_proyecto"],
+      limits: { maxUsers: 1, maxProjects: 1 },
+    },
+  });
+
+  const planPro = await prisma.plan.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Pro",
+      tier: ContractTier.PRO,
+      description: "Plan estándar con soporte",
+      billingMode: BillingMode.SUBSCRIPTION,
+      price: 10,
+      maintenanceMode: MaintenanceMode.SHARED,
+      maintenanceExtraPct: 20,
+      features: ["dashboard_completo", "issues", "soporte_email"],
+      limits: { maxUsers: 5, maxProjects: 25 },
+    },
+  });
+
+  const planMax = await prisma.plan.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Max",
+      tier: ContractTier.MAX,
+      description: "Plan empresa con soporte prioritario",
+      billingMode: BillingMode.SUBSCRIPTION,
+      price: 49,
+      maintenanceMode: MaintenanceMode.SHARED,
+      maintenanceExtraPct: 30,
+      features: ["dashboard_completo", "issues", "soporte_prioritario", "api"],
+      limits: { maxUsers: 50, maxProjects: 999 },
+    },
+  });
+  console.log(`✅ Planes catálogo: ${planFree.name}, ${planPro.name}, ${planMax.name}`);
+
+  // 5. Proyectos / Productos (mantenemos clientName legacy para compat UI actual)
   const project = await prisma.project.create({
     data: {
       tenantId: tenant.id,
@@ -116,7 +163,7 @@ async function main() {
   });
   console.log(`✅ Proyectos: ${project.name}, ${productoHoraspro.name}`);
 
-  // 5. Contratos
+  // 6. Contratos
   const contractRediseno = await prisma.contract.create({
     data: {
       tenantId: tenant.id,
@@ -135,6 +182,7 @@ async function main() {
       tenantId: tenant.id,
       projectId: productoHoraspro.id,
       clientId: clientTaller.id,
+      planId: planPro.id,
       tier: ContractTier.PRO,
       billingMode: BillingMode.SUBSCRIPTION,
       price: 10.0,
@@ -147,7 +195,7 @@ async function main() {
   });
   console.log(`✅ Contratos: ${contractRediseno.id.slice(0, 8)}, ${contractTallerSub.id.slice(0, 8)}`);
 
-  // 6. Costes Fijos
+  // 7. Costes Fijos
   await prisma.fixedCost.createMany({
     data: [
       {
@@ -168,7 +216,7 @@ async function main() {
   });
   console.log(`✅ Costes fijos.`);
 
-  // 7. Time Entries
+  // 8. Time Entries
   await prisma.timeEntry.create({
     data: {
       tenantId: tenant.id,
@@ -184,20 +232,27 @@ async function main() {
   });
   console.log(`✅ Entradas de tiempo.`);
 
-  // 8. Pago pendiente del primer periodo de la suscripción del taller
+  // 9. Pago pendiente del primer periodo de la suscripción del taller (10€ con IVA 21%)
   const periodStart = new Date();
   periodStart.setDate(1);
   periodStart.setHours(0, 0, 0, 0);
   const periodEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0);
 
+  const vat = 21;
+  const gross = 10.0;
+  const net = +(gross / (1 + vat / 100)).toFixed(2);
+
   await prisma.payment.create({
     data: {
-      tenantId: tenant.id,
-      contractId: contractTallerSub.id,
+      tenantId:    tenant.id,
+      contractId:  contractTallerSub.id,
       periodStart,
       periodEnd,
-      amount: 10.0,
-      status: PaymentStatus.PENDING,
+      amountNet:   net,
+      vatRate:     vat,
+      amountGross: gross,
+      amountDue:   gross,
+      status:      PaymentStatus.PENDING,
     },
   });
   console.log(`✅ Pago demo creado (pendiente).`);

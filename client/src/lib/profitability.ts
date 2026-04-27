@@ -5,7 +5,7 @@
 // sin esperar al dashboard endpoint.
 // ============================================================================
 
-import type { Project, TimeEntry, VarCost } from '@/types';
+import type { Project, TimeEntry, VarCost, BillingMode } from '@/types';
 import { toNum } from '@/lib/format';
 
 // ---------------------------------------------------------------------------
@@ -103,15 +103,16 @@ export function computeProjectMetrics(
 
   let laborRevenue = 0;
   if (mode === 'HOURLY' || mode === 'HYBRID') {
-    laborRevenue = totalHours * rate;
+    laborRevenue = billableHours * rate;
   }
 
   let revenue: number;
-  if (mode === 'FIXED') {
+  if (mode === 'FIXED' || mode === 'SUBSCRIPTION') {
     revenue = budget + partsRevenue;
   } else if (mode === 'HOURLY') {
     revenue = laborRevenue + partsRevenue;
   } else {
+    // HYBRID
     revenue = budget + laborRevenue + partsRevenue;
   }
 
@@ -137,16 +138,18 @@ export function computeProjectMetrics(
 // Etiquetas y helpers UI
 // ---------------------------------------------------------------------------
 
-export const BILLING_MODE_LABEL: Record<'FIXED' | 'HOURLY' | 'HYBRID', string> = {
+export const BILLING_MODE_LABEL: Record<BillingMode, string> = {
   FIXED:  'Presupuesto cerrado',
   HOURLY: 'Por horas',
   HYBRID: 'Mixto (presupuesto + horas)',
+  SUBSCRIPTION: 'Suscripción',
 };
 
-export const BILLING_MODE_DESCRIPTION: Record<'FIXED' | 'HOURLY' | 'HYBRID', string> = {
+export const BILLING_MODE_DESCRIPTION: Record<BillingMode, string> = {
   FIXED:  'Sabes de antemano lo que vas a cobrar. Las horas trabajadas se contabilizan para saber si sales rentable, pero no afectan al precio final.',
   HOURLY: 'No sabes cuánto vas a tardar. Se cobra según el tiempo real registrado (tarifa × horas). Ideal para reparaciones o tareas abiertas.',
   HYBRID: 'Un presupuesto base (anticipo/fijo) más las horas reales. Útil cuando te contratan un marco de horas pero luego hay extras.',
+  SUBSCRIPTION: 'Cobro recurrente mensual o periódico por un servicio continuo.',
 };
 
 function round2(n: number) {

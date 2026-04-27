@@ -21,6 +21,7 @@ import DatePicker from '@/components/ui/DatePicker';
 import { useToast }    from '@/components/ui/Toast';
 import { useConfirm }  from '@/components/ui/ConfirmDialog';
 import { useAuth }     from '@/context/AuthContext';
+import ContractIssueFields from '@/components/contracts/ContractIssueFields';
 
 // ---------------------------------------------------------------------------
 // Tipos del form
@@ -28,6 +29,8 @@ import { useAuth }     from '@/context/AuthContext';
 
 interface FormState {
   projectId:        string;
+  contractId:       string;
+  issueId:          string;
   name:             string;
   amount:           string;
   quantity:         string;
@@ -40,6 +43,8 @@ interface FormState {
 
 const EMPTY_FORM: FormState = {
   projectId:        '',
+  contractId:       '',
+  issueId:          '',
   name:             '',
   amount:           '',
   quantity:         '1',
@@ -130,7 +135,9 @@ export default function VarCostsPage() {
   function openEdit(cost: VarCost) {
     setEditTarget(cost);
     setForm({
-      projectId:        cost.projectId ?? '',
+      projectId:        cost.projectId  ?? '',
+      contractId:       cost.contractId ?? '',
+      issueId:          cost.issueId    ?? '',
       name:             cost.name,
       amount:           String(cost.amount),
       quantity:         cost.quantity != null ? String(cost.quantity) : '1',
@@ -153,7 +160,9 @@ export default function VarCostsPage() {
     setFormError('');
     try {
       const payload = {
-        projectId:        form.projectId || null,
+        projectId:        form.projectId  || null,
+        contractId:       form.contractId || null,
+        issueId:          form.issueId    || null,
         name:             form.name.trim(),
         amount:           parseFloat(form.amount),
         quantity:         form.quantity ? parseFloat(form.quantity) : 1,
@@ -387,8 +396,16 @@ export default function VarCostsPage() {
           <Select
             label="Proyecto asociado"
             value={form.projectId}
-            onChange={handleField('projectId')}
+            onChange={(e) => { setForm((p) => ({ ...p, projectId: e.target.value, contractId: '', issueId: '' })); setFormError(''); }}
             options={projectOptions}
+          />
+          <ContractIssueFields
+            projectId={form.projectId}
+            contractId={form.contractId}
+            issueId={form.issueId}
+            onChange={({ contractId, issueId }) =>
+              setForm((p) => ({ ...p, contractId, issueId }))
+            }
           />
           <div className="grid grid-cols-3 gap-3">
             <Input
@@ -548,7 +565,7 @@ function CostBreakdownPreview({
 }) {
   // Reutiliza partBreakdown construyendo un VarCost mínimo
   const br = partBreakdown({
-    id: '', tenantId: '', projectId: null, name: '',
+    id: '', tenantId: '', projectId: null, contractId: null, issueId: null, name: '',
     amount: String(amount),
     quantity: String(quantity),
     priceIncludesVat,

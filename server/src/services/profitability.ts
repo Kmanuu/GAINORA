@@ -45,20 +45,23 @@ export interface BusinessMetricsResult {
 export interface ContractProfitabilityInput {
   billingMode: BillingMode;
   // SUBSCRIPTION
-  price: number;               // cuota recurrente
+  price: number;               // cuota recurrente (gross o net según priceIncludesVat)
   // FIXED / HYBRID
-  budgetAmount: number;        // importe cerrado del contrato
-  setupFee: number;            // importe one-shot al iniciar (si aplica)
+  budgetAmount: number;        // importe cerrado del contrato (gross o net según priceIncludesVat)
+  setupFee: number;            // importe one-shot al iniciar (gross o net según priceIncludesVat)
   // HOURLY / HYBRID
-  hourlyRate: number;
+  hourlyRate: number;          // tarifa por hora (gross o net según priceIncludesVat)
   // Piezas
   partsMarkupPct: number;      // margen por defecto sobre piezas
   // Mantenimiento
   maintenanceMode: MaintenanceMode;
   maintenanceExtraPct: number; // % extra sobre el coste base (para SHARED)
   maintenanceFixedAmount: number; // importe fijo (para CUSTOM)
-  productMaintenanceCost: number; // coste base mensual del producto
+  productMaintenanceCost: number; // coste base mensual del producto (siempre neto, es coste real)
   activeContractsOfProduct: number; // contratos activos del mismo producto
+  // IVA del contrato — los importes de revenue se devuelven SIEMPRE en NETO
+  priceIncludesVat: boolean;
+  vatRate: number;             // % (e.g. 21)
   // Rango temporal
   monthsInRange: number;       // cuántos meses cubre el cálculo
   startedInRange: boolean;     // si el contrato arrancó dentro del rango
@@ -166,8 +169,15 @@ export function calculateSharedMaintenance(
 export function calculateContractProfitability(
   d: ContractProfitabilityInput,
 ): ContractProfitabilityResult {
-  const mode = d.billingMode;
+  const mode   = d.billingMode;
   const months = Math.max(1, d.monthsInRange);
+
+  // Conversor a NETO: si el contrato declara que `price/budget/setup/rate`
+  // incluyen IVA, lo descontamos para análisis de rentabilidad real.
+  // El IVA es un pase a Hacienda, no es ingreso del negocio.
+  const factor = 1 + (d.vatRate ?? 21) / 100;
+  const toNet  = (gross: number): number =>
+    d.priceIncludesVat ? gross / factor : gross;
 
   // --- Horas y mano de obra ---
   const totalMinutes    = d.timeEntries.reduce((s, e) => s + e.durationMin, 0);
@@ -179,7 +189,7 @@ export function calculateContractProfitability(
     0,
   );
 
-  // --- Piezas ---
+  // --- Piezas (ya manejan su propio vatRate y priceIncludesVat por línea) ---
   const defaultMarkup = d.partsMarkupPct ?? 0;
   let partsCost    = 0;
   let partsRevenue = 0;
@@ -194,32 +204,33 @@ export function calculateContractProfitability(
   let maintenanceCostInternal = 0;
   if (mode === "SUBSCRIPTION") {
     const shared = calculateSharedMaintenance(d.productMaintenanceCost, d.activeContractsOfProduct);
-    maintenanceCostInternal = shared * months;
+    maintenanceCostInternal = shared * months; // coste real, ya neto
     if (d.maintenanceMode === "SHARED") {
+      // El % extra es markup sobre coste real, sin IVA
       maintenanceRevenue = shared * (1 + (d.maintenanceExtraPct ?? 0) / 100) * months;
     } else if (d.maintenanceMode === "CUSTOM") {
-      maintenanceRevenue = (d.maintenanceFixedAmount ?? 0) * months;
+      maintenanceRevenue = toNet(d.maintenanceFixedAmount ?? 0) * months;
     }
   }
 
   // --- Ingresos por mano de obra ---
   let laborRevenue = 0;
-  const rate = d.hourlyRate ?? 0;
+  const rate = toNet(d.hourlyRate ?? 0);
   if (mode === "HOURLY" || mode === "HYBRID") {
-    laborRevenue = totalHours * rate;
+    laborRevenue = billableHours * rate;
   }
 
-  // --- Ingresos recurrentes / cerrados ---
+  // --- Ingresos recurrentes / cerrados (siempre devueltos en NETO) ---
   let recurringRevenue = 0;
   if (mode === "SUBSCRIPTION") {
-    recurringRevenue = (d.price ?? 0) * months;
+    recurringRevenue = toNet(d.price ?? 0) * months;
   } else if (mode === "FIXED" || mode === "HYBRID") {
     // El presupuesto cerrado se cobra una vez, al inicio del contrato
-    recurringRevenue = d.startedInRange ? (d.budgetAmount ?? 0) : 0;
+    recurringRevenue = d.startedInRange ? toNet(d.budgetAmount ?? 0) : 0;
   }
 
   // --- Setup fee (one-shot al iniciar) ---
-  const setupRevenue = d.startedInRange ? (d.setupFee ?? 0) : 0;
+  const setupRevenue = d.startedInRange ? toNet(d.setupFee ?? 0) : 0;
 
   // --- Ingresos totales ---
   const revenue = recurringRevenue + setupRevenue + laborRevenue + partsRevenue + maintenanceRevenue;
@@ -260,8 +271,11 @@ export function calculateContractProfitability(
 export function calculateBusinessMetrics(
   data: BusinessMetricsInput,
 ): BusinessMetricsResult {
+  // Evitar cifras astronómicas si se han fichado unos pocos minutos
+  const effectiveHours = Math.max(1, data.totalBillableHours);
+
   const realHourlyCost = round2(
-    safeDivide(data.totalMonthlyCosts, data.totalBillableHours),
+    safeDivide(data.totalMonthlyCosts, effectiveHours),
   );
   const minimumRate = round2(realHourlyCost * 1.3);
 
@@ -274,7 +288,7 @@ export function calculateBusinessMetrics(
 // ---------------------------------------------------------------------------
 
 export interface ProjectProfitabilityInput {
-  billingMode?: "FIXED" | "HOURLY" | "HYBRID";
+  billingMode?: BillingMode;
   budgetAmount: number;
   hourlyRate?: number;
   partsMarkupPct?: number;
@@ -303,6 +317,8 @@ export function calculateProjectProfitability(
   const mode = data.billingMode ?? "FIXED";
   const totalMinutes = data.timeEntries.reduce((s, e) => s + e.durationMin, 0);
   const totalHours   = minutesToHours(totalMinutes);
+  const billableMinutes = data.timeEntries.filter((e) => e.isBillable).reduce((s, e) => s + e.durationMin, 0);
+  const billableHours   = minutesToHours(billableMinutes);
   const laborCost    = data.timeEntries.reduce(
     (s, e) => s + minutesToHours(e.durationMin) * e.hourlyCost,
     0,
@@ -319,10 +335,10 @@ export function calculateProjectProfitability(
 
   let laborRevenue = 0;
   const rate = data.hourlyRate ?? 0;
-  if (mode === "HOURLY" || mode === "HYBRID") laborRevenue = totalHours * rate;
+  if (mode === "HOURLY" || mode === "HYBRID") laborRevenue = billableHours * rate;
 
   let revenue: number;
-  if (mode === "FIXED")       revenue = data.budgetAmount + partsRevenue;
+  if (mode === "FIXED" || mode === "SUBSCRIPTION") revenue = data.budgetAmount + partsRevenue;
   else if (mode === "HOURLY") revenue = laborRevenue + partsRevenue;
   else                        revenue = data.budgetAmount + laborRevenue + partsRevenue;
 

@@ -200,6 +200,8 @@ export async function getMetrics(req: Request, res: Response, next: NextFunction
         maintenanceFixedAmount:   Number(c.maintenanceFixedAmount ?? 0),
         productMaintenanceCost:   Number(c.project.productMaintenanceCost ?? 0),
         activeContractsOfProduct: contractsByProduct[c.project.id] ?? 1,
+        priceIncludesVat:         c.priceIncludesVat,
+        vatRate:                  Number(c.vatRate ?? 21),
         monthsInRange,
         startedInRange,
         timeEntries:              timeEntriesInput,
@@ -213,6 +215,79 @@ export async function getMetrics(req: Request, res: Response, next: NextFunction
 
       return { contract: c, profitability };
     });
+
+    // Agregar proyectos legacy (sin contratos) para que aparezcan en el dashboard
+    const legacyProjects = await prisma.project.findMany({
+      where: {
+        tenantId,
+        status: "ACTIVE",
+        contracts: { none: {} },
+      },
+      include: {
+        timeEntries: {
+          where: { startedAt: { gte: from, lte: to } },
+          include: { user: { select: { id: true, fullName: true, hourlyCost: true } } },
+        },
+        varCosts: {
+          where: { date: { gte: from, lte: to } },
+        },
+      },
+    });
+
+    for (const p of legacyProjects) {
+      const timeEntriesInput = p.timeEntries.map((te) => ({
+        durationMin: te.durationMin,
+        hourlyCost:  Number(te.user.hourlyCost ?? 0),
+        isBillable:  te.isBillable,
+      }));
+      const varCostsInput = p.varCosts.map((vc) => ({
+        amount:           Number(vc.amount),
+        quantity:         Number(vc.quantity ?? 1),
+        priceIncludesVat: vc.priceIncludesVat ?? false,
+        vatRate:          Number(vc.vatRate ?? 21),
+        markupPct:        vc.markupPct != null ? Number(vc.markupPct) : null,
+      }));
+
+      const input: ContractProfitabilityInput = {
+        billingMode:              (p.billingMode as BillingMode) ?? "FIXED",
+        price:                    Number(p.budgetAmount ?? 0),
+        budgetAmount:             Number(p.budgetAmount ?? 0),
+        setupFee:                 0,
+        hourlyRate:               Number(p.hourlyRate ?? 0),
+        partsMarkupPct:           Number(p.partsMarkupPct ?? 0),
+        maintenanceMode:          "NONE",
+        maintenanceExtraPct:      0,
+        maintenanceFixedAmount:   0,
+        productMaintenanceCost:   Number(p.productMaintenanceCost ?? 0),
+        activeContractsOfProduct: 1,
+        priceIncludesVat:         false,
+        vatRate:                  21,
+        monthsInRange,
+        startedInRange:           p.startDate ? (p.startDate >= from && p.startDate <= to) : true,
+        timeEntries:              timeEntriesInput,
+        variableCosts:            varCostsInput,
+        nonBillableIssueCost:     0,
+        totalMonthlyCosts:        totalMonthlyCostsInRange,
+        activeContractsCount:     activeContractsCount + legacyProjects.length,
+      };
+
+      const profitability = calculateContractProfitability(input);
+
+      contractsMetrics.push({
+        contract: {
+          id: `legacy_${p.id}`,
+          billingMode: p.billingMode ?? "FIXED",
+          project: {
+            id: p.id,
+            name: p.name,
+          },
+          client: {
+            name: p.clientName || 'Sin cliente',
+          }
+        } as any,
+        profitability,
+      });
+    }
 
     // Agregar a nivel proyecto (compat con frontend actual)
     const projectsMap = new Map<string, any>();
@@ -273,10 +348,16 @@ export async function getMetrics(req: Request, res: Response, next: NextFunction
       totalBillableHours,
     });
 
-    // Recurring revenue (MRR)
+    // Recurring revenue (MRR) — siempre en NETO para que el dashboard refleje
+    // ingreso real del negocio, no el bruto que va a Hacienda.
     const mrr = activeContracts
       .filter((c) => c.billingMode === "SUBSCRIPTION")
-      .reduce((s, c) => s + Number(c.price), 0);
+      .reduce((s, c) => {
+        const price  = Number(c.price);
+        const vat    = Number(c.vatRate ?? 21);
+        const net    = c.priceIncludesVat ? price / (1 + vat / 100) : price;
+        return s + net;
+      }, 0);
 
     res.json({
       success: true,
@@ -338,7 +419,13 @@ export async function getProjection(req: Request, res: Response, next: NextFunct
       },
     });
 
-    const mrr = activeSubs.reduce((s, c) => s + Number(c.price), 0);
+    // MRR en NETO (igual que en /dashboard) para análisis de rentabilidad real.
+    const mrr = activeSubs.reduce((s, c) => {
+      const price = Number(c.price);
+      const vat   = Number(c.vatRate ?? 21);
+      const net   = c.priceIncludesVat ? price / (1 + vat / 100) : price;
+      return s + net;
+    }, 0);
     const activeSubsCount = activeSubs.length;
 
     const fixedCosts = await prisma.fixedCost.findMany({ where: { tenantId, isActive: true } });
@@ -359,15 +446,40 @@ export async function getProjection(req: Request, res: Response, next: NextFunct
 
     const monthlyCosts = fixedMonthly + productMaintMonthly;
 
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const recentTime = await prisma.timeEntry.findMany({
+      where: { tenantId, contract: { billingMode: "SUBSCRIPTION", status: "ACTIVE" }, startedAt: { gte: thirtyDaysAgo } },
+      include: { user: { select: { hourlyCost: true } } },
+    });
+    const recentParts = await prisma.variableCost.findMany({
+      where: { tenantId, contract: { billingMode: "SUBSCRIPTION", status: "ACTIVE" }, date: { gte: thirtyDaysAgo } },
+    });
+
+    let avgDirectCostMonthly = 0;
+    for (const te of recentTime) {
+      avgDirectCostMonthly += (te.durationMin / 60) * Number(te.user.hourlyCost ?? 0);
+    }
+    for (const vc of recentParts) {
+      const qty = Number(vc.quantity ?? 1);
+      const vat = Number(vc.vatRate ?? 21);
+      const base = Number(vc.amount);
+      const real = vc.priceIncludesVat ? base : base * (1 + vat / 100);
+      avgDirectCostMonthly += real * qty;
+    }
+
+    const totalMonthlyCosts = monthlyCosts + avgDirectCostMonthly;
+
     res.json({
       success: true,
       data: {
         months,
         mrr:                 round2(mrr),
-        monthlyCosts:        round2(monthlyCosts),
+        monthlyCosts:        round2(totalMonthlyCosts),
         projectedRevenue:    round2(mrr * months),
-        projectedCosts:      round2(monthlyCosts * months),
-        projectedProfit:     round2((mrr - monthlyCosts) * months),
+        projectedCosts:      round2(totalMonthlyCosts * months),
+        projectedProfit:     round2((mrr - totalMonthlyCosts) * months),
         activeSubscriptions: activeSubsCount,
         avgRevenuePerSub:    activeSubsCount > 0 ? round2(mrr / activeSubsCount) : 0,
       },
