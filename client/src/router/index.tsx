@@ -20,6 +20,7 @@ import ClientsPage        from '@/pages/ClientsPage';
 import PlansPage          from '@/pages/PlansPage';
 import ContractDetailPage from '@/pages/ContractDetailPage';
 import CobrosPage         from '@/pages/CobrosPage';
+import InvoicesPage       from '@/pages/InvoicesPage';
 import NotFoundPage       from '@/pages/NotFoundPage';
 import ReportsPage        from '@/pages/ReportsPage';
 import LandingPage        from '@/pages/LandingPage';
@@ -93,6 +94,7 @@ export const router = createBrowserRouter([
       { path: '/planes',            element: <PlansPage />          },
       { path: '/contratos/:id',     element: <ContractDetailPage /> },
       { path: '/cobros',            element: <CobrosPage />         },
+      { path: '/facturas',          element: <InvoicesPage />       },
       { path: '/horas',             element: <HorasPage />      },
       { path: '/costes-fijos',      element: <FixedCostsPage /> },
       { path: '/costes-variables',  element: <VarCostsPage />   },

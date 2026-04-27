@@ -5,7 +5,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   User, Lock, Building2,
-  ChevronDown, ChevronUp, Gauge,
+  ChevronDown, ChevronUp, Gauge, FileText,
 } from 'lucide-react';
 import { api }         from '@/lib/api';
 import { useAuth }     from '@/context/AuthContext';
@@ -14,7 +14,7 @@ import Card            from '@/components/ui/Card';
 import Input           from '@/components/ui/Input';
 import Button          from '@/components/ui/Button';
 import SegmentedControl from '@/components/ui/SegmentedControl';
-import type { CostingMode } from '@/types';
+import type { CostingMode, TenantBillingProfile } from '@/types';
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -27,6 +27,8 @@ interface MeResponse {
   };
   tenant: {
     id: string; name: string; slug: string; plan: string;
+    taxId?:               string | null;
+    settings?:            { billing?: TenantBillingProfile } | null;
     plannedCapacityHours: number;
     targetMarginPct:      string | number;
     costingMode:          CostingMode;
@@ -385,6 +387,153 @@ function CapacitySection({
 }
 
 // ---------------------------------------------------------------------------
+// Sección: Facturación (datos legales del autónomo + IBAN)
+// ---------------------------------------------------------------------------
+
+function BillingSection({
+  initialTaxId, initialBilling,
+}: {
+  initialTaxId:   string;
+  initialBilling: TenantBillingProfile;
+}) {
+  const { toast } = useToast();
+  const [taxId,      setTaxId]      = useState(initialTaxId ?? '');
+  const [fullName,   setFullName]   = useState(initialBilling.fullName   ?? '');
+  const [address,    setAddress]    = useState(initialBilling.address    ?? '');
+  const [postalCode, setPostalCode] = useState(initialBilling.postalCode ?? '');
+  const [city,       setCity]       = useState(initialBilling.city       ?? '');
+  const [country,    setCountry]    = useState(initialBilling.country    ?? 'España');
+  const [email,      setEmail]      = useState(initialBilling.email      ?? '');
+  const [phone,      setPhone]      = useState(initialBilling.phone      ?? '');
+  const [iban,       setIban]       = useState(initialBilling.iban       ?? '');
+  const [saving,     setSaving]     = useState(false);
+
+  useEffect(() => { setTaxId(initialTaxId ?? ''); }, [initialTaxId]);
+  useEffect(() => {
+    setFullName(initialBilling.fullName     ?? '');
+    setAddress(initialBilling.address       ?? '');
+    setPostalCode(initialBilling.postalCode ?? '');
+    setCity(initialBilling.city             ?? '');
+    setCountry(initialBilling.country       ?? 'España');
+    setEmail(initialBilling.email           ?? '');
+    setPhone(initialBilling.phone           ?? '');
+    setIban(initialBilling.iban             ?? '');
+  }, [initialBilling]);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.patch('/v1/me/tenant', {
+        taxId: taxId.trim() || null,
+        billing: {
+          fullName:   fullName.trim()   || null,
+          address:    address.trim()    || null,
+          postalCode: postalCode.trim() || null,
+          city:       city.trim()       || null,
+          country:    country.trim()    || null,
+          email:      email.trim()      || null,
+          phone:      phone.trim()      || null,
+          iban:       iban.trim()       || null,
+        },
+      });
+      toast('success', 'Datos de facturación guardados');
+    } catch (err: unknown) {
+      toast('error', err instanceof Error ? err.message : 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div id="facturacion">
+      <SectionCard
+        icon={<FileText className="w-4 h-4" />}
+        title="Facturación"
+        accentColor="#0A84FF"
+        accentBg="rgba(10,132,255,0.10)"
+      >
+        <p className="text-[12.5px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+          Datos legales que aparecerán en el PDF de tus facturas. Sin esto el
+          documento es generado igual pero no es válido fiscalmente.
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Nombre completo o razón social"
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Manuel Laguna Prieto"
+            />
+            <Input
+              label="NIF / CIF"
+              type="text"
+              value={taxId}
+              onChange={(e) => setTaxId(e.target.value)}
+              placeholder="X1234567Z"
+            />
+          </div>
+          <Input
+            label="Dirección"
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Calle, número, piso"
+          />
+          <div className="grid grid-cols-3 gap-3">
+            <Input
+              label="Código postal"
+              type="text"
+              value={postalCode}
+              onChange={(e) => setPostalCode(e.target.value)}
+            />
+            <Input
+              label="Ciudad"
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+            />
+            <Input
+              label="País"
+              type="text"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Email facturación"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="facturas@ejemplo.com"
+            />
+            <Input
+              label="Teléfono"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </div>
+          <Input
+            label="IBAN (cuenta para cobros)"
+            type="text"
+            value={iban}
+            onChange={(e) => setIban(e.target.value)}
+            placeholder="ES12 3456 7890 1234 5678 9012"
+            hint="Aparecerá al pie del PDF si lo rellenas."
+          />
+          <div className="flex justify-end pt-2">
+            <Button type="submit" variant="primary" loading={saving}>Guardar</Button>
+          </div>
+        </form>
+      </SectionCard>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Sección: Perfil
 // ---------------------------------------------------------------------------
 
@@ -633,6 +782,12 @@ export default function SettingsPage() {
           )}
           initialMode={meData?.tenant.costingMode ?? 'ABSORPTION'}
           initialMinHours={meData?.tenant.reliabilityMinHours ?? 5}
+        />
+
+        {/* Facturación */}
+        <BillingSection
+          initialTaxId={meData?.tenant.taxId ?? ''}
+          initialBilling={meData?.tenant.settings?.billing ?? {}}
         />
 
         {/* Perfil */}

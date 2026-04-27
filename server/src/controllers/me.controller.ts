@@ -35,7 +35,9 @@ export async function getMe(req: Request, res: Response) {
       id:                   true,
       name:                 true,
       slug:                 true,
+      taxId:                true,
       plan:                 true,
+      settings:             true,
       plannedCapacityHours: true,
       targetMarginPct:      true,
       costingMode:          true,
@@ -58,22 +60,38 @@ export async function updateTenant(req: Request, res: Response) {
     costingMode,
     reliabilityMinHours,
     name,
+    taxId,
+    billing,
   } = req.body;
+
+  // Merge de settings: solo sobreescribimos `billing` cuando viene en el body.
+  let mergedSettings: any | undefined;
+  if (billing !== undefined) {
+    const current = await prisma.tenant.findUnique({
+      where: { id: tenantId }, select: { settings: true },
+    });
+    const settings = (current?.settings ?? {}) as Record<string, any>;
+    mergedSettings = { ...settings, billing: { ...(settings.billing ?? {}), ...billing } };
+  }
 
   const updated = await prisma.tenant.update({
     where: { id: tenantId },
     data: {
       ...(name                 !== undefined && { name }),
+      ...(taxId                !== undefined && { taxId }),
       ...(plannedCapacityHours !== undefined && { plannedCapacityHours }),
       ...(targetMarginPct      !== undefined && { targetMarginPct }),
       ...(costingMode          !== undefined && { costingMode }),
       ...(reliabilityMinHours  !== undefined && { reliabilityMinHours }),
+      ...(mergedSettings       !== undefined && { settings: mergedSettings }),
     },
     select: {
       id:                   true,
       name:                 true,
       slug:                 true,
+      taxId:                true,
       plan:                 true,
+      settings:             true,
       plannedCapacityHours: true,
       targetMarginPct:      true,
       costingMode:          true,

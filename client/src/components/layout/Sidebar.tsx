@@ -11,6 +11,7 @@ import {
   Clock,
   Wallet,
   Receipt,
+  FileText,
   TrendingDown,
   BarChart3,
   Settings,
@@ -49,6 +50,7 @@ const catalogNav: NavItem[] = [
 
 const costsNav: NavItem[] = [
   { label: 'Cobros',           path: '/cobros',            icon: Wallet       },
+  { label: 'Facturas',         path: '/facturas',          icon: FileText     },
   { label: 'Costes fijos',     path: '/costes-fijos',      icon: Receipt      },
   { label: 'Costes variables', path: '/costes-variables',  icon: TrendingDown },
 ];

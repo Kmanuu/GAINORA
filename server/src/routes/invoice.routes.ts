@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   listInvoices, getInvoice, createInvoice, createInvoiceFromPayment,
-  updateInvoice, issueInvoice, voidInvoice, deleteInvoice,
+  updateInvoice, issueInvoice, voidInvoice, deleteInvoice, getInvoicePdf,
   listSeries, createSeries, updateSeries,
 } from "../controllers/invoice.controller.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -63,6 +63,7 @@ router.get("/",                            listInvoices);
 router.post("/",                           validate(createSchema), createInvoice);
 router.post("/from-payment/:paymentId",    createInvoiceFromPayment);
 router.get("/:id",                         getInvoice);
+router.get("/:id/pdf",                     getInvoicePdf);
 router.patch("/:id",                       validate(updateSchema), updateInvoice);
 router.post("/:id/issue",                  issueInvoice);
 router.post("/:id/void",                   voidInvoice);

@@ -243,6 +243,74 @@ export interface Payment {
   };
 }
 
+// --- Facturación ------------------------------------------------------------
+
+export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'VOIDED';
+
+export interface InvoiceSeries {
+  id:         string;
+  tenantId:   string;
+  code:       string;
+  name:       string;
+  nextNumber: number;
+  isDefault:  boolean;
+  createdAt:  string;
+  updatedAt:  string;
+}
+
+export interface InvoiceLine {
+  id:          string;
+  invoiceId:   string;
+  description: string;
+  quantity:    string;
+  unitPrice:   string;
+  vatRate:     string;
+  irpfRate:    string;
+  discount:    string;
+  lineNet:     string;
+  lineGross:   string;
+  position:    number;
+}
+
+export interface Invoice {
+  id:                  string;
+  tenantId:            string;
+  seriesId:            string;
+  number:              number | null;
+  status:              InvoiceStatus;
+  issueDate:           string;
+  dueDate:             string | null;
+  contractId:          string | null;
+  clientId:            string;
+  paymentId:           string | null;
+  rectifiesInvoiceId:  string | null;
+  subtotalNet:         string;
+  totalVat:            string;
+  totalIrpf:           string;
+  totalGross:          string;
+  notes:               string | null;
+  createdAt:           string;
+  updatedAt:           string;
+  series?:             { id?: string; code: string; name: string };
+  client?:             { id: string; name: string; taxId: string | null };
+  contract?:           { id: string } | null;
+  payment?:            { id: string; periodStart: string; periodEnd: string } | null;
+  rectifies?:          { id: string; number: number | null; series: { code: string } } | null;
+  lines?:              InvoiceLine[];
+  _count?:             { lines: number };
+}
+
+export interface TenantBillingProfile {
+  fullName?:   string | null;
+  address?:    string | null;
+  postalCode?: string | null;
+  city?:       string | null;
+  country?:    string | null;
+  email?:      string | null;
+  phone?:      string | null;
+  iban?:       string | null;
+}
+
 // --- Inconvenientes (Issues) -----------------------------------------------
 
 export interface Issue {

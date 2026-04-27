@@ -13,6 +13,7 @@ import Button     from '@/components/ui/Button';
 import Modal      from '@/components/ui/Modal';
 import Input      from '@/components/ui/Input';
 import DatePicker from '@/components/ui/DatePicker';
+import Toggle     from '@/components/ui/Toggle';
 import { useToast } from '@/components/ui/Toast';
 
 interface Props {
@@ -23,25 +24,42 @@ interface Props {
 
 export default function PaymentMarkModal({ payment, onClose, onSuccess }: Props) {
   const { toast } = useToast();
-  const [amountPaid, setAmountPaid] = useState('');
-  const [paidAt,     setPaidAt]     = useState('');
-  const [saving,     setSaving]     = useState(false);
+  const [amountPaid,    setAmountPaid]    = useState('');
+  const [paidAt,        setPaidAt]        = useState('');
+  const [generateInvoice, setGenerateInvoice] = useState(true);
+  const [saving,        setSaving]        = useState(false);
 
   useEffect(() => {
     if (!payment) return;
     setAmountPaid(payment.amountPaid ?? payment.amountDue);
     setPaidAt(payment.paidAt ? payment.paidAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
+    setGenerateInvoice(true);
   }, [payment]);
 
   async function handleSave() {
     if (!payment) return;
+    const paid = parseFloat(amountPaid);
+    const due  = toNum(payment.amountDue);
     setSaving(true);
     try {
       await api.patch(`/v1/payments/${payment.id}`, {
-        amountPaid: parseFloat(amountPaid),
+        amountPaid: paid,
         paidAt:     paidAt || null,
       });
-      toast('success', 'Pago actualizado');
+      // Si está totalmente pagado y el usuario lo eligió, generar factura.
+      const willBeFullyPaid = paid + 0.001 >= due;
+      if (generateInvoice && willBeFullyPaid) {
+        try {
+          await api.post(`/v1/invoices/from-payment/${payment.id}`, {});
+          toast('success', 'Pago registrado y factura generada');
+        } catch (invErr: unknown) {
+          // No bloqueamos el flujo si la factura falla (p.ej. ya tenía una).
+          const msg = invErr instanceof Error ? invErr.message : 'Error desconocido';
+          toast('info', `Pago guardado. Factura no generada: ${msg}`);
+        }
+      } else {
+        toast('success', 'Pago actualizado');
+      }
       onSuccess();
       onClose();
     } catch (e: unknown) {
@@ -93,6 +111,15 @@ export default function PaymentMarkModal({ payment, onClose, onSuccess }: Props)
           value={paidAt}
           onChange={setPaidAt}
         />
+        <Toggle
+          checked={generateInvoice}
+          onChange={setGenerateInvoice}
+          label="Generar factura al marcar como pagado"
+        />
+        <p className="text-[11.5px] text-[var(--color-text-tertiary)] -mt-1.5 leading-relaxed">
+          Solo si el importe cubre el total. La factura se emite con número
+          correlativo de tu serie por defecto.
+        </p>
       </div>
     </Modal>
   );

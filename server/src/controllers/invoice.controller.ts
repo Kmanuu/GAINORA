@@ -15,6 +15,7 @@ import { Request, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { round2 } from "../services/paymentMath.js";
+import { generateInvoicePdf } from "../services/invoicePdf.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -462,6 +463,78 @@ export async function deleteInvoice(req: Request, res: Response) {
   }
   await prisma.invoice.delete({ where: { id: id as string } });
   res.status(204).send();
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/v1/invoices/:id/pdf
+// ---------------------------------------------------------------------------
+export async function getInvoicePdf(req: Request, res: Response) {
+  const tenantId = req.user!.tenantId;
+  const { id } = req.params;
+
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: id as string, tenantId },
+    include: {
+      series:    { select: { code: true, name: true } },
+      client:    { select: { name: true, taxId: true } },
+      rectifies: { select: { number: true, series: { select: { code: true } } } },
+      lines:     { orderBy: { position: "asc" } },
+    },
+  });
+  if (!invoice) throw new AppError(404, "Factura no encontrada");
+
+  const tenant = await prisma.tenant.findUnique({
+    where:  { id: tenantId },
+    select: { name: true, taxId: true, settings: true },
+  });
+  const settings = (tenant?.settings ?? {}) as Record<string, any>;
+  const billing  = (settings.billing ?? {}) as Record<string, any>;
+
+  const pdf = await generateInvoicePdf(
+    {
+      number:      invoice.number,
+      status:      invoice.status,
+      issueDate:   invoice.issueDate,
+      dueDate:     invoice.dueDate,
+      series:      invoice.series,
+      client:      invoice.client,
+      notes:       invoice.notes,
+      subtotalNet: Number(invoice.subtotalNet),
+      totalVat:    Number(invoice.totalVat),
+      totalIrpf:   Number(invoice.totalIrpf),
+      totalGross:  Number(invoice.totalGross),
+      lines:       invoice.lines.map((l) => ({
+        description: l.description,
+        quantity:    Number(l.quantity),
+        unitPrice:   Number(l.unitPrice),
+        vatRate:     Number(l.vatRate),
+        irpfRate:    Number(l.irpfRate),
+        discount:    Number(l.discount),
+        lineNet:     Number(l.lineNet),
+        lineGross:   Number(l.lineGross),
+      })),
+      rectifies:   invoice.rectifies,
+    },
+    {
+      tenantName: tenant?.name ?? "—",
+      taxId:      tenant?.taxId ?? null,
+      fullName:   billing.fullName  ?? null,
+      address:    billing.address   ?? null,
+      postalCode: billing.postalCode ?? null,
+      city:       billing.city      ?? null,
+      country:    billing.country   ?? "España",
+      email:      billing.email     ?? null,
+      phone:      billing.phone     ?? null,
+      iban:       billing.iban      ?? null,
+    },
+  );
+
+  const fileName = invoice.number != null
+    ? `factura-${invoice.series.code}-${invoice.number}.pdf`
+    : `factura-borrador-${invoice.id.slice(0, 8)}.pdf`;
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+  res.send(pdf);
 }
 
 // ---------------------------------------------------------------------------

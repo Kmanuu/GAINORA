@@ -20,12 +20,25 @@ const changePasswordSchema = z.object({
   newPassword:     z.string().min(8),
 });
 
+const billingProfileSchema = z.object({
+  fullName:   z.string().nullish(),
+  address:    z.string().nullish(),
+  postalCode: z.string().nullish(),
+  city:       z.string().nullish(),
+  country:    z.string().nullish(),
+  email:      z.string().nullish(),
+  phone:      z.string().nullish(),
+  iban:       z.string().nullish(),
+}).partial();
+
 const updateTenantSchema = z.object({
   name:                 z.string().min(2).optional(),
+  taxId:                z.string().nullish(),
   plannedCapacityHours: z.number().int().min(1).max(2000).optional(),
   targetMarginPct:      z.number().min(0).max(500).optional(),
   costingMode:          z.enum(["ABSORPTION", "CONTRIBUTION"]).optional(),
   reliabilityMinHours:  z.number().int().min(0).max(1000).optional(),
+  billing:              billingProfileSchema.optional(),
 });
 
 router.get(  "/",          requireAuth, getMe);

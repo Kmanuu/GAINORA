@@ -156,4 +156,17 @@ export const api = {
 
   delete: (path: string) =>
     apiFetch(path, { method: 'DELETE' }),
+
+  /** Descarga un blob (p.ej. PDF) con auth. Devuelve Blob. */
+  async blob(path: string): Promise<Blob> {
+    const token = getAccessToken();
+    const res = await fetch(`${BASE_URL}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: res.statusText }));
+      throw new ApiError(body.error || `HTTP ${res.status}`, res.status, body.code);
+    }
+    return res.blob();
+  },
 };
