@@ -27,7 +27,7 @@ import { useToast }   from '@/components/ui/Toast';
 // ---------------------------------------------------------------------------
 
 export const TIER_LABEL: Record<ContractTier, string> = {
-  FREE: 'Free', PRO: 'Pro', MAX: 'Max',
+  FREE: 'Básico', PRO: 'Pro', MAX: 'Élite',
 };
 export const TIER_BADGE: Record<ContractTier, 'gray' | 'blue' | 'purple'> = {
   FREE: 'gray', PRO: 'blue', MAX: 'purple',
@@ -47,7 +47,7 @@ export const STATUS_BADGE: Record<ContractStatus, 'green' | 'orange' | 'red'> = 
   ACTIVE: 'green', PAUSED: 'orange', CANCELLED: 'red',
 };
 
-const TIER_OPTIONS    = [{ value: 'FREE', label: 'Free' }, { value: 'PRO', label: 'Pro' }, { value: 'MAX', label: 'Max' }];
+const TIER_OPTIONS    = [{ value: 'FREE', label: 'Básico' }, { value: 'PRO', label: 'Pro' }, { value: 'MAX', label: 'Élite' }];
 const BILLING_OPTIONS = [
   { value: 'SUBSCRIPTION', label: 'Suscripción (cuota recurrente)' },
   { value: 'FIXED',        label: 'Precio cerrado' },

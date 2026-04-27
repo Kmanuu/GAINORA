@@ -11,7 +11,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, AlertCircle, RefreshCw, Pencil, Wallet, Receipt,
   Repeat, CheckCircle2, Calendar, Building2, FolderKanban,
-  AlertOctagon,
+  AlertOctagon, RotateCw,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { api } from '@/lib/api';
@@ -30,6 +30,7 @@ import {
 } from '@/components/contracts/ContractsTab';
 import IssuesPanel       from '@/components/contracts/IssuesPanel';
 import PaymentMarkModal  from '@/components/payments/PaymentMarkModal';
+import ContractEditModal from '@/components/contracts/ContractEditModal';
 
 // ---------------------------------------------------------------------------
 // Constantes visuales para Payment.status
@@ -59,6 +60,7 @@ export default function ContractDetailPage() {
   const [error,    setError]    = useState('');
   const [tab,      setTab]      = useState<Tab>('pagos');
   const [markTarget, setMarkTarget] = useState<Payment | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
 
   const load = useCallback((silent = false) => {
     if (!id) return;
@@ -217,7 +219,7 @@ export default function ContractDetailPage() {
             <Button
               variant="secondary" size="sm"
               icon={<Pencil className="w-3.5 h-3.5" strokeWidth={2} />}
-              onClick={() => toast('success', 'Edición avanzada disponible próximamente')}
+              onClick={() => setEditOpen(true)}
             >
               Editar
             </Button>
@@ -295,7 +297,21 @@ export default function ContractDetailPage() {
             ) : (
               <div className="space-y-2">
                 {payments.map((p, i) => (
-                  <PaymentRow key={p.id} payment={p} index={i} onMark={() => setMarkTarget(p)} />
+                  <PaymentRow
+                    key={p.id}
+                    payment={p}
+                    index={i}
+                    onMark={() => setMarkTarget(p)}
+                    onRegenerate={async () => {
+                      try {
+                        await api.post(`/v1/payments/${p.id}/regenerate`, {});
+                        toast('success', 'Pago regenerado con el precio actual');
+                        load(true);
+                      } catch (e: unknown) {
+                        toast('error', e instanceof Error ? e.message : 'Error al regenerar');
+                      }
+                    }}
+                  />
                 ))}
               </div>
             )}
@@ -319,6 +335,13 @@ export default function ContractDetailPage() {
         payment={markTarget}
         onClose={() => setMarkTarget(null)}
         onSuccess={() => load(true)}
+      />
+
+      <ContractEditModal
+        contract={contract}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSaved={() => { setEditOpen(false); load(true); }}
       />
     </div>
   );
@@ -369,12 +392,13 @@ function KpiCardSimple({ icon, label, value, hint, color }: {
 // PaymentRow
 // ---------------------------------------------------------------------------
 
-function PaymentRow({ payment, index, onMark }: {
-  payment: Payment; index: number; onMark: () => void;
+function PaymentRow({ payment, index, onMark, onRegenerate }: {
+  payment: Payment; index: number; onMark: () => void; onRegenerate: () => void;
 }) {
   const due  = toNum(payment.amountDue);
   const paid = toNum(payment.amountPaid);
   const isPaid = payment.status === 'PAID';
+  const isPending = payment.status === 'PENDING';
   const pct  = due > 0 ? Math.min(100, (paid / due) * 100) : 0;
 
   return (
@@ -421,9 +445,22 @@ function PaymentRow({ payment, index, onMark }: {
           </div>
         </div>
 
-        {!isPaid && (
-          <Button variant="ghost" size="sm" onClick={onMark}>Cobrar</Button>
-        )}
+        <div className="flex items-center gap-1.5">
+          {isPending && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<RotateCw className="w-3.5 h-3.5" strokeWidth={2} />}
+              onClick={onRegenerate}
+              title="Recalcular el importe con el precio actual del contrato"
+            >
+              <span className="hidden sm:inline">Regenerar</span>
+            </Button>
+          )}
+          {!isPaid && (
+            <Button variant="ghost" size="sm" onClick={onMark}>Cobrar</Button>
+          )}
+        </div>
       </div>
     </Card>
   );
