@@ -9,7 +9,7 @@ export async function listClients(req: Request, res: Response) {
     where: { tenantId },
     orderBy: { createdAt: "desc" },
     include: {
-      _count: { select: { contracts: true } },
+      _count: { select: { contracts: { where: { status: "ACTIVE" } } } },
     },
   });
 

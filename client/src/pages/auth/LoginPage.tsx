@@ -110,6 +110,7 @@ export default function LoginPage() {
                   onChange={handleChange('email')}
                   autoComplete="email"
                   inputMode="email"
+                  autoFocus
                   className="bg-white/5 border-white/10 text-white placeholder:text-white/20"
                 />
               </div>

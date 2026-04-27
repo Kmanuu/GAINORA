@@ -6,8 +6,9 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Target, Building2, User, Mail, Lock, Hash, Check } from 'lucide-react';
 import clsx from 'clsx';
-import { useAuth }   from '@/context/AuthContext';
-import { useToast }  from '@/components/ui/Toast';
+import { useAuth }       from '@/context/AuthContext';
+import { useOnboarding } from '@/context/OnboardingContext';
+import { useToast }      from '@/components/ui/Toast';
 import Button from '@/components/ui/Button';
 import Input  from '@/components/ui/Input';
 
@@ -36,6 +37,7 @@ function slugify(str: string) {
 export default function RegisterPage() {
   const navigate     = useNavigate();
   const { register } = useAuth();
+  const { open }     = useOnboarding();
   const { toast }    = useToast();
 
   const [form, setForm] = useState<FormState>({
@@ -104,9 +106,12 @@ export default function RegisterPage() {
         email:      form.email,
         password:   form.password,
       });
-      // Cuenta nueva en este navegador: limpiar el flag para que el
-      // wizard de bienvenida se autoabra al aterrizar en /dashboard.
+      // Cuenta nueva: limpiar flag y abrir el wizard explícitamente.
+      // El effect de OnboardingProvider solo corre una vez al montar la
+      // app, así que confiar en él tras un register no funciona —
+      // forzamos open() para que el tour se vea al aterrizar en /dashboard.
       localStorage.removeItem('hp_onboarding_done');
+      open('main');
       toast('success', 'Cuenta creada correctamente. Bienvenido a HorasPRO.');
       navigate('/dashboard');
     } catch (err: unknown) {

@@ -31,6 +31,26 @@ export class ApiError extends Error {
 function getAccessToken()  { return localStorage.getItem('accessToken'); }
 function getRefreshToken() { return localStorage.getItem('refreshToken'); }
 
+// Decodifica el payload de un JWT sin verificar firma (solo lectura local).
+// Devuelve null si el token no es parseable.
+function decodeJwtPayload(token: string): { exp?: number } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const json = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+// True si el token expira en los próximos `skewSeconds` segundos.
+function isTokenExpiring(token: string, skewSeconds = 15): boolean {
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return false;
+  return payload.exp * 1000 < Date.now() + skewSeconds * 1000;
+}
+
 function saveTokens(accessToken: string, refreshToken: string) {
   localStorage.setItem('accessToken',  accessToken);
   localStorage.setItem('refreshToken', refreshToken);
@@ -93,7 +113,20 @@ export async function apiFetch<T = unknown>(
   options: RequestInit = {},
   _retry = true,   // flag interno para evitar bucle infinito
 ): Promise<T> {
-  const token = getAccessToken();
+  let token = getAccessToken();
+
+  // Refresh proactivo: si el access token ya está expirado o a punto de
+  // expirar, refrescar antes de mandar la petición. Evita el 401 visible
+  // en consola que aparecía cada vez que se reabría la app con token
+  // caducado en localStorage.
+  if (token && isTokenExpiring(token) && getRefreshToken() && _retry) {
+    try {
+      token = await doRefresh();
+    } catch {
+      // doRefresh ya redirigió a /login si el refresh token también caducó.
+      throw new ApiError('Sesión expirada', 401);
+    }
+  }
 
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
