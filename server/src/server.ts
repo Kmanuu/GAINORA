@@ -15,6 +15,7 @@ import contractRoutes from "./routes/contract.routes.js";
 import issueRoutes from "./routes/issue.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import planRoutes from "./routes/plan.routes.js";
+import { startRollPaymentsCron } from "./jobs/rollPaymentsCron.js";
 
 const app = express();
 
@@ -44,4 +45,5 @@ app.use(errorHandler);
 
 app.listen(env.PORT, () => {
   console.log(`HorasPRO API running on http://localhost:${env.PORT}`);
+  startRollPaymentsCron();
 });

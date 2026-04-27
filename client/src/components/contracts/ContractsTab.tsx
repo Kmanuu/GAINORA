@@ -59,19 +59,30 @@ const BILLING_OPTIONS = [
 // Form
 // ---------------------------------------------------------------------------
 
+type BillingFrequency = 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+
+const FREQUENCY_OPTIONS = [
+  { value: 'MONTHLY',   label: 'Mensual'    },
+  { value: 'QUARTERLY', label: 'Trimestral' },
+  { value: 'YEARLY',    label: 'Anual'      },
+];
+
 interface ContractFormState {
-  clientId:    string;
-  planId:      string;
-  tier:        ContractTier;
-  billingMode: ExtendedBillingMode;
-  price:       string;
-  setupFee:    string;
-  startedAt:   string;
+  clientId:         string;
+  planId:           string;
+  tier:             ContractTier;
+  billingMode:      ExtendedBillingMode;
+  price:            string;
+  setupFee:         string;
+  billingFrequency: BillingFrequency;
+  billingDay:       string;
+  startedAt:        string;
 }
 
 const EMPTY_FORM: ContractFormState = {
   clientId: '', planId: '', tier: 'PRO', billingMode: 'SUBSCRIPTION',
-  price: '', setupFee: '', startedAt: new Date().toISOString().slice(0, 10),
+  price: '', setupFee: '', billingFrequency: 'MONTHLY', billingDay: '1',
+  startedAt: new Date().toISOString().slice(0, 10),
 };
 
 // ---------------------------------------------------------------------------
@@ -144,15 +155,18 @@ export default function ContractsTab({
     setSaving(true);
     setFormError('');
     try {
+      const isSubscription = form.billingMode === 'SUBSCRIPTION';
       await api.post<Contract>('/v1/contracts', {
         projectId,
-        clientId:    form.clientId,
-        planId:      form.planId || null,
-        tier:        form.tier,
-        billingMode: form.billingMode,
-        price:       parseFloat(form.price),
-        setupFee:    form.setupFee ? parseFloat(form.setupFee) : null,
-        startedAt:   form.startedAt,
+        clientId:         form.clientId,
+        planId:           form.planId || null,
+        tier:             form.tier,
+        billingMode:      form.billingMode,
+        price:            parseFloat(form.price),
+        setupFee:         form.setupFee ? parseFloat(form.setupFee) : null,
+        billingFrequency: isSubscription ? form.billingFrequency : undefined,
+        billingDay:       isSubscription && form.billingDay ? parseInt(form.billingDay, 10) : null,
+        startedAt:        form.startedAt,
       });
       toast('success', 'Contrato creado');
       setModalOpen(false);
@@ -289,6 +303,26 @@ export default function ContractsTab({
               hint="One-shot al iniciar"
             />
           </div>
+
+          {form.billingMode === 'SUBSCRIPTION' && (
+            <div className="grid grid-cols-2 gap-3">
+              <Select
+                label="Frecuencia de cobro"
+                value={form.billingFrequency}
+                onChange={(e) => setForm((p) => ({ ...p, billingFrequency: e.target.value as BillingFrequency }))}
+                options={FREQUENCY_OPTIONS}
+              />
+              <Input
+                label="Día de cobro"
+                type="number"
+                value={form.billingDay}
+                onChange={(e) => setForm((p) => ({ ...p, billingDay: e.target.value }))}
+                min="1"
+                max="28"
+                hint="Día del mes en que se emite la cuota (1–28)."
+              />
+            </div>
+          )}
 
           <DatePicker
             label="Fecha de inicio *"

@@ -186,6 +186,7 @@ export interface Contract {
   maintenanceExtraPct:    string | null;
   maintenanceFixedAmount: string | null;
   billingDay:             number | null;
+  billingFrequency:       'MONTHLY' | 'QUARTERLY' | 'YEARLY';
   priceIncludesVat:       boolean;
   vatRate:                string;
   status:                 ContractStatus;

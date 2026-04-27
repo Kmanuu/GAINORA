@@ -7,6 +7,7 @@ import {
   updatePayment,
   deletePayment,
   rollPayments,
+  regeneratePayment,
 } from "../controllers/payment.controller.js";
 import { requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
@@ -48,11 +49,12 @@ const updatePaymentSchema = z.object({
   notes:       z.string().nullish(),
 });
 
-router.get("/",      listPayments);
-router.post("/roll", rollPayments);
-router.post("/",     validate(createPaymentSchema), createPayment);
-router.get("/:id",   getPayment);
-router.patch("/:id", validate(updatePaymentSchema), updatePayment);
-router.delete("/:id", deletePayment);
+router.get("/",                   listPayments);
+router.post("/roll",              rollPayments);
+router.post("/:id/regenerate",    regeneratePayment);
+router.post("/",                  validate(createPaymentSchema), createPayment);
+router.get("/:id",                getPayment);
+router.patch("/:id",              validate(updatePaymentSchema), updatePayment);
+router.delete("/:id",             deletePayment);
 
 export default router;

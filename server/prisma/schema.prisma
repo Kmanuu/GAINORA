@@ -137,6 +137,7 @@ model Contract {
   maintenanceExtraPct    Decimal?        @map("maintenance_extra_pct") @db.Decimal(5, 2)
   maintenanceFixedAmount Decimal?        @map("maintenance_fixed_amount") @db.Decimal(12, 2)
   billingDay             Int?            @map("billing_day")
+  billingFrequency       Freq            @default(MONTHLY) @map("billing_frequency")
   priceIncludesVat       Boolean         @default(false) @map("price_includes_vat")
   vatRate                Decimal         @default(21) @map("vat_rate") @db.Decimal(5, 2)
   status                 ContractStatus  @default(ACTIVE)

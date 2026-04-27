@@ -6,6 +6,9 @@ import {
   breakdownFromContractPrice,
   deriveStatus,
   round2,
+  getMissingPeriods,
+  prorationFactor,
+  type BillingFrequency,
 } from "../services/paymentMath.js";
 
 // ---------------------------------------------------------------------------
@@ -211,57 +214,135 @@ export async function deletePayment(req: Request, res: Response) {
 // Genera Payments PENDING del mes actual para cada suscripción activa que
 // aún no tenga pago en ese periodo. Calcula el desglose IVA desde el contrato.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// POST /api/v1/payments/roll
+// ---------------------------------------------------------------------------
+// Backfill: para cada suscripción activa, genera todos los Payments de
+// periodos faltantes desde startedAt hasta hoy (o endedAt). Respeta la
+// frecuencia (MONTHLY/QUARTERLY/YEARLY) y aplica prorrateo en primer y
+// último periodo si el contrato no cubre el periodo entero.
+//
+// Idempotente: el @@unique([contractId, periodStart]) bloquea duplicados,
+// así que volver a pulsar solo crea los que falten.
+// ---------------------------------------------------------------------------
 export async function rollPayments(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
+  const result = await runRollForTenant(tenantId);
+  res.json({ success: true, ...result });
+}
+
+/**
+ * Ejecuta rollPayments para un tenant concreto. Reutilizable desde el cron
+ * (rollPaymentsCron.ts) sin pasar por la capa HTTP.
+ */
+export async function runRollForTenant(tenantId: string): Promise<{
+  created:                  number;
+  skipped:                  number;
+  totalActiveSubscriptions: number;
+  backfilledPeriods:        number;
+}> {
   const now = new Date();
-  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const periodEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
   const subscriptions = await prisma.contract.findMany({
     where: {
       tenantId,
       billingMode: "SUBSCRIPTION",
       status:      "ACTIVE",
-      startedAt:   { lte: periodEnd },
-      OR: [{ endedAt: null }, { endedAt: { gte: periodStart } }],
     },
   });
 
   let created = 0;
   let skipped = 0;
+  let backfilledPeriods = 0;
 
   for (const contract of subscriptions) {
-    const breakdown = breakdownFromContractPrice(
-      Number(contract.price),
-      Number(contract.vatRate ?? 21),
-      contract.priceIncludesVat,
+    const periods = getMissingPeriods(
+      contract.startedAt,
+      contract.endedAt ?? null,
+      (contract.billingFrequency ?? "MONTHLY") as BillingFrequency,
+      now,
     );
-    try {
-      await prisma.payment.create({
-        data: {
-          tenantId,
-          contractId:  contract.id,
-          periodStart,
-          periodEnd,
-          amountNet:   breakdown.amountNet,
-          vatRate:     Number(contract.vatRate ?? 21),
-          amountGross: breakdown.amountGross,
-          amountDue:   breakdown.amountGross,
-          amountPaid:  0,
-          status:      "PENDING",
-        },
-      });
-      created++;
-    } catch {
-      skipped++; // Ya existe por @@unique([contractId, periodStart])
+
+    if (periods.length > 1) backfilledPeriods += periods.length - 1;
+
+    const vatRate = Number(contract.vatRate ?? 21);
+    const price   = Number(contract.price);
+
+    for (const p of periods) {
+      const base = breakdownFromContractPrice(price, vatRate, contract.priceIncludesVat);
+      const amountNet   = round2(base.amountNet   * p.prorationFactor);
+      const amountGross = round2(base.amountGross * p.prorationFactor);
+      try {
+        await prisma.payment.create({
+          data: {
+            tenantId,
+            contractId:  contract.id,
+            periodStart: p.periodStart,
+            periodEnd:   p.periodEnd,
+            amountNet,
+            vatRate,
+            amountGross,
+            amountDue:   amountGross,
+            amountPaid:  0,
+            status:      "PENDING",
+          },
+        });
+        created++;
+      } catch {
+        skipped++; // ya existe por @@unique([contractId, periodStart])
+      }
     }
   }
 
-  res.json({
-    success: true,
+  return {
     created,
     skipped,
     totalActiveSubscriptions: subscriptions.length,
-    period: { start: periodStart.toISOString(), end: periodEnd.toISOString() },
+    backfilledPeriods,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/payments/:id/regenerate
+// ---------------------------------------------------------------------------
+// Recalcula amountNet/Gross/Due de un Payment PENDING usando el price
+// actual del contrato (útil cuando se editó el precio después de generar
+// el pago). Mantiene periodStart/periodEnd y respeta el factor de
+// prorrateo implícito en el periodo (calculado desde el contrato vigente).
+// ---------------------------------------------------------------------------
+export async function regeneratePayment(req: Request, res: Response) {
+  const tenantId = req.user!.tenantId;
+  const { id } = req.params;
+
+  const payment = await prisma.payment.findUnique({
+    where: { id: id as string, tenantId },
+    include: { contract: true },
   });
+  if (!payment)                       throw new AppError(404, "Pago no encontrado");
+  if (payment.status !== "PENDING")  throw new AppError(409, "Solo puedes regenerar pagos PENDIENTES. Anula y recrea si ya hay cobros.");
+
+  const c = payment.contract;
+  // Recalcular el factor del periodo: si endedAt del contrato cambió tras
+  // crear el payment, el prorrateo del último periodo puede haber variado.
+  const factor = prorationFactor(
+    payment.periodStart, payment.periodEnd, c.startedAt, c.endedAt ?? null,
+  );
+
+  const vatRate = Number(c.vatRate ?? 21);
+  const base = breakdownFromContractPrice(Number(c.price), vatRate, c.priceIncludesVat);
+  const amountNet   = round2(base.amountNet   * factor);
+  const amountGross = round2(base.amountGross * factor);
+
+  const updated = await prisma.payment.update({
+    where: { id: id as string },
+    data:  {
+      amountNet,
+      amountGross,
+      amountDue: amountGross,
+      vatRate,
+      // amountPaid intacto; status seguirá PENDING porque solo regeneramos
+      // si estaba en PENDING.
+    },
+  });
+  res.json(updated);
 }
