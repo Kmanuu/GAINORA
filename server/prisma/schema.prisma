@@ -22,6 +22,8 @@ model Tenant {
   clients               Client[]
   contracts             Contract[]
   fixedCosts            FixedCost[]
+  invoices              Invoice[]
+  invoiceSeries         InvoiceSeries[]
   issues                Issue[]
   payments              Payment[]
   plans                 Plan[]
@@ -87,6 +89,7 @@ model Client {
   updatedAt DateTime   @updatedAt @map("updated_at")
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   contracts Contract[]
+  invoices  Invoice[]  @relation("ClientInvoices")
   projects  Project[]  @relation("ClientProjects")
 
   @@index([tenantId])
@@ -151,6 +154,7 @@ model Contract {
   plan                   Plan?           @relation(fields: [planId], references: [id])
   project                Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tenant                 Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices               Invoice[]
   issues                 Issue[]
   payments               Payment[]
   timeEntries            TimeEntry[]
@@ -203,10 +207,88 @@ model Payment {
   amountDue   Decimal       @map("amount_due") @db.Decimal(12, 2)
   contract    Contract      @relation(fields: [contractId], references: [id], onDelete: Cascade)
   tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices    Invoice[]
 
   @@unique([contractId, periodStart])
   @@index([tenantId, status])
   @@map("payments")
+}
+
+model InvoiceSeries {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  code       String    // "A" general, "R" rectificativas, "F" simplificadas, etc.
+  name       String
+  nextNumber Int       @default(1) @map("next_number")
+  isDefault  Boolean   @default(false) @map("is_default")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices   Invoice[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("invoice_series")
+}
+
+model Invoice {
+  id                  String        @id @default(uuid()) @db.Uuid
+  tenantId            String        @map("tenant_id") @db.Uuid
+  seriesId            String        @map("series_id") @db.Uuid
+  /// number es null mientras Invoice está DRAFT; se asigna atómicamente al
+  /// emitir (issue) consumiendo InvoiceSeries.nextNumber. Una vez emitida,
+  /// el número es inmutable.
+  number              Int?
+  status              InvoiceStatus @default(DRAFT)
+  issueDate           DateTime      @map("issue_date") @db.Date
+  dueDate             DateTime?     @map("due_date") @db.Date
+  contractId          String?       @map("contract_id") @db.Uuid
+  clientId            String        @map("client_id") @db.Uuid
+  paymentId           String?       @map("payment_id") @db.Uuid
+  rectifiesInvoiceId  String?       @map("rectifies_invoice_id") @db.Uuid
+  subtotalNet         Decimal       @default(0) @map("subtotal_net") @db.Decimal(12, 2)
+  totalVat            Decimal       @default(0) @map("total_vat") @db.Decimal(12, 2)
+  totalIrpf           Decimal       @default(0) @map("total_irpf") @db.Decimal(12, 2)
+  totalGross          Decimal       @default(0) @map("total_gross") @db.Decimal(12, 2)
+  notes               String?
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  tenant              Tenant        @relation(fields: [tenantId],   references: [id], onDelete: Cascade)
+  series              InvoiceSeries @relation(fields: [seriesId],   references: [id], onDelete: Restrict)
+  client              Client        @relation("ClientInvoices", fields: [clientId], references: [id], onDelete: Restrict)
+  contract            Contract?     @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  payment             Payment?      @relation(fields: [paymentId],  references: [id], onDelete: SetNull)
+  rectifies           Invoice?      @relation("InvoiceRectifies", fields: [rectifiesInvoiceId], references: [id], onDelete: SetNull)
+  rectifiedBy         Invoice[]     @relation("InvoiceRectifies")
+  lines               InvoiceLine[]
+
+  @@unique([tenantId, seriesId, number])
+  @@index([tenantId, status])
+  @@index([clientId])
+  @@index([contractId])
+  @@index([paymentId])
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id          String   @id @default(uuid()) @db.Uuid
+  invoiceId   String   @map("invoice_id") @db.Uuid
+  description String
+  quantity    Decimal  @default(1) @db.Decimal(12, 4)
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(12, 4)
+  vatRate     Decimal  @default(21) @map("vat_rate") @db.Decimal(5, 2)
+  irpfRate    Decimal  @default(0) @map("irpf_rate") @db.Decimal(5, 2)
+  discount    Decimal  @default(0) @db.Decimal(5, 2)
+  /// Calculados al guardar (no confiar en el cliente).
+  lineNet     Decimal  @map("line_net")   @db.Decimal(12, 2)
+  lineGross   Decimal  @map("line_gross") @db.Decimal(12, 2)
+  position    Int      @default(0)
+
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_lines")
 }
 
 model TimeEntry {
@@ -326,6 +408,13 @@ enum PaymentStatus {
   PENDING
   PARTIAL
   PAID
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  VOIDED
 }
 
 enum CostingMode {
