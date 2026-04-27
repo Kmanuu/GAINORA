@@ -6,7 +6,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAuth } from "../middleware/auth.js";
 import { validate }    from "../middleware/validate.js";
-import { getMe, updateMe, changePassword } from "../controllers/me.controller.js";
+import { getMe, updateMe, changePassword, updateTenant } from "../controllers/me.controller.js";
 
 const router = Router();
 
@@ -20,8 +20,17 @@ const changePasswordSchema = z.object({
   newPassword:     z.string().min(8),
 });
 
+const updateTenantSchema = z.object({
+  name:                 z.string().min(2).optional(),
+  plannedCapacityHours: z.number().int().min(1).max(2000).optional(),
+  targetMarginPct:      z.number().min(0).max(500).optional(),
+  costingMode:          z.enum(["ABSORPTION", "CONTRIBUTION"]).optional(),
+  reliabilityMinHours:  z.number().int().min(0).max(1000).optional(),
+});
+
 router.get(  "/",          requireAuth, getMe);
 router.patch("/",          requireAuth, validate(updateMeSchema),      updateMe);
 router.patch("/password",  requireAuth, validate(changePasswordSchema), changePassword);
+router.patch("/tenant",    requireAuth, validate(updateTenantSchema),  updateTenant);
 
 export default router;

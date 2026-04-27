@@ -261,9 +261,17 @@ export interface Issue {
 
 // --- Dashboard --------------------------------------------------------------
 
+export type CostingMode = 'ABSORPTION' | 'CONTRIBUTION';
+
 export interface BusinessMetrics {
-  realHourlyCost: number;
-  minimumRate:    number;
+  realHourlyCost:    number | null;
+  minimumRate:       number | null;
+  overheadPerHour:   number;
+  directCostPerHour: number;
+  utilizationPct:    number;
+  capacityHours:     number;
+  isReliable:        boolean;
+  unreliableReason:  string | null;
 }
 
 export interface ProjectMetrics {

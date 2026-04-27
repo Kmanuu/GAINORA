@@ -28,14 +28,44 @@ export interface VariableCostInput {
   markupPct?: number | null;
 }
 
+export type CostingMode = "ABSORPTION" | "CONTRIBUTION";
+
 export interface BusinessMetricsInput {
-  totalMonthlyCosts: number;
+  /** Costes fijos del tenant ya extendidos al rango (€). */
+  totalFixedCosts: number;
+  /** Costes directos del rango: mano de obra + piezas de TODOS los contratos (€). */
+  totalDirectCosts: number;
+  /** Horas facturables registradas en el rango. */
   totalBillableHours: number;
+  /** Capacidad planificada del tenant (h/mes). */
+  plannedCapacityHours: number;
+  /** Margen objetivo del tenant (%). */
+  targetMarginPct: number;
+  /** Modo de costeo del tenant. */
+  costingMode: CostingMode;
+  /** Meses cubiertos por el rango (para escalar capacidad). */
+  monthsInRange: number;
+  /** Umbral mínimo de horas para considerar el cálculo fiable. */
+  reliabilityMinHours: number;
 }
 
 export interface BusinessMetricsResult {
-  realHourlyCost: number;
-  minimumRate: number;
+  /** Coste real por hora (overhead + directo). null si no hay datos suficientes. */
+  realHourlyCost: number | null;
+  /** Tarifa mínima recomendada (real * (1 + margen)). null si no hay datos suficientes. */
+  minimumRate: number | null;
+  /** Tasa de absorción de overhead por hora de capacidad. */
+  overheadPerHour: number;
+  /** Coste directo medio por hora facturable (basado en datos del rango). */
+  directCostPerHour: number;
+  /** Utilización: horas facturables / capacidad. */
+  utilizationPct: number;
+  /** Si el cálculo se considera fiable (suficientes datos). */
+  isReliable: boolean;
+  /** Mensaje legible si el cálculo no es fiable. */
+  unreliableReason: string | null;
+  /** Capacidad total del rango (h). */
+  capacityHours: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -268,18 +298,73 @@ export function calculateContractProfitability(
 // Métricas globales del negocio (sin cambios — sigue siendo €/hora y mínima)
 // ---------------------------------------------------------------------------
 
+/**
+ * Calcula la métrica protagonista del dashboard.
+ *
+ * Modelo de absorción (default):
+ *   overheadPerHour    = totalFixedCosts / capacidadTotalDelRango
+ *   directCostPerHour  = totalDirectCosts / horasFacturables (si hay suficientes)
+ *   realHourlyCost     = overheadPerHour + directCostPerHour
+ *   minimumRate        = realHourlyCost * (1 + targetMarginPct/100)
+ *
+ * Si las horas facturadas son inferiores al umbral de fiabilidad,
+ * realHourlyCost y minimumRate devuelven null y se entrega un motivo.
+ * La UI debe mostrar "necesitas X horas para calcular tu tarifa" en
+ * vez de un número engañoso.
+ */
 export function calculateBusinessMetrics(
   data: BusinessMetricsInput,
 ): BusinessMetricsResult {
-  // Evitar cifras astronómicas si se han fichado unos pocos minutos
-  const effectiveHours = Math.max(1, data.totalBillableHours);
+  const months = Math.max(1, data.monthsInRange);
+  const capacityHours = Math.max(0, data.plannedCapacityHours) * months;
 
-  const realHourlyCost = round2(
-    safeDivide(data.totalMonthlyCosts, effectiveHours),
-  );
-  const minimumRate = round2(realHourlyCost * 1.3);
+  // Overhead absorbido por hora de capacidad — estable, no depende de
+  // cuánto se trabajó realmente.
+  const overheadPerHour = capacityHours > 0
+    ? round2(data.totalFixedCosts / capacityHours)
+    : 0;
 
-  return { realHourlyCost, minimumRate };
+  const utilizationPct = capacityHours > 0
+    ? round2((data.totalBillableHours / capacityHours) * 100)
+    : 0;
+
+  const isReliable = data.totalBillableHours >= data.reliabilityMinHours;
+  const unreliableReason = isReliable
+    ? null
+    : `Necesitas al menos ${data.reliabilityMinHours} horas facturables registradas en el rango para calcular tu tarifa real. Actualmente: ${round2(data.totalBillableHours)}h.`;
+
+  // Coste directo / hora — solo significativo con horas suficientes.
+  const directCostPerHour = isReliable
+    ? round2(data.totalDirectCosts / data.totalBillableHours)
+    : 0;
+
+  if (!isReliable) {
+    return {
+      realHourlyCost:    null,
+      minimumRate:       null,
+      overheadPerHour,
+      directCostPerHour: 0,
+      utilizationPct,
+      isReliable:        false,
+      unreliableReason,
+      capacityHours,
+    };
+  }
+
+  const realHourlyCost = round2(overheadPerHour + directCostPerHour);
+  const marginFactor = 1 + (data.targetMarginPct ?? 0) / 100;
+  const minimumRate  = round2(realHourlyCost * marginFactor);
+
+  return {
+    realHourlyCost,
+    minimumRate,
+    overheadPerHour,
+    directCostPerHour,
+    utilizationPct,
+    isReliable:       true,
+    unreliableReason: null,
+    capacityHours,
+  };
 }
 
 // ---------------------------------------------------------------------------

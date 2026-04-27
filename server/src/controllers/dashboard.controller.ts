@@ -343,9 +343,29 @@ export async function getMetrics(req: Request, res: Response, next: NextFunction
       (s, { profitability }) => s + profitability.directCost,
       0,
     );
+
+    // Configuración de coste y capacidad del tenant.
+    const tenant = await prisma.tenant.findUnique({
+      where:  { id: tenantId },
+      select: {
+        plannedCapacityHours: true,
+        targetMarginPct:      true,
+        costingMode:          true,
+        reliabilityMinHours:  true,
+      },
+    });
+
     const business = calculateBusinessMetrics({
-      totalMonthlyCosts: totalDirectCosts + totalMonthlyCostsInRange,
+      // Costes FIJOS del rango — separados de los directos.
+      totalFixedCosts:       totalMonthlyCostsInRange,
+      // Costes DIRECTOS del rango: mano de obra + piezas (ya por contrato).
+      totalDirectCosts,
       totalBillableHours,
+      plannedCapacityHours:  tenant?.plannedCapacityHours ?? 160,
+      targetMarginPct:       Number(tenant?.targetMarginPct ?? 30),
+      costingMode:           (tenant?.costingMode ?? "ABSORPTION") as "ABSORPTION" | "CONTRIBUTION",
+      monthsInRange,
+      reliabilityMinHours:   tenant?.reliabilityMinHours ?? 5,
     });
 
     // Recurring revenue (MRR) — siempre en NETO para que el dashboard refleje

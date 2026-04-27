@@ -31,10 +31,57 @@ export async function getMe(req: Request, res: Response) {
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { id: true, name: true, slug: true, plan: true },
+    select: {
+      id:                   true,
+      name:                 true,
+      slug:                 true,
+      plan:                 true,
+      plannedCapacityHours: true,
+      targetMarginPct:      true,
+      costingMode:          true,
+      reliabilityMinHours:  true,
+    },
   });
 
   res.json({ user, tenant });
+}
+
+// ---------------------------------------------------------------------------
+// PATCH /api/v1/me/tenant — Actualiza configuración de cálculo del tenant
+// ---------------------------------------------------------------------------
+
+export async function updateTenant(req: Request, res: Response) {
+  const { tenantId } = req.user!;
+  const {
+    plannedCapacityHours,
+    targetMarginPct,
+    costingMode,
+    reliabilityMinHours,
+    name,
+  } = req.body;
+
+  const updated = await prisma.tenant.update({
+    where: { id: tenantId },
+    data: {
+      ...(name                 !== undefined && { name }),
+      ...(plannedCapacityHours !== undefined && { plannedCapacityHours }),
+      ...(targetMarginPct      !== undefined && { targetMarginPct }),
+      ...(costingMode          !== undefined && { costingMode }),
+      ...(reliabilityMinHours  !== undefined && { reliabilityMinHours }),
+    },
+    select: {
+      id:                   true,
+      name:                 true,
+      slug:                 true,
+      plan:                 true,
+      plannedCapacityHours: true,
+      targetMarginPct:      true,
+      costingMode:          true,
+      reliabilityMinHours:  true,
+    },
+  });
+
+  res.json(updated);
 }
 
 // ---------------------------------------------------------------------------

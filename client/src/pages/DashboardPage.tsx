@@ -154,12 +154,23 @@ export default function DashboardPage() {
       </header>
 
       {/* ═══ Hero: Tarifa Mínima (protagonista) ═══ */}
-      <HeroRateCard
-        minimumRate={toNum(business.minimumRate)}
-        realHourlyCost={toNum(business.realHourlyCost)}
-        onSimulate={() => navigate('/informes?simular=1')}
-        onHowTo={() => openTutorial('main')}
-      />
+      {business.isReliable ? (
+        <HeroRateCard
+          minimumRate={business.minimumRate ?? 0}
+          realHourlyCost={business.realHourlyCost ?? 0}
+          overheadPerHour={business.overheadPerHour}
+          directCostPerHour={business.directCostPerHour}
+          onSimulate={() => navigate('/informes?simular=1')}
+          onHowTo={() => openTutorial('main')}
+        />
+      ) : (
+        <HeroUnreliableCard
+          reason={business.unreliableReason ?? 'Datos insuficientes para calcular tu tarifa.'}
+          billableHours={toNum(summary.totalBillableHours)}
+          onTrack={() => navigate('/horas')}
+          onConfigure={() => navigate('/ajustes#capacidad')}
+        />
+      )}
 
       {/* ═══ Suscripciones (solo si hay MRR > 0) ═══ */}
       {(toNum(summary.recurringRevenue ?? 0) > 0 || (projection?.activeSubscriptions ?? 0) > 0) && (
@@ -178,8 +189,8 @@ export default function DashboardPage() {
             tone="blue"
             icon={<TrendingUp className="w-5 h-5" strokeWidth={2} />}
             label="Tarifa mínima"
-            value={`${fmt(toNum(business.minimumRate))} €/h`}
-            hint="Para cubrir costes"
+            value={business.minimumRate != null ? `${fmt(business.minimumRate)} €/h` : '—'}
+            hint={business.isReliable ? 'Para cubrir costes y margen' : 'Necesitas más horas'}
           />
         </div>
         <div className="animate-fade-up stagger-2">
@@ -187,17 +198,21 @@ export default function DashboardPage() {
             tone="orange"
             icon={<TrendingDown className="w-5 h-5" strokeWidth={2} />}
             label="Coste/hora real"
-            value={`${fmt(toNum(business.realHourlyCost))} €/h`}
-            hint="Tu coste por hora"
+            value={business.realHourlyCost != null ? `${fmt(business.realHourlyCost)} €/h` : '—'}
+            hint={
+              business.isReliable
+                ? `${fmt(business.overheadPerHour)} € overhead + ${fmt(business.directCostPerHour)} € directo`
+                : 'Aún no calculable'
+            }
           />
         </div>
         <div className="animate-fade-up stagger-3">
           <KpiCard
-            tone="red"
-            icon={<Receipt className="w-5 h-5" strokeWidth={2} />}
-            label="Costes fijos/mes"
-            value={fmtCurrency(toNum(summary.totalFixedCostsMonthly), 0)}
-            hint="Gastos recurrentes"
+            tone={business.utilizationPct >= 70 ? 'green' : business.utilizationPct >= 40 ? 'orange' : 'red'}
+            icon={<Target className="w-5 h-5" strokeWidth={2} />}
+            label="Utilización"
+            value={`${fmt(business.utilizationPct, 0)}%`}
+            hint={`${fmt(toNum(summary.totalBillableHours), 0)}h / ${fmt(business.capacityHours, 0)}h capacidad`}
           />
         </div>
         <div className="animate-fade-up stagger-4">
@@ -476,9 +491,16 @@ function SubscriptionsBlock({
 }
 
 function HeroRateCard({
-  minimumRate, realHourlyCost, onSimulate, onHowTo,
-}: { minimumRate: number; realHourlyCost: number; onSimulate: () => void; onHowTo: () => void }) {
-  const margin = minimumRate - realHourlyCost;
+  minimumRate, realHourlyCost, overheadPerHour, directCostPerHour, onSimulate, onHowTo,
+}: {
+  minimumRate:       number;
+  realHourlyCost:    number;
+  overheadPerHour:   number;
+  directCostPerHour: number;
+  onSimulate:        () => void;
+  onHowTo:           () => void;
+}) {
+  const margin = Math.max(0, minimumRate - realHourlyCost);
   return (
     <div
       className="relative overflow-hidden rounded-[24px] border border-[var(--color-border)] animate-fade-up"
@@ -499,7 +521,7 @@ function HeroRateCard({
             {fmt(minimumRate, 2)}<span className="text-[32px] sm:text-[40px] ml-2 text-[var(--color-text-secondary)] font-medium">€/h</span>
           </p>
           <p className="text-[14px] sm:text-[15px] text-[var(--color-text-secondary)] mt-3 max-w-[520px] leading-relaxed">
-            Sumamos todos tus costes del mes (gastos fijos, materiales y coste de tu mano de obra) y los dividimos entre las horas que has facturado. Eso es tu coste real por hora. Le añadimos un 30% de margen mínimo y obtenemos esta tarifa. <b className="text-[var(--color-text)]">Por debajo de {fmt(minimumRate, 0)} €/h</b>, estás perdiendo dinero.
+            Tus costes fijos repartidos entre las horas que <b className="text-[var(--color-text)]">puedes</b> trabajar son el overhead por hora. Le sumamos el coste directo medio (mano de obra y materiales) y obtenemos tu coste real. Encima aplicamos tu margen objetivo. <b className="text-[var(--color-text)]">Por debajo de {fmt(minimumRate, 0)} €/h</b>, estás perdiendo dinero.
           </p>
           <div className="flex flex-wrap gap-2 mt-5">
             <Button variant="primary" size="md" icon={<Wand2 className="w-4 h-4" strokeWidth={2.2} />} onClick={onSimulate}>
@@ -517,9 +539,19 @@ function HeroRateCard({
             Desglose
           </p>
           <BreakdownRow
+            label="Overhead/hora"
+            value={`${fmt(overheadPerHour)} €`}
+            color="#FF453A"
+          />
+          <BreakdownRow
+            label="Coste directo/hora"
+            value={`${fmt(directCostPerHour)} €`}
+            color="#FF9F0A"
+          />
+          <div className="h-px bg-[var(--color-border)] my-3" />
+          <BreakdownRow
             label="Coste/hora real"
             value={`${fmt(realHourlyCost)} €`}
-            color="#FF9F0A"
           />
           <BreakdownRow
             label="Margen objetivo"
@@ -530,6 +562,72 @@ function HeroRateCard({
           <BreakdownRow
             label="Tarifa mínima"
             value={`${fmt(minimumRate)} €/h`}
+            strong
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===========================================================================
+// Hero — Datos insuficientes para calcular tarifa
+// ===========================================================================
+
+function HeroUnreliableCard({
+  reason, billableHours, onTrack, onConfigure,
+}: {
+  reason:        string;
+  billableHours: number;
+  onTrack:       () => void;
+  onConfigure:   () => void;
+}) {
+  return (
+    <div
+      className="relative overflow-hidden rounded-[24px] border border-[var(--color-border)] animate-fade-up"
+      style={{ boxShadow: 'var(--shadow-card)' }}
+    >
+      <div className="absolute inset-0 bg-aurora opacity-60" />
+      <div className="absolute inset-0 bg-dots opacity-30" />
+
+      <div className="relative px-6 py-8 sm:px-10 sm:py-10 grid lg:grid-cols-[1.4fr_1fr] gap-8 items-center">
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(255,255,255,0.6)] dark:bg-[rgba(0,0,0,0.25)] backdrop-blur-md border border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.08)] text-[11.5px] font-semibold text-[var(--color-orange)] mb-3">
+            <AlertCircle className="w-3.5 h-3.5" strokeWidth={2.4} />
+            Aún sin datos suficientes
+          </div>
+          <p className="text-[36px] sm:text-[44px] font-semibold tracking-[-0.02em] leading-tight text-[var(--color-text)]">
+            Tu tarifa mínima se calculará cuando tengas más horas registradas
+          </p>
+          <p className="text-[14px] sm:text-[15px] text-[var(--color-text-secondary)] mt-3 max-w-[560px] leading-relaxed">
+            {reason} Mientras tanto, configura tu capacidad real (cuántas horas puedes trabajar al mes) para que el cálculo sea fiable.
+          </p>
+          <div className="flex flex-wrap gap-2 mt-5">
+            <Button variant="primary" size="md" icon={<Clock className="w-4 h-4" strokeWidth={2.2} />} onClick={onTrack}>
+              Fichar primera hora
+            </Button>
+            <Button variant="glass" size="md" onClick={onConfigure}>
+              Ajustar capacidad
+            </Button>
+          </div>
+        </div>
+
+        <div className="rounded-[16px] bg-[var(--color-surface)] border border-[var(--color-border)] p-5 shadow-[var(--shadow-card)]">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] mb-3">
+            Estado actual
+          </p>
+          <BreakdownRow
+            label="Horas registradas"
+            value={`${fmt(billableHours, 1)} h`}
+            color="#0A84FF"
+          />
+          <BreakdownRow
+            label="Tarifa real"
+            value="—"
+          />
+          <BreakdownRow
+            label="Tarifa mínima"
+            value="—"
             strong
           />
         </div>

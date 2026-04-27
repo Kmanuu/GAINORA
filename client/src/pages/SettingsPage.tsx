@@ -5,7 +5,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   User, Lock, Building2,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, Gauge,
 } from 'lucide-react';
 import { api }         from '@/lib/api';
 import { useAuth }     from '@/context/AuthContext';
@@ -13,6 +13,8 @@ import { useToast }    from '@/components/ui/Toast';
 import Card            from '@/components/ui/Card';
 import Input           from '@/components/ui/Input';
 import Button          from '@/components/ui/Button';
+import SegmentedControl from '@/components/ui/SegmentedControl';
+import type { CostingMode } from '@/types';
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -23,7 +25,13 @@ interface MeResponse {
     id: string; email: string; fullName: string; role: string;
     hourlyCost: string | number; isActive: boolean; createdAt: string;
   };
-  tenant: { id: string; name: string; slug: string; plan: string; };
+  tenant: {
+    id: string; name: string; slug: string; plan: string;
+    plannedCapacityHours: number;
+    targetMarginPct:      string | number;
+    costingMode:          CostingMode;
+    reliabilityMinHours:  number;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -250,6 +258,129 @@ function GuideSection() {
         </p>
       </div>
     </SectionCard>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sección: Capacidad y rentabilidad
+// ---------------------------------------------------------------------------
+
+function CapacitySection({
+  initialCapacity, initialMargin, initialMode, initialMinHours, onSaved,
+}: {
+  initialCapacity: number;
+  initialMargin:   string;
+  initialMode:     CostingMode;
+  initialMinHours: number;
+  onSaved?:        () => void;
+}) {
+  const { toast } = useToast();
+  const [capacity, setCapacity] = useState(String(initialCapacity));
+  const [margin,   setMargin]   = useState(initialMargin);
+  const [mode,     setMode]     = useState<CostingMode>(initialMode);
+  const [minHours, setMinHours] = useState(String(initialMinHours));
+  const [saving,   setSaving]   = useState(false);
+
+  useEffect(() => { setCapacity(String(initialCapacity)); }, [initialCapacity]);
+  useEffect(() => { setMargin(initialMargin); },             [initialMargin]);
+  useEffect(() => { setMode(initialMode); },                 [initialMode]);
+  useEffect(() => { setMinHours(String(initialMinHours)); }, [initialMinHours]);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    const cap  = parseInt(capacity, 10);
+    const marg = parseFloat(margin);
+    const minH = parseInt(minHours, 10);
+    if (!Number.isFinite(cap) || cap < 1)  { toast('error', 'La capacidad debe ser al menos 1h/mes'); return; }
+    if (!Number.isFinite(marg) || marg < 0) { toast('error', 'El margen no puede ser negativo'); return; }
+    if (!Number.isFinite(minH) || minH < 0) { toast('error', 'El umbral mínimo no puede ser negativo'); return; }
+    setSaving(true);
+    try {
+      await api.patch('/v1/me/tenant', {
+        plannedCapacityHours: cap,
+        targetMarginPct:      marg,
+        costingMode:          mode,
+        reliabilityMinHours:  minH,
+      });
+      toast('success', 'Configuración guardada');
+      onSaved?.();
+    } catch (err: unknown) {
+      toast('error', err instanceof Error ? err.message : 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div id="capacidad">
+      <SectionCard
+        icon={<Gauge className="w-4 h-4" />}
+        title="Capacidad y rentabilidad"
+        accentColor="#BF5AF2"
+        accentBg="rgba(191,90,242,0.10)"
+      >
+        <p className="text-[12.5px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
+          Estos valores definen cómo se calcula tu tarifa mínima en el dashboard.
+          La <b>capacidad</b> es cuántas horas reales puedes trabajar al mes; el
+          <b> margen objetivo</b> es lo que quieres ganar por encima del coste real.
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Capacidad planificada"
+              type="number"
+              value={capacity}
+              onChange={(e) => setCapacity(e.target.value)}
+              min="1" max="2000" step="1" suffix="h/mes"
+              hint="Ej: autónomo solo: 160 · equipo de 3: 480"
+            />
+            <Input
+              label="Margen objetivo"
+              type="number"
+              value={margin}
+              onChange={(e) => setMargin(e.target.value)}
+              min="0" max="500" step="1" suffix="%"
+              hint="30% por defecto. Súbelo si quieres más beneficio"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[12px] font-semibold text-[var(--color-text-secondary)] mb-2">
+              Modo de cálculo
+            </label>
+            <SegmentedControl<CostingMode>
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: 'ABSORPTION',   label: 'Absorción' },
+                { value: 'CONTRIBUTION', label: 'Contribución' },
+              ]}
+            />
+            <p className="text-[11.5px] text-[var(--color-text-tertiary)] mt-2 leading-relaxed">
+              {mode === 'ABSORPTION'
+                ? 'Cada proyecto absorbe su parte de los costes fijos según las horas. Recomendado si tienes varios proyectos similares en paralelo.'
+                : 'Cada proyecto solo aporta su margen de contribución (ingresos − costes directos). Útil si tienes un cliente grande que cubre los fijos y muchos pequeños que son extra.'}
+            </p>
+          </div>
+
+          <Input
+            label="Umbral mínimo de horas para fiabilidad"
+            type="number"
+            value={minHours}
+            onChange={(e) => setMinHours(e.target.value)}
+            min="0" max="1000" step="1" suffix="h"
+            hint="Si tienes menos horas registradas que esto en el rango, el dashboard mostrará 'datos insuficientes' en lugar de un número engañoso"
+          />
+
+          <div className="flex justify-end pt-1">
+            <Button type="submit" variant="primary" size="sm" loading={saving}>
+              Guardar configuración
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
+    </div>
   );
 }
 
@@ -491,6 +622,18 @@ export default function SettingsPage() {
             <InfoRow label="Tu rol"          value={meData?.user.role ?? authUser?.role ?? '—'} />
           </div>
         </SectionCard>
+
+        {/* Capacidad y rentabilidad */}
+        <CapacitySection
+          initialCapacity={meData?.tenant.plannedCapacityHours ?? 160}
+          initialMargin={String(
+            typeof meData?.tenant.targetMarginPct === 'string'
+              ? parseFloat(meData.tenant.targetMarginPct) || 30
+              : meData?.tenant.targetMarginPct ?? 30
+          )}
+          initialMode={meData?.tenant.costingMode ?? 'ABSORPTION'}
+          initialMinHours={meData?.tenant.reliabilityMinHours ?? 5}
+        />
 
         {/* Perfil */}
         <ProfileSection

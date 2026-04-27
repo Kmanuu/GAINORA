@@ -7,22 +7,26 @@ datasource db {
 }
 
 model Tenant {
-  id         String      @id @default(uuid()) @db.Uuid
-  name       String
-  slug       String      @unique
-  taxId      String?     @map("tax_id")
-  plan       TenantPlan  @default(STARTER)
-  settings   Json        @default("{}")
-  createdAt  DateTime    @default(now()) @map("created_at")
-  updatedAt  DateTime    @updatedAt @map("updated_at")
-  clients    Client[]
-  contracts  Contract[]
-  fixedCosts FixedCost[]
-  issues     Issue[]
-  payments   Payment[]
-  plans      Plan[]
-  projects   Project[]
-  users      User[]
+  id                    String      @id @default(uuid()) @db.Uuid
+  name                  String
+  slug                  String      @unique
+  taxId                 String?     @map("tax_id")
+  plan                  TenantPlan  @default(STARTER)
+  settings              Json        @default("{}")
+  plannedCapacityHours  Int         @default(160) @map("planned_capacity_hours")
+  targetMarginPct       Decimal     @default(30) @map("target_margin_pct") @db.Decimal(5, 2)
+  costingMode           CostingMode @default(ABSORPTION) @map("costing_mode")
+  reliabilityMinHours   Int         @default(5) @map("reliability_min_hours")
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
+  clients               Client[]
+  contracts             Contract[]
+  fixedCosts            FixedCost[]
+  issues                Issue[]
+  payments              Payment[]
+  plans                 Plan[]
+  projects              Project[]
+  users                 User[]
 
   @@map("tenants")
 }
@@ -319,4 +323,9 @@ enum PaymentStatus {
   PENDING
   PARTIAL
   PAID
+}
+
+enum CostingMode {
+  ABSORPTION
+  CONTRIBUTION
 }
