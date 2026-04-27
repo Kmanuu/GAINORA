@@ -45,8 +45,8 @@ export type ExtendedBillingMode = BillingMode;
 export interface Project {
   id:                     string;
   tenantId:               string;
-  clientName:             string | null;
-  clientTaxId:            string | null;
+  clientId:               string;
+  client:                 { id: string; name: string; taxId: string | null };
   name:                   string;
   description:            string | null;
   status:                 ProjectStatus;

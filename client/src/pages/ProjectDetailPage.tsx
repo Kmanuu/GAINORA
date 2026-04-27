@@ -18,7 +18,7 @@ import {
   BILLING_MODE_LABEL, BILLING_MODE_DESCRIPTION,
 } from '@/lib/profitability';
 import { buildDeleteSummary, type DeletePreview } from '@/lib/projects';
-import type { Project, TimeEntry, VarCost, BillingMode } from '@/types';
+import type { Project, TimeEntry, VarCost, BillingMode, Client } from '@/types';
 import Card             from '@/components/ui/Card';
 import Badge            from '@/components/ui/Badge';
 import Button           from '@/components/ui/Button';
@@ -32,6 +32,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import { useToast }     from '@/components/ui/Toast';
 import { useConfirm }   from '@/components/ui/ConfirmDialog';
 import ContractsTab     from '@/components/contracts/ContractsTab';
+import NewClientModal   from '@/components/clients/NewClientModal';
 
 // ---------------------------------------------------------------------------
 // Tipos / etiquetas
@@ -84,7 +85,7 @@ function marginColor(pct: number): KpiColor {
 
 interface EditForm {
   name:           string;
-  clientName:     string;
+  clientId:       string;
   description:    string;
   status:         Project['status'];
   billingMode:    ProjectBillingMode;
@@ -114,12 +115,14 @@ export default function ProjectDetailPage() {
   const { toast } = useToast();
   const { confirm } = useConfirm();
   const [project,    setProject]    = useState<ProjectDetail | null>(null);
+  const [clients,    setClients]    = useState<Client[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState('');
   const [tab,        setTab]        = useState<Tab>('resumen');
   const [editOpen,   setEditOpen]   = useState(false);
   const [editForm,   setEditForm]   = useState<EditForm | null>(null);
   const [editSaving, setEditSaving] = useState(false);
+  const [newClientOpen, setNewClientOpen] = useState(false);
 
   // Modales de acción rápida (disparados por las KPI cards)
   const [quickHoursOpen, setQuickHoursOpen] = useState(false);
@@ -129,8 +132,11 @@ export default function ProjectDetailPage() {
     if (!id) return;
     setLoading(true);
     setError('');
-    api.get<ProjectDetail>(`/v1/projects/${id}`)
-      .then(setProject)
+    Promise.all([
+      api.get<ProjectDetail>(`/v1/projects/${id}`),
+      api.get<Client[]>('/v1/clients'),
+    ])
+      .then(([p, cs]) => { setProject(p); setClients(cs); })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
@@ -141,7 +147,7 @@ export default function ProjectDetailPage() {
     if (!project) return;
     setEditForm({
       name:           project.name,
-      clientName:     project.clientName ?? '',
+      clientId:       project.clientId ?? '',
       description:    project.description ?? '',
       status:         project.status,
       billingMode:    toProjectBillingMode(project.billingMode),
@@ -158,11 +164,12 @@ export default function ProjectDetailPage() {
   async function handleSaveEdit() {
     if (!editForm || !id) return;
     if (!editForm.name.trim()) return;
+    if (!editForm.clientId)   { toast('error', 'Selecciona un cliente para el proyecto'); return; }
     setEditSaving(true);
     try {
       await api.patch(`/v1/projects/${id}`, {
         name:           editForm.name.trim(),
-        clientName:     editForm.clientName.trim()  || null,
+        clientId:       editForm.clientId,
         description:    editForm.description.trim() || null,
         status:         editForm.status,
         billingMode:    editForm.billingMode,
@@ -181,6 +188,12 @@ export default function ProjectDetailPage() {
     } finally {
       setEditSaving(false);
     }
+  }
+
+  function handleClientCreated(c: Client) {
+    setClients((prev) => [...prev, c].sort((a, b) => a.name.localeCompare(b.name)));
+    setEditForm((p) => p && ({ ...p, clientId: c.id }));
+    setNewClientOpen(false);
   }
 
   if (loading) {
@@ -248,8 +261,8 @@ export default function ProjectDetailPage() {
             <h1 className="text-[26px] sm:text-[30px] font-semibold text-[var(--color-text)] leading-tight tracking-[-0.02em]">
               {project.name}
             </h1>
-            {project.clientName && (
-              <p className="text-[14px] text-[var(--color-text-secondary)] mt-1">{project.clientName}</p>
+            {project.client?.name && (
+              <p className="text-[14px] text-[var(--color-text-secondary)] mt-1">{project.client.name}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -453,12 +466,25 @@ export default function ProjectDetailPage() {
               onChange={(e) => setEditForm((p) => p && ({ ...p, name: e.target.value }))}
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input
-                label="Cliente"
-                type="text"
-                value={editForm.clientName}
-                onChange={(e) => setEditForm((p) => p && ({ ...p, clientName: e.target.value }))}
-              />
+              <div className="space-y-1.5">
+                <Select
+                  label="Cliente *"
+                  value={editForm.clientId}
+                  onChange={(e) => setEditForm((p) => p && ({ ...p, clientId: e.target.value }))}
+                  options={[
+                    { value: '', label: clients.length ? 'Selecciona un cliente…' : 'Aún no tienes clientes' },
+                    ...clients.map((c) => ({ value: c.id, label: c.name })),
+                  ]}
+                />
+                <button
+                  type="button"
+                  onClick={() => setNewClientOpen(true)}
+                  className="flex items-center gap-1.5 text-[12.5px] font-medium text-[var(--color-blue)] hover:text-[var(--color-blue-hover)] transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
+                  Nuevo cliente
+                </button>
+              </div>
               <Select
                 label="Estado"
                 value={editForm.status}
@@ -562,6 +588,12 @@ export default function ProjectDetailPage() {
         onClose={() => setQuickCostOpen(false)}
         project={project}
         onSaved={() => { setQuickCostOpen(false); load(); }}
+      />
+
+      <NewClientModal
+        open={newClientOpen}
+        onClose={() => setNewClientOpen(false)}
+        onCreated={handleClientCreated}
       />
     </div>
   );
@@ -681,10 +713,10 @@ function SummaryTab({
           Información
         </h3>
         <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-[13px]">
-          {project.clientName && (
+          {project.client?.name && (
             <>
               <span className="text-[var(--color-text-secondary)]">Cliente</span>
-              <span className="font-medium text-[var(--color-text)]">{project.clientName}</span>
+              <span className="font-medium text-[var(--color-text)]">{project.client.name}</span>
             </>
           )}
           <span className="text-[var(--color-text-secondary)]">Modo de facturación</span>

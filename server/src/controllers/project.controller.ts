@@ -2,6 +2,22 @@ import { Request, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { AppError } from "../middleware/errorHandler.js";
 
+// Cliente embebido devuelto en list/get/create/update — fuente única de verdad
+// del cliente del proyecto desde S3.
+const clientSelect = {
+  select: { id: true, name: true, taxId: true },
+} as const;
+
+async function assertClientBelongsToTenant(clientId: string, tenantId: string) {
+  const client = await prisma.client.findFirst({
+    where:  { id: clientId, tenantId },
+    select: { id: true },
+  });
+  if (!client) {
+    throw new AppError(422, "El cliente indicado no existe o no pertenece a tu cuenta");
+  }
+}
+
 export async function listProjects(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
   const { status } = req.query;
@@ -15,7 +31,8 @@ export async function listProjects(req: Request, res: Response) {
     where,
     orderBy: { createdAt: "desc" },
     include: {
-      _count: { select: { timeEntries: true, varCosts: true } },
+      client:  clientSelect,
+      _count:  { select: { timeEntries: true, varCosts: true } },
     },
   });
 
@@ -25,16 +42,17 @@ export async function listProjects(req: Request, res: Response) {
 export async function createProject(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
   const {
-    clientName, clientTaxId, name, description, status,
+    clientId, name, description, status,
     billingMode, budgetHours, budgetAmount, hourlyRate, partsMarkupPct,
-    startDate, endDate,
+    productMaintenanceCost, startDate, endDate,
   } = req.body;
+
+  await assertClientBelongsToTenant(clientId, tenantId);
 
   const project = await prisma.project.create({
     data: {
       tenantId,
-      clientName,
-      clientTaxId,
+      clientId,
       name,
       description,
       status,
@@ -43,9 +61,11 @@ export async function createProject(req: Request, res: Response) {
       budgetAmount,
       hourlyRate,
       partsMarkupPct,
+      productMaintenanceCost,
       startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      endDate:   endDate   ? new Date(endDate)   : undefined,
     },
+    include: { client: clientSelect },
   });
 
   res.status(201).json(project);
@@ -58,6 +78,7 @@ export async function getProject(req: Request, res: Response) {
   const project = await prisma.project.findUnique({
     where: { id: id as string, tenantId },
     include: {
+      client: clientSelect,
       timeEntries: {
         include: { user: { select: { id: true, fullName: true, hourlyCost: true } } },
         orderBy: { startedAt: "desc" },
@@ -86,12 +107,16 @@ export async function updateProject(req: Request, res: Response) {
     throw new AppError(404, "Proyecto no encontrado");
   }
 
+  if (data.clientId) {
+    await assertClientBelongsToTenant(data.clientId, tenantId);
+  }
   if (data.startDate) data.startDate = new Date(data.startDate);
-  if (data.endDate) data.endDate = new Date(data.endDate);
+  if (data.endDate)   data.endDate   = new Date(data.endDate);
 
   const updated = await prisma.project.update({
     where: { id: id as string },
     data,
+    include: { client: clientSelect },
   });
 
   res.json(updated);

@@ -13,7 +13,7 @@ import clsx from 'clsx';
 import { api }       from '@/lib/api';
 import { exportCsv } from '@/lib/csv';
 import { fmt, toNum } from '@/lib/format';
-import type { Project, ProjectStatus, BillingMode } from '@/types';
+import type { Project, ProjectStatus, BillingMode, Client } from '@/types';
 
 // SUBSCRIPTION queda fuera del nivel Project: las cuotas recurrentes viven
 // en Contract. Forzamos que el form solo permita modos directos de trabajo.
@@ -34,6 +34,7 @@ import DatePicker       from '@/components/ui/DatePicker';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { useToast }     from '@/components/ui/Toast';
 import { useConfirm }   from '@/components/ui/ConfirmDialog';
+import NewClientModal   from '@/components/clients/NewClientModal';
 
 // ---------------------------------------------------------------------------
 // Constantes
@@ -64,7 +65,7 @@ const STATUS_OPTIONS = Object.entries(STATUS_LABEL).map(([value, label]) => ({ v
 
 interface ProjectFormState {
   name:           string;
-  clientName:     string;
+  clientId:       string;
   description:    string;
   status:         ProjectStatus;
   billingMode:    ProjectBillingMode;
@@ -77,7 +78,7 @@ interface ProjectFormState {
 }
 
 const EMPTY_FORM: ProjectFormState = {
-  name: '', clientName: '', description: '', status: 'DRAFT',
+  name: '', clientId: '', description: '', status: 'DRAFT',
   billingMode: 'FIXED',
   budgetHours: '', budgetAmount: '', hourlyRate: '', partsMarkupPct: '',
   startDate: '', endDate: '',
@@ -86,7 +87,7 @@ const EMPTY_FORM: ProjectFormState = {
 function projectToForm(p: Project): ProjectFormState {
   return {
     name:           p.name,
-    clientName:     p.clientName ?? '',
+    clientId:       p.clientId ?? '',
     description:    p.description ?? '',
     status:         p.status,
     billingMode:    toProjectBillingMode(p.billingMode),
@@ -108,6 +109,7 @@ export default function ProjectsPage() {
   const { confirm } = useConfirm();
   const navigate    = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [clients,  setClients]  = useState<Client[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState('');
   const [filter,   setFilter]   = useState<Filter>('ALL');
@@ -119,13 +121,18 @@ export default function ProjectsPage() {
   const [saving,     setSaving]     = useState(false);
   const [formError,  setFormError]  = useState('');
 
+  const [newClientOpen, setNewClientOpen] = useState(false);
+
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
 
   const load = useCallback((silent = false) => {
     if (!silent) setLoading(true);
     setError('');
-    api.get<Project[]>('/v1/projects')
-      .then(setProjects)
+    Promise.all([
+      api.get<Project[]>('/v1/projects'),
+      api.get<Client[]>('/v1/clients'),
+    ])
+      .then(([ps, cs]) => { setProjects(ps); setClients(cs); })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -178,13 +185,14 @@ export default function ProjectsPage() {
   }
 
   async function handleSave() {
-    if (!form.name.trim()) { setFormError('El nombre del proyecto es obligatorio'); return; }
+    if (!form.name.trim())  { setFormError('El nombre del proyecto es obligatorio'); return; }
+    if (!form.clientId)     { setFormError('Selecciona un cliente para el proyecto'); return; }
     setSaving(true);
     setFormError('');
     try {
       const payload = {
         name:           form.name.trim(),
-        clientName:     form.clientName.trim() || null,
+        clientId:       form.clientId,
         description:    form.description.trim() || null,
         status:         form.status,
         billingMode:    form.billingMode,
@@ -209,6 +217,13 @@ export default function ProjectsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleClientCreated(c: Client) {
+    setClients((prev) => [...prev, c].sort((a, b) => a.name.localeCompare(b.name)));
+    setForm((p) => ({ ...p, clientId: c.id }));
+    setNewClientOpen(false);
+    setFormError('');
   }
 
   async function handleDelete(id: string) {
@@ -257,7 +272,7 @@ export default function ProjectsPage() {
     if (search) {
       const q = search.toLowerCase();
       const nameMatch   = p.name.toLowerCase().includes(q);
-      const clientMatch = p.clientName?.toLowerCase().includes(q);
+      const clientMatch = p.client?.name?.toLowerCase().includes(q);
       if (!nameMatch && !clientMatch) return false;
     }
     return true;
@@ -315,7 +330,7 @@ export default function ProjectsPage() {
               onClick={() => {
                 exportCsv('proyectos-horaspro', [
                   { header: 'Nombre',       value: (p: Project) => p.name },
-                  { header: 'Cliente',      value: (p: Project) => p.clientName ?? '' },
+                  { header: 'Cliente',      value: (p: Project) => p.client?.name ?? '' },
                   { header: 'Estado',       value: (p: Project) => STATUS_LABEL[p.status] },
                   { header: 'Presupuesto €', value: (p: Project) => p.budgetAmount ?? '' },
                   { header: 'Horas pres.',  value: (p: Project) => p.budgetHours ?? '' },
@@ -399,12 +414,25 @@ export default function ProjectsPage() {
             value={form.name}
             onChange={handleField('name')}
           />
-          <Input
-            label="Cliente"
-            type="text"
-            value={form.clientName}
-            onChange={handleField('clientName')}
-          />
+          <div className="space-y-1.5">
+            <Select
+              label="Cliente *"
+              value={form.clientId}
+              onChange={handleField('clientId')}
+              options={[
+                { value: '', label: clients.length ? 'Selecciona un cliente…' : 'Aún no tienes clientes' },
+                ...clients.map((c) => ({ value: c.id, label: c.name })),
+              ]}
+            />
+            <button
+              type="button"
+              onClick={() => setNewClientOpen(true)}
+              className="flex items-center gap-1.5 text-[12.5px] font-medium text-[var(--color-blue)] hover:text-[var(--color-blue-hover)] transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
+              Nuevo cliente
+            </button>
+          </div>
           <Select
             label="Estado"
             value={form.status}
@@ -507,9 +535,16 @@ export default function ProjectsPage() {
           )}
         </div>
       </Modal>
+
+      <NewClientModal
+        open={newClientOpen}
+        onClose={() => setNewClientOpen(false)}
+        onCreated={handleClientCreated}
+      />
     </div>
   );
 }
+
 
 // ---------------------------------------------------------------------------
 // ProjectCard
@@ -545,8 +580,8 @@ function ProjectCard({
           <h3 className="text-[16px] font-semibold text-[var(--color-text)] mt-1.5 leading-tight tracking-tight">
             {project.name}
           </h3>
-          {project.clientName && (
-            <p className="text-[12.5px] text-[var(--color-text-secondary)] mt-0.5">{project.clientName}</p>
+          {project.client?.name && (
+            <p className="text-[12.5px] text-[var(--color-text-secondary)] mt-0.5">{project.client.name}</p>
           )}
         </div>
 

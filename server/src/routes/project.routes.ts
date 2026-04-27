@@ -27,8 +27,7 @@ const dateRangeRefine = (data: { startDate?: string | null; endDate?: string | n
 const createProjectSchema = z
   .object({
     name:                    z.string().min(2),
-    clientName:              z.string().nullish(),
-    clientTaxId:             z.string().nullish(),
+    clientId:                z.string().uuid("clientId debe ser un UUID válido"),
     description:             z.string().nullish(),
     status:                  projectStatus.optional(),
     billingMode:             projectBillingMode.optional(),
@@ -48,8 +47,7 @@ const createProjectSchema = z
 const updateProjectSchema = z
   .object({
     name:                    z.string().min(2).optional(),
-    clientName:              z.string().nullish(),
-    clientTaxId:             z.string().nullish(),
+    clientId:                z.string().uuid().optional(),
     description:             z.string().nullish(),
     status:                  projectStatus.optional(),
     billingMode:             projectBillingMode.optional(),
