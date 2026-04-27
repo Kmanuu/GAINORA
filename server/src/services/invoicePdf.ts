@@ -65,7 +65,10 @@ export function generateInvoicePdf(
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: "A4",
-      margins: { top: 40, bottom: 50, left: 50, right: 50 },
+      // bottom:0 — toda la maquetación es por coordenadas absolutas,
+      // no necesitamos page-break automático; antes producía página vacía.
+      margins: { top: 40, bottom: 0, left: 50, right: 50 },
+      bufferPages: true,
     });
     const buffers: Buffer[] = [];
     doc.on("data", (b: Buffer) => buffers.push(b));
@@ -240,21 +243,32 @@ export function generateInvoicePdf(
          .text(`IBAN: ${emitter.iban}`, 50, footY + 12);
     }
 
-    // Pie
+    // Pie. y=792 es el último pixel útil con bottom margin 50 sobre A4 (842).
+    // lineBreak:false impide que pdfkit añada otra página al medir overflow.
     doc.font("Helvetica").fontSize(7).fillColor(COLOR_SECONDARY)
        .text(
          "Documento generado por HorasPRO · Conserva este documento durante 5 años (LGT art. 70).",
-         50, 800, { width: 495, align: "center" },
+         50, 790, { width: 495, align: "center", lineBreak: false },
        );
 
     if (isVoided) {
-      // Marca de agua "ANULADA" cruzando en diagonal
-      doc.save();
-      doc.fillColor(COLOR_DANGER).opacity(0.15)
-         .font("Helvetica-Bold").fontSize(120)
-         .rotate(-30, { origin: [297, 421] })
-         .text("ANULADA", 50, 380, { align: "center", width: 495 });
-      doc.restore();
+      // bufferPages permite volver a páginas ya pintadas. Sin esto, el texto
+      // a fontSize 120 desbordaba el flow y se pintaba en una página nueva.
+      // lineBreak:false impide que pdfkit añada otra página al hacer overflow.
+      const range = doc.bufferedPageRange();
+      for (let i = range.start; i < range.start + range.count; i++) {
+        doc.switchToPage(i);
+        doc.save();
+        doc.fillColor(COLOR_DANGER).opacity(0.15)
+           .font("Helvetica-Bold").fontSize(120)
+           .rotate(-30, { origin: [297, 421] })
+           .text("ANULADA", 50, 380, {
+             align: "center",
+             width: 495,
+             lineBreak: false,
+           });
+        doc.restore();
+      }
     }
 
     doc.end();
