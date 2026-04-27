@@ -208,18 +208,24 @@ export function generateInvoicePdf(
     doc.font("Helvetica").fontSize(10).fillColor(COLOR_SECONDARY);
     doc.text("Base imponible", totLabelX, totY,        { width: 100, align: "right" });
     doc.text("IVA",             totLabelX, totY + 16,  { width: 100, align: "right" });
-    if (invoice.totalIrpf > 0) {
+    if (invoice.totalIrpf !== 0) {
       doc.text("Retención IRPF", totLabelX, totY + 32, { width: 100, align: "right" });
     }
     doc.fillColor(COLOR_TEXT).font("Helvetica");
     doc.text(EUR(invoice.subtotalNet),  totValueX, totY,        { width: totW, align: "right" });
     doc.text(EUR(invoice.totalVat),     totValueX, totY + 16,   { width: totW, align: "right" });
-    if (invoice.totalIrpf > 0) {
+    if (invoice.totalIrpf !== 0) {
+      // En facturas normales se imprime con signo - delante del valor positivo.
+      // En rectificativas el totalIrpf llega ya negativo (-150) y al prefijar
+      // lo dejábamos como "--150 €". Detectar el signo y escribir el formato
+      // correcto en cada caso.
+      const irpfAbs   = Math.abs(invoice.totalIrpf);
+      const irpfLabel = invoice.totalIrpf > 0 ? `-${EUR(irpfAbs)}` : `+${EUR(irpfAbs)}`;
       doc.fillColor(COLOR_DANGER)
-         .text(`-${EUR(invoice.totalIrpf)}`, totValueX, totY + 32, { width: totW, align: "right" });
+         .text(irpfLabel, totValueX, totY + 32, { width: totW, align: "right" });
     }
 
-    const finalY = invoice.totalIrpf > 0 ? totY + 56 : totY + 40;
+    const finalY = invoice.totalIrpf !== 0 ? totY + 56 : totY + 40;
     doc.strokeColor(COLOR_TEXT).lineWidth(1).moveTo(totLabelX, finalY).lineTo(545, finalY).stroke();
 
     doc.font("Helvetica-Bold").fontSize(13).fillColor(COLOR_TEXT)
