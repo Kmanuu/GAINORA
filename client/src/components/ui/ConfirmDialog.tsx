@@ -67,7 +67,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             <h3 className="text-[17px] font-semibold text-[#1D1D1F] mb-1.5">
               {state.options.title}
             </h3>
-            <p className="text-[14px] text-[#6E6E73] mb-5 leading-relaxed">
+            <p className="text-[14px] text-[#6E6E73] mb-5 leading-relaxed whitespace-pre-line text-left">
               {state.options.message}
             </p>
             <div className="flex gap-2.5">

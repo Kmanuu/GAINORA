@@ -216,78 +216,12 @@ export async function getMetrics(req: Request, res: Response, next: NextFunction
       return { contract: c, profitability };
     });
 
-    // Agregar proyectos legacy (sin contratos) para que aparezcan en el dashboard
-    const legacyProjects = await prisma.project.findMany({
-      where: {
-        tenantId,
-        status: "ACTIVE",
-        contracts: { none: {} },
-      },
-      include: {
-        timeEntries: {
-          where: { startedAt: { gte: from, lte: to } },
-          include: { user: { select: { id: true, fullName: true, hourlyCost: true } } },
-        },
-        varCosts: {
-          where: { date: { gte: from, lte: to } },
-        },
-      },
-    });
-
-    for (const p of legacyProjects) {
-      const timeEntriesInput = p.timeEntries.map((te) => ({
-        durationMin: te.durationMin,
-        hourlyCost:  Number(te.user.hourlyCost ?? 0),
-        isBillable:  te.isBillable,
-      }));
-      const varCostsInput = p.varCosts.map((vc) => ({
-        amount:           Number(vc.amount),
-        quantity:         Number(vc.quantity ?? 1),
-        priceIncludesVat: vc.priceIncludesVat ?? false,
-        vatRate:          Number(vc.vatRate ?? 21),
-        markupPct:        vc.markupPct != null ? Number(vc.markupPct) : null,
-      }));
-
-      const input: ContractProfitabilityInput = {
-        billingMode:              (p.billingMode as BillingMode) ?? "FIXED",
-        price:                    Number(p.budgetAmount ?? 0),
-        budgetAmount:             Number(p.budgetAmount ?? 0),
-        setupFee:                 0,
-        hourlyRate:               Number(p.hourlyRate ?? 0),
-        partsMarkupPct:           Number(p.partsMarkupPct ?? 0),
-        maintenanceMode:          "NONE",
-        maintenanceExtraPct:      0,
-        maintenanceFixedAmount:   0,
-        productMaintenanceCost:   Number(p.productMaintenanceCost ?? 0),
-        activeContractsOfProduct: 1,
-        priceIncludesVat:         false,
-        vatRate:                  21,
-        monthsInRange,
-        startedInRange:           p.startDate ? (p.startDate >= from && p.startDate <= to) : true,
-        timeEntries:              timeEntriesInput,
-        variableCosts:            varCostsInput,
-        nonBillableIssueCost:     0,
-        totalMonthlyCosts:        totalMonthlyCostsInRange,
-        activeContractsCount:     activeContractsCount + legacyProjects.length,
-      };
-
-      const profitability = calculateContractProfitability(input);
-
-      contractsMetrics.push({
-        contract: {
-          id: `legacy_${p.id}`,
-          billingMode: p.billingMode ?? "FIXED",
-          project: {
-            id: p.id,
-            name: p.name,
-          },
-          client: {
-            name: p.clientName || 'Sin cliente',
-          }
-        } as any,
-        profitability,
-      });
-    }
+    // Nota: el bloque legacyProjects que metía Contracts ficticios con
+    // id `legacy_*` se eliminó en S2.2. Los proyectos sin contratos se
+    // migraron one-shot con migrate-legacy-projects-to-contracts.ts.
+    // De ahora en adelante, todo proyecto ACTIVE debe tener al menos un
+    // contrato; si no lo tiene, no aparece en el dashboard hasta que el
+    // usuario lo cree.
 
     // Agregar a nivel proyecto (compat con frontend actual)
     const projectsMap = new Map<string, any>();

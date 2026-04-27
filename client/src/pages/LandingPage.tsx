@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import './LandingPage.css';
 
 // ── Hooks ────────────────────────────────────────────────────────────────────
-function useInView(threshold = 0.15): [React.RefObject<HTMLDivElement>, boolean] {
+function useInView(threshold = 0.15): [React.RefObject<HTMLDivElement | null>, boolean] {
   const ref = useRef<HTMLDivElement>(null);
   const [vis, setVis] = useState(false);
   useEffect(() => {

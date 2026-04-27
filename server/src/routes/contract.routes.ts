@@ -19,47 +19,63 @@ const billingModeEnum  = z.enum(["FIXED", "HOURLY", "HYBRID", "SUBSCRIPTION"]);
 const statusEnum       = z.enum(["ACTIVE", "PAUSED", "CANCELLED"]);
 const maintenanceEnum  = z.enum(["NONE", "SHARED", "CUSTOM"]);
 
-const createContractSchema = z.object({
-  projectId:              z.string().uuid(),
-  clientId:               z.string().uuid(),
-  tier:                   tierEnum.optional(),
-  billingMode:            billingModeEnum.optional(),
-  price:                  z.number().nonnegative().optional(),
-  setupFee:               z.number().nonnegative().nullish(),
-  hourlyRate:             z.number().nonnegative().nullish(),
-  budgetHours:            z.number().nonnegative().nullish(),
-  partsMarkupPct:         z.number().min(-100).max(1000).nullish(),
-  maintenanceMode:        maintenanceEnum.optional(),
-  maintenanceExtraPct:    z.number().min(0).max(1000).nullish(),
-  maintenanceFixedAmount: z.number().nonnegative().nullish(),
-  billingDay:             z.number().int().min(1).max(31).nullish(),
-  priceIncludesVat:       z.boolean().optional(),
-  vatRate:                z.number().min(0).max(100).optional(),
-  status:                 statusEnum.optional(),
-  startedAt:              z.string().optional(),
-  endedAt:                z.string().nullish(),
-  notes:                  z.string().nullish(),
-});
+const contractDateRefine = (data: { startedAt?: string; endedAt?: string | null }): boolean => {
+  if (!data.startedAt || !data.endedAt) return true;
+  return new Date(data.endedAt).getTime() >= new Date(data.startedAt).getTime();
+};
 
-const updateContractSchema = z.object({
-  tier:                   tierEnum.optional(),
-  billingMode:            billingModeEnum.optional(),
-  price:                  z.number().nonnegative().optional(),
-  setupFee:               z.number().nonnegative().nullish(),
-  hourlyRate:             z.number().nonnegative().nullish(),
-  budgetHours:            z.number().nonnegative().nullish(),
-  partsMarkupPct:         z.number().min(-100).max(1000).nullish(),
-  maintenanceMode:        maintenanceEnum.optional(),
-  maintenanceExtraPct:    z.number().min(0).max(1000).nullish(),
-  maintenanceFixedAmount: z.number().nonnegative().nullish(),
-  billingDay:             z.number().int().min(1).max(31).nullish(),
-  priceIncludesVat:       z.boolean().optional(),
-  vatRate:                z.number().min(0).max(100).optional(),
-  status:                 statusEnum.optional(),
-  startedAt:              z.string().optional(),
-  endedAt:                z.string().nullish(),
-  notes:                  z.string().nullish(),
-});
+const createContractSchema = z
+  .object({
+    projectId:              z.string().uuid(),
+    clientId:               z.string().uuid(),
+    planId:                 z.string().uuid().nullish(),
+    tier:                   tierEnum.optional(),
+    billingMode:            billingModeEnum.optional(),
+    price:                  z.number().nonnegative().optional(),
+    setupFee:               z.number().nonnegative().nullish(),
+    hourlyRate:             z.number().nonnegative().nullish(),
+    budgetHours:            z.number().nonnegative().nullish(),
+    partsMarkupPct:         z.number().min(-100).max(1000).nullish(),
+    maintenanceMode:        maintenanceEnum.optional(),
+    maintenanceExtraPct:    z.number().min(0).max(1000).nullish(),
+    maintenanceFixedAmount: z.number().nonnegative().nullish(),
+    billingDay:             z.number().int().min(1).max(31).nullish(),
+    priceIncludesVat:       z.boolean().optional(),
+    vatRate:                z.number().min(0).max(100).optional(),
+    status:                 statusEnum.optional(),
+    startedAt:              z.string().optional(),
+    endedAt:                z.string().nullish(),
+    notes:                  z.string().nullish(),
+  })
+  .refine(contractDateRefine, {
+    path: ["endedAt"],
+    message: "La fecha de fin debe ser igual o posterior a la de inicio",
+  });
+
+const updateContractSchema = z
+  .object({
+    tier:                   tierEnum.optional(),
+    billingMode:            billingModeEnum.optional(),
+    price:                  z.number().nonnegative().optional(),
+    setupFee:               z.number().nonnegative().nullish(),
+    hourlyRate:             z.number().nonnegative().nullish(),
+    budgetHours:            z.number().nonnegative().nullish(),
+    partsMarkupPct:         z.number().min(-100).max(1000).nullish(),
+    maintenanceMode:        maintenanceEnum.optional(),
+    maintenanceExtraPct:    z.number().min(0).max(1000).nullish(),
+    maintenanceFixedAmount: z.number().nonnegative().nullish(),
+    billingDay:             z.number().int().min(1).max(31).nullish(),
+    priceIncludesVat:       z.boolean().optional(),
+    vatRate:                z.number().min(0).max(100).optional(),
+    status:                 statusEnum.optional(),
+    startedAt:              z.string().optional(),
+    endedAt:                z.string().nullish(),
+    notes:                  z.string().nullish(),
+  })
+  .refine(contractDateRefine, {
+    path: ["endedAt"],
+    message: "La fecha de fin debe ser igual o posterior a la de inicio",
+  });
 
 const convertContractSchema = z.object({
   billingMode:          billingModeEnum,

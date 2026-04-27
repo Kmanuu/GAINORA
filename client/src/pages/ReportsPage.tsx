@@ -334,7 +334,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Simulador "¿y si...?" */}
-      {dashboard && dashboard.business.minimumRate > 0 && (
+      {dashboard && dashboard.business.minimumRate != null && dashboard.business.minimumRate > 0 && (
         <RateSimulator
           minimumRate={toNum(dashboard.business.minimumRate)}
           realCost={toNum(dashboard.business.realHourlyCost)}
@@ -356,7 +356,7 @@ export default function ReportsPage() {
           <div className="border-t border-[var(--color-border-subtle)] pt-2.5">
             <CostLine label="Total costes" value={fixedMonthly + varTotal} bold />
           </div>
-          {dashboard && dashboard.business.minimumRate > 0 && (
+          {dashboard && dashboard.business.minimumRate != null && dashboard.business.minimumRate > 0 && (
             <div
               className="mt-3 p-3 rounded-[12px] border"
               style={{

@@ -7,7 +7,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Clock, DollarSign, TrendingUp,
   AlertCircle, RefreshCw, FileText, Receipt, Pencil,
-  Plus, Timer, ClipboardList, Layers, Trash2, Info, Repeat,
+  Plus, Timer, ClipboardList, Layers, Trash2, Info,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { api }       from '@/lib/api';
@@ -17,6 +17,7 @@ import {
   partBreakdown, computeProjectMetrics,
   BILLING_MODE_LABEL, BILLING_MODE_DESCRIPTION,
 } from '@/lib/profitability';
+import { buildDeleteSummary, type DeletePreview } from '@/lib/projects';
 import type { Project, TimeEntry, VarCost, BillingMode } from '@/types';
 import Card             from '@/components/ui/Card';
 import Badge            from '@/components/ui/Badge';
@@ -49,6 +50,12 @@ const STATUS_BADGE: Record<ProjectStatus, 'gray' | 'green' | 'orange' | 'blue' |
 
 type Tab = 'resumen' | 'horas' | 'costes' | 'contratos';
 
+// SUBSCRIPTION queda fuera del Project: cuotas recurrentes viven en Contract.
+type ProjectBillingMode = Exclude<BillingMode, 'SUBSCRIPTION'>;
+function toProjectBillingMode(mode: BillingMode | null | undefined): ProjectBillingMode {
+  return mode === 'SUBSCRIPTION' || !mode ? 'FIXED' : mode;
+}
+
 interface ProjectDetail extends Project {
   timeEntries: (TimeEntry & { user?: { fullName: string; hourlyCost?: string | number } })[];
   varCosts:    VarCost[];
@@ -80,7 +87,7 @@ interface EditForm {
   clientName:     string;
   description:    string;
   status:         Project['status'];
-  billingMode:    BillingMode;
+  billingMode:    ProjectBillingMode;
   budgetAmount:   string;
   budgetHours:    string;
   hourlyRate:     string;
@@ -137,7 +144,7 @@ export default function ProjectDetailPage() {
       clientName:     project.clientName ?? '',
       description:    project.description ?? '',
       status:         project.status,
-      billingMode:    project.billingMode ?? 'FIXED',
+      billingMode:    toProjectBillingMode(project.billingMode),
       budgetAmount:   project.budgetAmount != null ? String(project.budgetAmount) : '',
       budgetHours:    project.budgetHours  != null ? String(project.budgetHours)  : '',
       hourlyRate:     project.hourlyRate   != null ? String(project.hourlyRate)   : '',
@@ -257,19 +264,42 @@ export default function ProjectDetailPage() {
               variant="danger" size="sm"
               icon={<Trash2 className="w-3.5 h-3.5" strokeWidth={2} />}
               onClick={async () => {
+                if (!id) return;
+                let preview: DeletePreview;
+                try {
+                  preview = await api.get<DeletePreview>(`/v1/projects/${id}/delete-preview`);
+                } catch (err: unknown) {
+                  toast('error', err instanceof Error ? err.message : 'No se pudo cargar el resumen');
+                  return;
+                }
+                if (!preview.canDelete) {
+                  await confirm({
+                    title:       'No se puede eliminar este proyecto',
+                    message:     preview.blockReason ?? 'Tiene pagos cobrados. Cámbialo a "Cancelado" para archivarlo.',
+                    confirmText: 'Entendido',
+                    variant:     'danger',
+                  });
+                  return;
+                }
+                const lines = buildDeleteSummary(preview);
                 const ok = await confirm({
-                  title: 'Eliminar proyecto',
-                  message: 'Se eliminarán permanentemente el proyecto, todas sus horas registradas y todos sus costes. Esta acción no se puede deshacer.',
+                  title:       `Eliminar "${preview.projectName}"`,
+                  message:     [
+                    'Se eliminarán de forma PERMANENTE:',
+                    ...lines.map((l) => `  • ${l}`),
+                    '',
+                    'Esta acción no se puede deshacer.',
+                  ].join('\n'),
                   confirmText: 'Eliminar definitivamente',
-                  variant: 'danger',
+                  variant:     'danger',
                 });
                 if (!ok) return;
                 try {
                   await api.delete(`/v1/projects/${id}`);
                   toast('success', 'Proyecto eliminado');
                   navigate('/proyectos');
-                } catch {
-                  toast('error', 'Error al eliminar el proyecto');
+                } catch (err: unknown) {
+                  toast('error', err instanceof Error ? err.message : 'Error al eliminar el proyecto');
                 }
               }}
             >
@@ -549,15 +579,14 @@ function BillingModeIcon({ mode }: { mode: BillingMode }) {
 // ---------------------------------------------------------------------------
 // Billing mode picker (reutilizado del ProjectsPage)
 // ---------------------------------------------------------------------------
-function BillingModePicker({ value, onChange }: { value: BillingMode; onChange: (m: BillingMode) => void }) {
-  const opts: { mode: BillingMode; icon: React.ReactNode; title: string; caption: string }[] = [
+function BillingModePicker({ value, onChange }: { value: ProjectBillingMode; onChange: (m: ProjectBillingMode) => void }) {
+  const opts: { mode: ProjectBillingMode; icon: React.ReactNode; title: string; caption: string }[] = [
     { mode: 'FIXED',  icon: <ClipboardList className="w-4 h-4" strokeWidth={1.9} />, title: 'Cerrado',   caption: 'Precio pactado' },
     { mode: 'HOURLY', icon: <Timer         className="w-4 h-4" strokeWidth={1.9} />, title: 'Por horas', caption: 'Según tiempo' },
     { mode: 'HYBRID', icon: <Layers        className="w-4 h-4" strokeWidth={1.9} />, title: 'Mixto',     caption: 'Fijo + horas' },
-    { mode: 'SUBSCRIPTION', icon: <Repeat className="w-4 h-4" strokeWidth={1.9} />, title: 'Suscripción', caption: 'Recurrente' },
   ];
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
       {opts.map((o) => {
         const active = value === o.mode;
         return (

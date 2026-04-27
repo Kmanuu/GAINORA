@@ -7,14 +7,22 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus, FolderKanban, AlertCircle, RefreshCw,
   MoreHorizontal, Pencil, Trash2, Clock, Search, Download,
-  ClipboardList, Timer, Layers, Repeat,
+  ClipboardList, Timer, Layers,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { api }       from '@/lib/api';
 import { exportCsv } from '@/lib/csv';
 import { fmt, toNum } from '@/lib/format';
 import type { Project, ProjectStatus, BillingMode } from '@/types';
+
+// SUBSCRIPTION queda fuera del nivel Project: las cuotas recurrentes viven
+// en Contract. Forzamos que el form solo permita modos directos de trabajo.
+type ProjectBillingMode = Exclude<BillingMode, 'SUBSCRIPTION'>;
+function toProjectBillingMode(mode: BillingMode | null | undefined): ProjectBillingMode {
+  return mode === 'SUBSCRIPTION' || !mode ? 'FIXED' : mode;
+}
 import { BILLING_MODE_LABEL, BILLING_MODE_DESCRIPTION } from '@/lib/profitability';
+import { buildDeleteSummary, type DeletePreview } from '@/lib/projects';
 import Card             from '@/components/ui/Card';
 import Badge            from '@/components/ui/Badge';
 import Button           from '@/components/ui/Button';
@@ -59,7 +67,7 @@ interface ProjectFormState {
   clientName:     string;
   description:    string;
   status:         ProjectStatus;
-  billingMode:    BillingMode;
+  billingMode:    ProjectBillingMode;
   budgetHours:    string;
   budgetAmount:   string;
   hourlyRate:     string;
@@ -81,7 +89,7 @@ function projectToForm(p: Project): ProjectFormState {
     clientName:     p.clientName ?? '',
     description:    p.description ?? '',
     status:         p.status,
-    billingMode:    p.billingMode ?? 'FIXED',
+    billingMode:    toProjectBillingMode(p.billingMode),
     budgetHours:    p.budgetHours != null ? String(p.budgetHours) : '',
     budgetAmount:   p.budgetAmount != null ? String(p.budgetAmount) : '',
     hourlyRate:     p.hourlyRate != null ? String(p.hourlyRate) : '',
@@ -204,9 +212,33 @@ export default function ProjectsPage() {
   }
 
   async function handleDelete(id: string) {
+    let preview: DeletePreview;
+    try {
+      preview = await api.get<DeletePreview>(`/v1/projects/${id}/delete-preview`);
+    } catch (err: unknown) {
+      toast('error', err instanceof Error ? err.message : 'No se pudo cargar el resumen del proyecto');
+      return;
+    }
+
+    if (!preview.canDelete) {
+      await confirm({
+        title:       'No se puede eliminar este proyecto',
+        message:     preview.blockReason ?? 'El proyecto tiene pagos cobrados. Cámbialo a estado "Cancelado" en lugar de borrarlo.',
+        confirmText: 'Entendido',
+        variant:     'danger',
+      });
+      return;
+    }
+
+    const lines = buildDeleteSummary(preview);
     const ok = await confirm({
-      title:       'Eliminar proyecto',
-      message:     'Se eliminarán permanentemente el proyecto, todas sus horas registradas y todos sus costes. Esta acción no se puede deshacer.',
+      title:       `Eliminar "${preview.projectName}"`,
+      message:     [
+        'Se eliminarán de forma PERMANENTE:',
+        ...lines.map((l) => `  • ${l}`),
+        '',
+        'Esta acción no se puede deshacer.',
+      ].join('\n'),
       confirmText: 'Eliminar definitivamente',
       variant:     'danger',
     });
@@ -215,8 +247,8 @@ export default function ProjectsPage() {
       await api.delete(`/v1/projects/${id}`);
       toast('success', 'Proyecto eliminado');
       load(true);
-    } catch {
-      toast('error', 'Error al eliminar el proyecto');
+    } catch (err: unknown) {
+      toast('error', err instanceof Error ? err.message : 'Error al eliminar el proyecto');
     }
   }
 
@@ -566,7 +598,10 @@ function MenuBtn({
 }) {
   return (
     <button
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
       className={clsx(
         'w-full flex items-center gap-2 px-3 py-1.5 text-[13px]',
         'transition-colors duration-100',
@@ -586,18 +621,17 @@ function MenuBtn({
 // ---------------------------------------------------------------------------
 
 function BillingModePicker({ value, onChange }: {
-  value: BillingMode;
-  onChange: (m: BillingMode) => void;
+  value:    ProjectBillingMode;
+  onChange: (m: ProjectBillingMode) => void;
 }) {
-  const opts: { mode: BillingMode; icon: React.ReactNode; title: string; caption: string }[] = [
+  const opts: { mode: ProjectBillingMode; icon: React.ReactNode; title: string; caption: string }[] = [
     { mode: 'FIXED',  icon: <ClipboardList className="w-4 h-4" strokeWidth={1.9} />, title: 'Cerrado',   caption: 'Precio pactado' },
     { mode: 'HOURLY', icon: <Timer         className="w-4 h-4" strokeWidth={1.9} />, title: 'Por horas', caption: 'Según tiempo real' },
     { mode: 'HYBRID', icon: <Layers        className="w-4 h-4" strokeWidth={1.9} />, title: 'Mixto',     caption: 'Fijo + horas' },
-    { mode: 'SUBSCRIPTION', icon: <Repeat className="w-4 h-4" strokeWidth={1.9} />, title: 'Suscripción', caption: 'Recurrente' },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
       {opts.map((o) => {
         const active = value === o.mode;
         return (
