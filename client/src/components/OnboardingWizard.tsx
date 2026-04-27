@@ -145,15 +145,20 @@ export default function OnboardingWizard() {
         className="relative w-full max-w-[560px] bg-[var(--color-surface)] rounded-[24px] overflow-hidden animate-fade-up"
         style={{ boxShadow: 'var(--shadow-floating)' }}
       >
-        {/* Step indicator */}
+        {/* Step indicator — pills de mismo ancho, color marca progreso.
+            Antes el activo era w-8 y los demás w-2, lo que en pantalla 1
+            (activo en pos 0) hacía pensar que el wizard tenía 3 pasos. */}
         <div className="flex justify-center gap-1.5 pt-5">
           {[0, 1, 2, 3].map((s) => (
             <div
               key={s}
               className={clsx(
-                'h-1 rounded-full transition-all duration-300',
-                s === currentStep ? 'w-8 bg-[var(--color-blue)]'
-                                  : 'w-2  bg-[var(--color-border)]',
+                'h-1 w-8 rounded-full transition-all duration-300',
+                s === currentStep
+                  ? 'bg-[var(--color-blue)]'
+                  : s < currentStep
+                    ? 'bg-[var(--color-text-tertiary)]'
+                    : 'bg-[var(--color-border)]',
               )}
             />
           ))}
