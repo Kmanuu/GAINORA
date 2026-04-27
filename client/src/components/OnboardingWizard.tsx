@@ -1,542 +1,395 @@
 // ============================================================================
-// OnboardingWizard.tsx — Tutorial guiado estilo Apple para HorasPRO
+// OnboardingWizard.tsx — Tutorial de bienvenida estilo Apple (S10)
 // ============================================================================
-// 5 pantallas, una sola cosa a la vez, lenguaje de verdad.
-// Ahora soporta mini-tutoriales integrados con redirecciones.
+// 4 pantallas máximas. <60s para llegar a "primer proyecto creado".
+//
+//   0 — ¿Cómo trabajas? Persona en 3 cards. Aplica costingMode +
+//       capacidad por defecto del tenant según la elección.
+//   1 — Tu primer cliente y proyecto (sólo si no es modo demo).
+//   2 — Mensaje "configurado".
+//   3 — Cierre con CTA al dashboard.
+//
+// Skippable en cualquier paso. Recuperable desde sidebar
+// ("Cómo usar HorasPRO" → openOnboarding('main')).
 // ============================================================================
 
+import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, ArrowLeft, ArrowRight, ChevronRight, Check } from 'lucide-react';
+import {
+  X as XIcon, ArrowRight, Check, Sparkles, User, Building2,
+  Briefcase, Users, FlaskConical, ClipboardList, Timer,
+} from 'lucide-react';
 import clsx from 'clsx';
-import { useOnboarding, type FlowType } from '@/context/OnboardingContext';
+import { useOnboarding } from '@/context/OnboardingContext';
+import { api } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
+import Button from '@/components/ui/Button';
+import Input  from '@/components/ui/Input';
 
-// ---------------------------------------------------------------------------
-// Tipos de pantalla
-// ---------------------------------------------------------------------------
+type Persona = 'solo' | 'anchor' | 'trying';
 
-interface SlideProps {
-  onNext:         () => void;
-  onPrev:         () => void;
-  onClose:        () => void;
-  onNavigate:     (path: string) => void;
-  onOpenTutorial: (flow: FlowType) => void;
-  onResumeMain:   (step: number) => void;
+interface PersonaOption {
+  id:          Persona;
+  icon:        ReactNode;
+  title:       string;
+  description: string;
+  config: {
+    costingMode:          'ABSORPTION' | 'CONTRIBUTION';
+    plannedCapacityHours: number;
+    targetMarginPct:      number;
+  };
 }
 
-// ---------------------------------------------------------------------------
-// Componentes visuales base
-// ---------------------------------------------------------------------------
+const PERSONAS: PersonaOption[] = [
+  {
+    id:          'solo',
+    icon:        <Users className="w-5 h-5" strokeWidth={1.9} />,
+    title:       'Solo, varios clientes pequeños',
+    description: 'Cada cliente cubre su parte de tus costes fijos. Lo más común en autónomos.',
+    config:      { costingMode: 'ABSORPTION', plannedCapacityHours: 160, targetMarginPct: 30 },
+  },
+  {
+    id:          'anchor',
+    icon:        <Building2 className="w-5 h-5" strokeWidth={1.9} />,
+    title:       'Un cliente grande y otros pequeños',
+    description: 'El grande cubre tus fijos; el resto suma margen extra. Modo de contribución.',
+    config:      { costingMode: 'CONTRIBUTION', plannedCapacityHours: 200, targetMarginPct: 25 },
+  },
+  {
+    id:          'trying',
+    icon:        <FlaskConical className="w-5 h-5" strokeWidth={1.9} />,
+    title:       'Empiezo de cero, quiero probar',
+    description: 'Sin clientes todavía. Configuramos defaults razonables para que explores.',
+    config:      { costingMode: 'ABSORPTION', plannedCapacityHours: 160, targetMarginPct: 30 },
+  },
+];
 
-function WizardShell({
-  children, step, total, onClose, showBack, onBack,
-}: {
-  children:  React.ReactNode;
-  step:      number;
-  total:     number;
-  onClose:   () => void;
-  showBack:  boolean;
-  onBack:    () => void;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-[6px] animate-fade-in"
-        onClick={onClose}
-      />
-
-      {/* Card */}
-      <div
-        className={clsx(
-          'relative w-full max-w-[520px] rounded-[28px] overflow-hidden animate-scale-in',
-          'bg-[var(--color-surface)] shadow-[0_24px_80px_rgba(0,0,0,0.20),0_0_1px_rgba(0,0,0,0.08)]',
-        )}
-      >
-        {/* Header: back + close */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-0">
-          <button
-            onClick={onBack}
-            className={clsx(
-              'w-8 h-8 rounded-full flex items-center justify-center transition-all duration-150',
-              'text-[var(--color-text-tertiary)] hover:bg-[var(--color-border)] hover:text-[var(--color-text)]',
-              !showBack && 'opacity-0 pointer-events-none',
-            )}
-            aria-label="Volver"
-          >
-            <ArrowLeft className="w-4 h-4" strokeWidth={2} />
-          </button>
-
-          {/* Dots de progreso (ocultar si solo hay 1 paso) */}
-          <div className="flex items-center gap-1.5">
-            {total > 1 && Array.from({ length: total }).map((_, i) => (
-              <div
-                key={i}
-                className={clsx(
-                  'rounded-full transition-all duration-300',
-                  i === step
-                    ? 'w-5 h-2 bg-[#0A84FF]'
-                    : i < step
-                      ? 'w-2 h-2 bg-[#0A84FF] opacity-40'
-                      : 'w-2 h-2 bg-[var(--color-border-strong)]',
-                )}
-              />
-            ))}
-          </div>
-
-          <button
-            onClick={onClose}
-            className={clsx(
-              'w-8 h-8 rounded-full flex items-center justify-center transition-all duration-150',
-              'text-[var(--color-text-tertiary)] hover:bg-[rgba(255,69,58,0.08)] hover:text-[#FF453A]',
-            )}
-            aria-label="Cerrar tutorial"
-          >
-            <X className="w-4 h-4" strokeWidth={2} />
-          </button>
-        </div>
-
-        {/* Contenido de la pantalla */}
-        <div className="px-6 pb-6 pt-4">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BigEmoji({ emoji }: { emoji: string }) {
-  return (
-    <div className="text-[64px] leading-none mb-5 text-center select-none" aria-hidden>
-      {emoji}
-    </div>
-  );
-}
-
-function SlideTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="text-[24px] font-bold text-[var(--color-text)] leading-tight text-center mb-2">
-      {children}
-    </h2>
-  );
-}
-
-function SlideSubtitle({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[16px] text-[var(--color-text-secondary)] leading-relaxed text-center mb-6">
-      {children}
-    </p>
-  );
-}
-
-function PrimaryBtn({
-  children, onClick, icon,
-}: {
-  children: React.ReactNode;
-  onClick:  () => void;
-  icon?:    React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={clsx(
-        'w-full flex items-center justify-center gap-2',
-        'py-3.5 px-6 rounded-[14px]',
-        'bg-[#0A84FF] text-white',
-        'text-[16px] font-semibold',
-        'transition-all duration-150 active:scale-[0.98]',
-        'hover:bg-[#0070E0]',
-        'shadow-[0_4px_16px_rgba(10,132,255,0.30)]',
-      )}
-    >
-      {children}
-      {icon ?? <ArrowRight className="w-4 h-4" strokeWidth={2.5} />}
-    </button>
-  );
-}
-
-function SecondaryBtn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={clsx(
-        'w-full py-3 px-6 rounded-[14px]',
-        'text-[15px] font-medium text-[var(--color-text-secondary)]',
-        'transition-all duration-150',
-        'hover:bg-[var(--color-border)] hover:text-[var(--color-text)]',
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function HighlightBox({
-  emoji, text,
-}: { emoji: string; text: string }) {
-  return (
-    <div className={clsx(
-      'flex items-start gap-3 px-4 py-3.5 rounded-[14px] mb-5',
-      'bg-[rgba(255,159,10,0.08)] border border-[rgba(255,159,10,0.20)]',
-    )}>
-      <span className="text-[20px] shrink-0 mt-0.5" aria-hidden>{emoji}</span>
-      <p className="text-[14px] text-[#8B6800] leading-relaxed font-medium">{text}</p>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// WIZARD PRINCIPAL (Flujo 'main')
-// ---------------------------------------------------------------------------
-
-function Slide1({ onNext, onClose }: SlideProps) {
-  return (
-    <>
-      <BigEmoji emoji="🎯" />
-      <SlideTitle>Bienvenido a HorasPRO</SlideTitle>
-      <SlideSubtitle>
-        En 4 pasos te mostramos cómo saber exactamente si tu negocio
-        está ganando dinero — o no.
-      </SlideSubtitle>
-
-      <div className="space-y-2.5 mb-6">
-        {[
-          { emoji: '🏢', text: 'Cuánto te cuesta tener el negocio abierto' },
-          { emoji: '📁', text: 'Si cada trabajo te renta de verdad' },
-          { emoji: '⏱️', text: 'Cuántas horas reales le dedicas a cada cliente' },
-          { emoji: '🚦', text: 'Una señal clara: verde, naranja o rojo' },
-        ].map(({ emoji, text }) => (
-          <div key={text} className={clsx(
-            'flex items-center gap-3 px-4 py-2.5 rounded-[12px]',
-            'bg-[var(--color-bg)] border border-[var(--color-border)]',
-          )}>
-            <span className="text-[20px] shrink-0" aria-hidden>{emoji}</span>
-            <p className="text-[14px] font-medium text-[var(--color-text)]">{text}</p>
-            <ChevronRight className="w-4 h-4 text-[var(--color-text-tertiary)] ml-auto shrink-0" strokeWidth={1.5} />
-          </div>
-        ))}
-      </div>
-
-      <div className="space-y-2">
-        <PrimaryBtn onClick={onNext}>Empezar</PrimaryBtn>
-        <SecondaryBtn onClick={onClose}>Ya conozco la app, saltar</SecondaryBtn>
-      </div>
-    </>
-  );
-}
-
-function Slide2({ onNext, onNavigate, onOpenTutorial }: SlideProps) {
-  const examples = [
-    { emoji: '🏠', label: 'Alquiler / local' },
-    { emoji: '💡', label: 'Luz y suministros' },
-    { emoji: '🧾', label: 'Gestoría' },
-    { emoji: '💻', label: 'Software / herramientas' },
-    { emoji: '👷', label: 'Sueldos fijos' },
-    { emoji: '📱', label: 'Teléfono / internet' },
-  ];
-
-  return (
-    <>
-      <BigEmoji emoji="🏢" />
-      <SlideTitle>¿Cuánto te cuesta tener el negocio abierto?</SlideTitle>
-      <SlideSubtitle>
-        Antes de ganar un euro, ya tienes gastos. Eso se llama <strong>coste fijo</strong>.
-      </SlideSubtitle>
-
-      <div className="grid grid-cols-3 gap-2 mb-5">
-        {examples.map(({ emoji, label }) => (
-          <div key={label} className={clsx(
-            'flex flex-col items-center gap-1 px-2 py-3 rounded-[12px]',
-            'bg-[var(--color-bg)] border border-[var(--color-border)] text-center',
-          )}>
-            <span className="text-[22px]" aria-hidden>{emoji}</span>
-            <p className="text-[11px] font-medium text-[var(--color-text-secondary)] leading-tight">{label}</p>
-          </div>
-        ))}
-      </div>
-
-      <HighlightBox
-        emoji="💡"
-        text="Cuando añadas estos gastos, HorasPRO calculará automáticamente cuánto necesitas facturar para no perder dinero."
-      />
-
-      <div className="space-y-2">
-        <PrimaryBtn onClick={() => { onNavigate('/costes-fijos'); onOpenTutorial('fixed_costs'); }}>
-          Añadir mis gastos fijos
-        </PrimaryBtn>
-        <SecondaryBtn onClick={onNext}>Seguir con la explicación</SecondaryBtn>
-      </div>
-    </>
-  );
-}
-
-function Slide3({ onNext, onNavigate, onOpenTutorial }: SlideProps) {
-  return (
-    <>
-      <BigEmoji emoji="📁" />
-      <SlideTitle>¿Tienes algún trabajo en marcha ahora mismo?</SlideTitle>
-      <SlideSubtitle>
-        Cada cliente o trabajo es un <strong>proyecto</strong>. Tú le pones el presupuesto que has cobrado,
-        y nosotros te decimos si te está rentando.
-      </SlideSubtitle>
-
-      <div className={clsx(
-        'rounded-[16px] overflow-hidden mb-5',
-        'border border-[var(--color-border)]',
-      )}>
-        {/* Simulación de proyecto */}
-        <div className="px-4 py-3 bg-[var(--color-bg)] border-b border-[var(--color-border)]">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">Ejemplo</p>
-        </div>
-        <div className="px-4 py-3.5">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-[15px] font-semibold text-[var(--color-text)]">Reforma oficina García</p>
-            <span className="px-2 py-0.5 rounded-full bg-[rgba(48,209,88,0.10)] text-[#228B44] text-[11px] font-bold">● Activo</span>
-          </div>
-          <p className="text-[13px] text-[var(--color-text-secondary)]">Cliente: Talleres García S.L.</p>
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--color-border)]">
-            <div>
-              <p className="text-[10px] text-[var(--color-text-tertiary)] uppercase tracking-wider">Presupuesto</p>
-              <p className="text-[16px] font-bold text-[var(--color-text)]">4.500 €</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] text-[var(--color-text-tertiary)] uppercase tracking-wider">Rentabilidad</p>
-              <p className="text-[16px] font-bold text-[#30D158]">82,4%</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <PrimaryBtn onClick={() => { onNavigate('/proyectos'); onOpenTutorial('projects'); }}>
-          Crear mi primer proyecto
-        </PrimaryBtn>
-        <SecondaryBtn onClick={onNext}>Seguir con la explicación</SecondaryBtn>
-      </div>
-    </>
-  );
-}
-
-function Slide4({ onNext, onNavigate, onOpenTutorial }: SlideProps) {
-  return (
-    <>
-      <BigEmoji emoji="⏱️" />
-      <SlideTitle>¿Sabes cuántas horas le dedicas a cada cliente?</SlideTitle>
-      <SlideSubtitle>
-        La mayoría de autónomos no lo saben. Y ese es el agujero por donde se escapa el dinero.
-      </SlideSubtitle>
-
-      <div className={clsx(
-        'flex items-start gap-3 px-4 py-3.5 rounded-[14px] mb-3',
-        'bg-[rgba(10,132,255,0.06)] border border-[rgba(10,132,255,0.15)]',
-      )}>
-        <span className="text-[20px] shrink-0 mt-0.5" aria-hidden>📊</span>
-        <p className="text-[14px] text-[#0A5A99] leading-relaxed font-medium">
-          El <strong>68% de los autónomos</strong> infravalora su tiempo en un 20%.
-          Si facturas 3.000€ al mes, eso son 600€ que estás regalando.
-        </p>
-      </div>
-
-      <div className="space-y-2.5 mb-5">
-        {[
-          { icon: '▶', title: 'Timer en directo', desc: 'Dale al play cuando empieces un proyecto. Para cuando termines.' },
-          { icon: '✏️', title: 'Añadir manualmente', desc: 'Si te olvidaste de fichar, escribe la hora de inicio y fin.' },
-        ].map(({ icon, title, desc }) => (
-          <div key={title} className={clsx(
-            'flex gap-3 px-4 py-3 rounded-[12px]',
-            'bg-[var(--color-bg)] border border-[var(--color-border)]',
-          )}>
-            <span className="text-[18px] shrink-0 mt-0.5" aria-hidden>{icon}</span>
-            <div>
-              <p className="text-[14px] font-semibold text-[var(--color-text)]">{title}</p>
-              <p className="text-[12px] text-[var(--color-text-secondary)] mt-0.5">{desc}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="space-y-2">
-        <PrimaryBtn onClick={() => { onNavigate('/horas'); onOpenTutorial('time'); }}>
-          Ver cómo fichar horas
-        </PrimaryBtn>
-        <SecondaryBtn onClick={onNext}>Seguir con la explicación</SecondaryBtn>
-      </div>
-    </>
-  );
-}
-
-function Slide5({ onNext, onNavigate }: SlideProps) {
-  const lights = [
-    { color: '#30D158', bg: 'rgba(48,209,88,0.10)', label: '🟢 Verde', desc: 'Más del 20% — Vas bien. Sigue así.' },
-    { color: '#FF9F0A', bg: 'rgba(255,159,10,0.10)', label: '🟡 Naranja', desc: 'Entre 10% y 20% — Ajustado. Ojo a los imprevistos.' },
-    { color: '#FF453A', bg: 'rgba(255,69,58,0.10)',  label: '🔴 Rojo', desc: 'Menos del 10% — Revisa precios o eficiencia.' },
-  ];
-
-  return (
-    <>
-      <BigEmoji emoji="🚦" />
-      <SlideTitle>Ya tienes todo lo que necesitas</SlideTitle>
-      <SlideSubtitle>
-        Tu dashboard te dirá en tiempo real si cada proyecto está ganando dinero o no.
-        Así de simple.
-      </SlideSubtitle>
-
-      <div className="space-y-2.5 mb-5">
-        {lights.map(({ color, bg, label, desc }) => (
-          <div
-            key={label}
-            className="flex items-start gap-3 px-4 py-3 rounded-[12px] border"
-            style={{ background: bg, borderColor: `${color}30` }}
-          >
-            <p className="text-[14px] font-semibold shrink-0" style={{ color }}>{label}</p>
-            <p className="text-[13px] text-[var(--color-text-secondary)] leading-snug">{desc}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className={clsx(
-        'flex items-start gap-3 px-4 py-3.5 rounded-[14px] mb-5',
-        'bg-[rgba(10,132,255,0.06)] border border-[rgba(10,132,255,0.15)]',
-      )}>
-        <span className="text-[20px] shrink-0" aria-hidden>💬</span>
-        <p className="text-[13px] text-[#0A5A99] leading-relaxed">
-          <strong>Consejo:</strong> Dedica 5 minutos cada lunes a revisar el dashboard.
-          Eso es todo lo que necesitas para tener el pulso de tu negocio.
-        </p>
-      </div>
-
-      <PrimaryBtn onClick={() => { onNavigate('/dashboard'); onNext(); }} icon={<Check className="w-4 h-4" strokeWidth={2.5} />}>
-        Ver mi dashboard
-      </PrimaryBtn>
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// MINI-TUTORIALES INDIVIDUALES
-// ---------------------------------------------------------------------------
-
-function SlideFixedCosts({ onClose, onNavigate, onResumeMain }: SlideProps) {
-  return (
-    <>
-      <BigEmoji emoji="🏢" />
-      <SlideTitle>Cómo añadir Costes Fijos</SlideTitle>
-      <SlideSubtitle>
-        Añadir un coste es muy sencillo: pon el concepto (ej: Alquiler, Luz), el importe y si lo pagas cada mes o al año. La app se encarga de promediarlo.
-      </SlideSubtitle>
-      <HighlightBox
-        emoji="✨"
-        text="Una vez creado tu primer servicio o proyecto, este gasto aplicará automáticamente a tus números."
-      />
-      <div className="mt-6 space-y-2">
-        <PrimaryBtn onClick={onClose} icon={<Check className="w-4 h-4" strokeWidth={2.5} />}>
-          Entendido, voy a añadirlos ahora
-        </PrimaryBtn>
-        <SecondaryBtn onClick={() => { onNavigate('/dashboard'); onResumeMain(2); }}>
-          Volver al tutorial general
-        </SecondaryBtn>
-      </div>
-    </>
-  );
-}
-
-function SlideProjects({ onClose, onNavigate, onResumeMain }: SlideProps) {
-  return (
-    <>
-      <BigEmoji emoji="📁" />
-      <SlideTitle>Cómo crear Proyectos</SlideTitle>
-      <SlideSubtitle>
-        Para crear un proyecto dale al botón <strong className="text-[var(--color-text)]">+ Nuevo Proyecto</strong>. Solo necesitas poner un nombre y tu presupuesto cobrado.
-      </SlideSubtitle>
-      <HighlightBox
-        emoji="💡"
-        text="El resto de datos (como el cliente o la descripción) son opcionales. HorasPRO comparará ese presupuesto contra tus horas trabajadas y tus costes para el semáforo final."
-      />
-      <div className="mt-6 space-y-2">
-        <PrimaryBtn onClick={onClose} icon={<Check className="w-4 h-4" strokeWidth={2.5} />}>
-          Entendido, voy a crear uno
-        </PrimaryBtn>
-        <SecondaryBtn onClick={() => { onNavigate('/dashboard'); onResumeMain(3); }}>
-          Volver al tutorial general
-        </SecondaryBtn>
-      </div>
-    </>
-  );
-}
-
-function SlideTime({ onClose, onNavigate, onResumeMain }: SlideProps) {
-  return (
-    <>
-      <BigEmoji emoji="⏱️" />
-      <SlideTitle>Cómo fichar Horas</SlideTitle>
-      <SlideSubtitle>
-        Arriba tienes el temporizador en directo. Solo selecciona un proyecto activo y dale a <strong className="text-[var(--color-text)]">Play</strong> cuando te pongas a trabajar.
-      </SlideSubtitle>
-      <HighlightBox
-        emoji="✏️"
-        text="¿Se te olvidó darle? No pasa nada, haz clic en 'Nueva entrada de tiempo' para añadir manualmente las horas que estuviste trabajando."
-      />
-      <div className="mt-6 space-y-2">
-        <PrimaryBtn onClick={onClose} icon={<Check className="w-4 h-4" strokeWidth={2.5} />}>
-          Entendido, voy a probarlo
-        </PrimaryBtn>
-        <SecondaryBtn onClick={() => { onNavigate('/dashboard'); onResumeMain(4); }}>
-          Volver al tutorial general
-        </SecondaryBtn>
-      </div>
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Componente principal
-// ---------------------------------------------------------------------------
-
-const MAIN_SLIDES = [Slide1, Slide2, Slide3, Slide4, Slide5];
+type BillingMode = 'FIXED' | 'HOURLY';
 
 export default function OnboardingWizard() {
-  const { activeFlow, currentStep, open, close, next, prev, resumeMain } = useOnboarding();
-  const navigate = useNavigate();
+  const { activeFlow, currentStep, close, next, goTo } = useOnboarding();
+  const { toast } = useToast();
+  const navigate  = useNavigate();
 
-  if (!activeFlow) return null;
+  const [persona,    setPersona]    = useState<Persona | null>(null);
+  const [clientName, setClientName] = useState('');
+  const [projectName, setProjectName] = useState('');
+  const [mode,       setMode]       = useState<BillingMode>('FIXED');
+  const [amount,     setAmount]     = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  let Slide;
-  let totalSteps = 1;
+  if (activeFlow !== 'main') return null;
 
-  if (activeFlow === 'main') {
-    Slide = MAIN_SLIDES[currentStep];
-    totalSteps = MAIN_SLIDES.length;
-  } else if (activeFlow === 'fixed_costs') {
-    Slide = SlideFixedCosts;
-  } else if (activeFlow === 'projects') {
-    Slide = SlideProjects;
-  } else if (activeFlow === 'time') {
-    Slide = SlideTime;
-  } else {
-    return null;
+  async function selectPersona(p: PersonaOption) {
+    setPersona(p.id);
+    try { await api.patch('/v1/me/tenant', p.config); }
+    catch { /* silencioso: si falla, ajustes desde Settings */ }
+    if (p.id === 'trying') goTo(2);
+    else                   next(4);
   }
 
-  const slideProps: SlideProps = {
-    onNext:         () => next(totalSteps),
-    onPrev:         prev,
-    onClose:        close,
-    onNavigate:     (path: string) => { navigate(path); },
-    onOpenTutorial: (flow: FlowType) => { open(flow); },
-    onResumeMain:   resumeMain,
-  };
+  async function createFirstProject() {
+    if (!clientName.trim())  { toast('error', 'Indica el nombre del cliente'); return; }
+    if (!projectName.trim()) { toast('error', 'Indica el nombre del proyecto'); return; }
+    if (!amount.trim() || parseFloat(amount) <= 0) {
+      toast('error', mode === 'FIXED' ? 'Indica cuánto te paga el cliente' : 'Indica la tarifa por hora');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const client = await api.post<{ id: string }>('/v1/clients', { name: clientName.trim() });
+      const project = await api.post<{ id: string }>('/v1/projects', {
+        name:         projectName.trim(),
+        clientId:     client.id,
+        status:       'ACTIVE',
+        billingMode:  mode,
+        budgetAmount: mode === 'FIXED'  ? parseFloat(amount) : null,
+        hourlyRate:   mode === 'HOURLY' ? parseFloat(amount) : null,
+      });
+      await api.post('/v1/contracts', {
+        projectId:   project.id,
+        clientId:    client.id,
+        billingMode: mode,
+        price:       parseFloat(amount),
+        startedAt:   new Date().toISOString().slice(0, 10),
+      });
+      toast('success', '¡Listo! Tu primer proyecto está creado.');
+      next(4);
+    } catch (e: unknown) {
+      toast('error', e instanceof Error ? e.message : 'No se pudo crear el proyecto');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleClose() { close(); }
+  function goToDashboard() { close(); navigate('/dashboard'); }
 
   return (
-    <WizardShell
-      step={currentStep}
-      total={totalSteps}
-      onClose={close}
-      showBack={activeFlow === 'main' && currentStep > 0}
-      onBack={prev}
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Tutorial de bienvenida"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[rgba(15,15,20,0.55)] backdrop-blur-sm animate-fade-in"
     >
-      <Slide {...slideProps} />
-    </WizardShell>
+      <button
+        onClick={handleClose}
+        aria-label="Saltar tutorial"
+        className="absolute top-5 right-5 text-white/70 hover:text-white text-[13px] font-medium flex items-center gap-1.5 transition-colors"
+      >
+        Saltar
+        <XIcon className="w-4 h-4" strokeWidth={2} />
+      </button>
+
+      <div
+        className="relative w-full max-w-[560px] bg-[var(--color-surface)] rounded-[24px] overflow-hidden animate-fade-up"
+        style={{ boxShadow: 'var(--shadow-floating)' }}
+      >
+        {/* Step indicator */}
+        <div className="flex justify-center gap-1.5 pt-5">
+          {[0, 1, 2, 3].map((s) => (
+            <div
+              key={s}
+              className={clsx(
+                'h-1 rounded-full transition-all duration-300',
+                s === currentStep ? 'w-8 bg-[var(--color-blue)]'
+                                  : 'w-2  bg-[var(--color-border)]',
+              )}
+            />
+          ))}
+        </div>
+
+        <div className="px-6 sm:px-8 py-6 sm:py-8">
+          {currentStep === 0 && <StepPersona onSelect={selectPersona} />}
+          {currentStep === 1 && (
+            <StepFirstProject
+              clientName={clientName}    setClientName={setClientName}
+              projectName={projectName}  setProjectName={setProjectName}
+              mode={mode}                setMode={setMode}
+              amount={amount}            setAmount={setAmount}
+              onSubmit={createFirstProject}
+              submitting={submitting}
+            />
+          )}
+          {currentStep === 2 && <StepReady persona={persona} onContinue={() => next(4)} />}
+          {currentStep === 3 && <StepFinish onGoDashboard={goToDashboard} persona={persona} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pantalla 0 — Pregunta persona
+// ---------------------------------------------------------------------------
+
+function StepPersona({ onSelect }: { onSelect: (p: PersonaOption) => void }) {
+  return (
+    <>
+      <header className="text-center mb-6">
+        <div className="inline-flex w-12 h-12 rounded-[14px] bg-[var(--color-blue-subtle)] items-center justify-center mb-3">
+          <Sparkles className="w-5 h-5 text-[var(--color-blue)]" strokeWidth={1.9} />
+        </div>
+        <h2 className="text-[22px] font-semibold text-[var(--color-text)] tracking-tight">
+          Vamos a configurar HorasPRO en 30 segundos
+        </h2>
+        <p className="text-[14px] text-[var(--color-text-secondary)] mt-1.5">
+          ¿Cómo trabajas ahora?
+        </p>
+      </header>
+      <div className="space-y-2.5">
+        {PERSONAS.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => onSelect(p)}
+            className="w-full flex items-start gap-3 px-4 py-3.5 rounded-[14px] text-left border border-[var(--color-border-medium)] bg-[var(--color-surface)] hover:border-[var(--color-blue)] hover:bg-[var(--color-blue-subtle)] transition-all duration-150 group"
+          >
+            <span className="w-9 h-9 rounded-[10px] bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.06)] text-[var(--color-text-secondary)] group-hover:bg-white group-hover:text-[var(--color-blue)] flex items-center justify-center shrink-0 transition-colors">
+              {p.icon}
+            </span>
+            <div className="flex-1">
+              <p className="text-[14px] font-semibold text-[var(--color-text)]">{p.title}</p>
+              <p className="text-[12.5px] text-[var(--color-text-secondary)] mt-0.5 leading-relaxed">{p.description}</p>
+            </div>
+            <ArrowRight className="w-4 h-4 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-blue)] mt-2 transition-colors" strokeWidth={2} />
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pantalla 1 — Primer cliente + proyecto
+// ---------------------------------------------------------------------------
+
+function StepFirstProject({
+  clientName, setClientName, projectName, setProjectName,
+  mode, setMode, amount, setAmount, onSubmit, submitting,
+}: {
+  clientName:  string; setClientName:  (v: string) => void;
+  projectName: string; setProjectName: (v: string) => void;
+  mode:        BillingMode; setMode: (v: BillingMode) => void;
+  amount:      string; setAmount: (v: string) => void;
+  onSubmit:    () => void;
+  submitting:  boolean;
+}) {
+  return (
+    <>
+      <header className="text-center mb-6">
+        <div className="inline-flex w-12 h-12 rounded-[14px] bg-[var(--color-blue-subtle)] items-center justify-center mb-3">
+          <Briefcase className="w-5 h-5 text-[var(--color-blue)]" strokeWidth={1.9} />
+        </div>
+        <h2 className="text-[22px] font-semibold text-[var(--color-text)] tracking-tight">
+          Tu primer cliente y proyecto
+        </h2>
+        <p className="text-[14px] text-[var(--color-text-secondary)] mt-1.5">
+          Lo más rápido es introducir uno real. Podrás añadir más después.
+        </p>
+      </header>
+      <div className="space-y-3">
+        <Input
+          label="Cliente"
+          value={clientName}
+          onChange={(e) => setClientName(e.target.value)}
+          placeholder="Carpintería López, Estudio Diseño SL…"
+        />
+        <Input
+          label="Proyecto / trabajo"
+          value={projectName}
+          onChange={(e) => setProjectName(e.target.value)}
+          placeholder="Reforma local, página web…"
+        />
+        <div>
+          <label className="block text-[12px] font-semibold text-[var(--color-text-secondary)] mb-2">
+            ¿Cómo cobras este trabajo?
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <ModeCard
+              active={mode === 'FIXED'}
+              onClick={() => setMode('FIXED')}
+              icon={<ClipboardList className="w-4 h-4" strokeWidth={1.9} />}
+              title="Cuando termino"
+              caption="Precio cerrado"
+            />
+            <ModeCard
+              active={mode === 'HOURLY'}
+              onClick={() => setMode('HOURLY')}
+              icon={<Timer className="w-4 h-4" strokeWidth={1.9} />}
+              title="Por las horas que dedique"
+              caption="Cobro horas reales"
+            />
+          </div>
+        </div>
+        <Input
+          label={mode === 'FIXED' ? '¿Cuánto te paga?' : 'Tarifa por hora'}
+          type="number"
+          min="0"
+          step="0.5"
+          prefix="€"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
+        <div className="pt-2">
+          <Button variant="primary" loading={submitting} onClick={onSubmit} fullWidth>
+            Empezar
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ModeCard({
+  active, onClick, icon, title, caption,
+}: {
+  active: boolean; onClick: () => void; icon: ReactNode; title: string; caption: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={clsx(
+        'flex flex-col items-start gap-1.5 px-3 py-2.5 rounded-[11px] text-left',
+        'border transition-all duration-150',
+        active
+          ? 'border-[var(--color-blue)] bg-[var(--color-blue-subtle)] ring-[3px] ring-[rgba(10,132,255,0.15)]'
+          : 'border-[var(--color-border-medium)] bg-[var(--color-surface)] hover:border-[var(--color-border-strong)]',
+      )}
+    >
+      <span className={clsx(
+        'w-7 h-7 rounded-[9px] flex items-center justify-center',
+        active ? 'bg-white text-[var(--color-blue)]' : 'bg-[rgba(0,0,0,0.04)] dark:bg-[rgba(255,255,255,0.06)] text-[var(--color-text-secondary)]',
+      )}>
+        {icon}
+      </span>
+      <span className="text-[13px] font-semibold text-[var(--color-text)] leading-tight">{title}</span>
+      <span className="text-[10.5px] text-[var(--color-text-tertiary)] leading-tight">{caption}</span>
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pantalla 2 — Mensaje "configurado"
+// ---------------------------------------------------------------------------
+
+function StepReady({
+  persona, onContinue,
+}: { persona: Persona | null; onContinue: () => void }) {
+  const isDemo = persona === 'trying';
+  return (
+    <div className="text-center py-2">
+      <div className="inline-flex w-14 h-14 rounded-[16px] bg-[var(--color-green-subtle)] items-center justify-center mb-4">
+        <Check className="w-6 h-6 text-[var(--color-green)]" strokeWidth={2.4} />
+      </div>
+      <h2 className="text-[22px] font-semibold text-[var(--color-text)] tracking-tight">
+        {isDemo ? 'Configurado para explorar' : 'Configurado'}
+      </h2>
+      <p className="text-[14px] text-[var(--color-text-secondary)] mt-2 max-w-[400px] mx-auto leading-relaxed">
+        {isDemo
+          ? 'Hemos puesto valores razonables para que pruebes la app sin clientes. Cuando tengas uno real, créalo desde la sección Clientes y verás los números cobrar sentido.'
+          : 'Tu modelo de costes y tu primer proyecto ya están en su sitio. Lo siguiente es fichar tu primera hora — verás tu rentabilidad en tiempo real.'}
+      </p>
+      <Button variant="primary" onClick={onContinue} className="mt-6">
+        Continuar
+      </Button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pantalla 3 — Cierre con CTA al dashboard
+// ---------------------------------------------------------------------------
+
+function StepFinish({
+  onGoDashboard, persona,
+}: { onGoDashboard: () => void; persona: Persona | null }) {
+  return (
+    <div className="text-center py-2">
+      <div className="inline-flex w-14 h-14 rounded-[16px] bg-[var(--color-blue-subtle)] items-center justify-center mb-4">
+        <User className="w-6 h-6 text-[var(--color-blue)]" strokeWidth={2.2} />
+      </div>
+      <h2 className="text-[22px] font-semibold text-[var(--color-text)] tracking-tight">
+        Todo tuyo
+      </h2>
+      <p className="text-[14px] text-[var(--color-text-secondary)] mt-2 max-w-[420px] mx-auto leading-relaxed">
+        En el dashboard verás tu tarifa real por hora, qué proyectos te dan margen y dónde estás perdiendo dinero. Vuelve a este tutorial cuando quieras desde el botón <strong>“Cómo usar HorasPRO”</strong> de la barra lateral.
+      </p>
+      <p className="text-[12.5px] text-[var(--color-text-tertiary)] mt-4">
+        Lo primero que conviene hacer:
+      </p>
+      <ul className="text-[12.5px] text-[var(--color-text-secondary)] mt-1.5 space-y-1 inline-block text-left">
+        {persona !== 'trying' && (
+          <li>• Registrar tus costes fijos en la sección <em>Costes fijos</em>.</li>
+        )}
+        <li>• Fichar tu primera hora con el botón timer en <em>Horas</em>.</li>
+        <li>• Configurar tus datos de facturación en <em>Ajustes</em> antes de emitir tu primera factura.</li>
+      </ul>
+      <div className="mt-6">
+        <Button variant="primary" onClick={onGoDashboard} fullWidth>
+          Entrar al dashboard
+        </Button>
+      </div>
+    </div>
   );
 }
