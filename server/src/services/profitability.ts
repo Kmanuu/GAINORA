@@ -103,6 +103,7 @@ export interface ContractProfitabilityInput {
   // Globales
   totalMonthlyCosts: number;   // del tenant, YA multiplicado por monthsInRange
   activeContractsCount: number;
+  costingMode?: CostingMode;
 }
 
 export interface ContractProfitabilityResult {
@@ -268,7 +269,9 @@ export function calculateContractProfitability(
   // --- Costes ---
   const issueCost    = d.nonBillableIssueCost ?? 0;
   const directCost   = laborCost + partsCost + issueCost + maintenanceCostInternal;
-  const indirectCost = safeDivide(d.totalMonthlyCosts, d.activeContractsCount);
+  const indirectCost = d.costingMode === "CONTRIBUTION"
+    ? 0
+    : safeDivide(d.totalMonthlyCosts, d.activeContractsCount);
 
   // --- Margen ---
   const netMargin        = revenue - directCost - indirectCost;
@@ -351,7 +354,8 @@ export function calculateBusinessMetrics(
     };
   }
 
-  const realHourlyCost = round2(overheadPerHour + directCostPerHour);
+  const isContribution = data.costingMode === "CONTRIBUTION";
+  const realHourlyCost = round2((isContribution ? 0 : overheadPerHour) + directCostPerHour);
   const marginFactor = 1 + (data.targetMarginPct ?? 0) / 100;
   const minimumRate  = round2(realHourlyCost * marginFactor);
 

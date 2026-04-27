@@ -18,6 +18,7 @@ import {
   type ContractProfitabilityInput,
   type MaintenanceMode,
   type BillingMode,
+  type CostingMode,
 } from "../services/profitability.js";
 
 // ---------------------------------------------------------------------------
@@ -114,6 +115,19 @@ export async function getMetrics(req: Request, res: Response, next: NextFunction
 
     const activeContractsCount = activeContracts.length;
 
+    // Configuración de coste/capacidad del tenant — necesaria tanto en
+    // el cálculo por contrato (costingMode) como en el cálculo global.
+    const tenant = await prisma.tenant.findUnique({
+      where:  { id: tenantId },
+      select: {
+        plannedCapacityHours: true,
+        targetMarginPct:      true,
+        costingMode:          true,
+        reliabilityMinHours:  true,
+      },
+    });
+    const tenantCostingMode: CostingMode = (tenant?.costingMode ?? "ABSORPTION") as CostingMode;
+
     // Costes fijos del tenant
     const fixedCosts = await prisma.fixedCost.findMany({ where: { tenantId, isActive: true } });
     const fixedPerMonth = fixedCosts.reduce(
@@ -209,6 +223,7 @@ export async function getMetrics(req: Request, res: Response, next: NextFunction
         nonBillableIssueCost,
         totalMonthlyCosts:        totalMonthlyCostsInRange,
         activeContractsCount,
+        costingMode:              tenantCostingMode,
       };
 
       const profitability = calculateContractProfitability(input);
@@ -278,17 +293,6 @@ export async function getMetrics(req: Request, res: Response, next: NextFunction
       0,
     );
 
-    // Configuración de coste y capacidad del tenant.
-    const tenant = await prisma.tenant.findUnique({
-      where:  { id: tenantId },
-      select: {
-        plannedCapacityHours: true,
-        targetMarginPct:      true,
-        costingMode:          true,
-        reliabilityMinHours:  true,
-      },
-    });
-
     const business = calculateBusinessMetrics({
       // Costes FIJOS del rango — separados de los directos.
       totalFixedCosts:       totalMonthlyCostsInRange,
@@ -297,7 +301,7 @@ export async function getMetrics(req: Request, res: Response, next: NextFunction
       totalBillableHours,
       plannedCapacityHours:  tenant?.plannedCapacityHours ?? 160,
       targetMarginPct:       Number(tenant?.targetMarginPct ?? 30),
-      costingMode:           (tenant?.costingMode ?? "ABSORPTION") as "ABSORPTION" | "CONTRIBUTION",
+      costingMode:           tenantCostingMode,
       monthsInRange,
       reliabilityMinHours:   tenant?.reliabilityMinHours ?? 5,
     });
