@@ -1,5 +1,5 @@
 // ============================================================================
-// RegisterPage.tsx — Registro de nueva empresa + propietario estilo Gainora
+// RegisterPage.tsx — Registro de nueva empresa + propietario estilo HorasPRO
 // ============================================================================
 
 import { useState, type FormEvent } from 'react';
@@ -104,7 +104,10 @@ export default function RegisterPage() {
         email:      form.email,
         password:   form.password,
       });
-      toast('success', 'Cuenta creada correctamente. Bienvenido a Gainora.');
+      // Cuenta nueva en este navegador: limpiar el flag para que el
+      // wizard de bienvenida se autoabra al aterrizar en /dashboard.
+      localStorage.removeItem('hp_onboarding_done');
+      toast('success', 'Cuenta creada correctamente. Bienvenido a HorasPRO.');
       navigate('/dashboard');
     } catch (err: unknown) {
       setApiError(err instanceof Error ? err.message : 'Error al registrar');
@@ -267,7 +270,7 @@ export default function RegisterPage() {
                   fullWidth 
                   className="bg-gradient-to-r from-[#00D4FF] to-[#0066FF] text-[#050A14] font-bold text-[16px] h-[54px] rounded-[14px] hover:shadow-[0_8px_30px_rgba(0,212,255,0.4)] transition-all active:scale-[0.98]"
                 >
-                  Crear mi empresa en Gainora
+                  Crear mi empresa en HorasPRO
                 </Button>
               </div>
             </form>
@@ -283,7 +286,7 @@ export default function RegisterPage() {
       </div>
 
       <div className="mt-12 flex items-center gap-6 text-[12px] text-[#1F2937] font-medium relative">
-        <span>© {new Date().getFullYear()} Gainora.io</span>
+        <span>© {new Date().getFullYear()} HorasPRO.io</span>
         <div className="w-1 h-1 rounded-full bg-[#1F2937]" />
         <a href="#" className="hover:text-[#4B5563] transition-colors">Privacidad</a>
         <a href="#" className="hover:text-[#4B5563] transition-colors">Términos</a>

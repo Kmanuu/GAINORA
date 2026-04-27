@@ -235,7 +235,7 @@ const Navbar = ({ C }: { C: string }) => {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         <Ic n="target" c={C} s={22} />
-        <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-.5px', color: 'white' }}>Gainora</span>
+        <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-.5px', color: 'white' }}>HorasPRO</span>
       </div>
       <div style={{ display: 'flex', gap: 40 }} className="hidden md:flex">
         <NavLink href="#features">Funcionalidades</NavLink>
@@ -427,9 +427,9 @@ const Section2 = ({ C }: { C: string }) => {
       <div className="breathe" style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%,-50%)', width: 500, height: 500, borderRadius: '50%', background: `radial-gradient(circle, ${C}1A 0%, transparent 70%)`, filter: 'blur(90px)', pointerEvents: 'none' }} />
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
         <FadeUp style={{ textAlign: 'center', marginBottom: 64 }}>
-          <Badge C={C}>Gainora Flow</Badge>
+          <Badge C={C}>HorasPRO Flow</Badge>
           <h2 style={{ fontSize: 'clamp(34px,4vw,60px)', fontWeight: 900, letterSpacing: '-2px', marginBottom: 16 }}>Tu rentabilidad,<br />sin hojas de cálculo.</h2>
-          <p style={{ color: '#6B7280', fontSize: 17, maxWidth: 480, margin: '0 auto', lineHeight: 1.75 }}>Olvídate de cruzar datos a final de mes. Gainora procesa tus ingresos, horas y costes en un solo flujo.</p>
+          <p style={{ color: '#6B7280', fontSize: 17, maxWidth: 480, margin: '0 auto', lineHeight: 1.75 }}>Olvídate de cruzar datos a final de mes. HorasPRO procesa tus ingresos, horas y costes en un solo flujo.</p>
         </FadeUp>
 
         <FadeUp delay={.1}>
@@ -578,8 +578,8 @@ const Section4 = ({ C, CM, price }: { C: string; CM: string; price: string }) =>
     <section id="pricing" style={{ padding: '110px 40px', position: 'relative', overflow: 'hidden' }}>
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
         <FadeUp style={{ textAlign: 'center', marginBottom: 56 }}>
-          <Badge C={C}>El efecto Gainora</Badge>
-          <h2 style={{ fontSize: 'clamp(34px,4vw,60px)', fontWeight: 900, letterSpacing: '-2px' }}>Con Gainora ahorrarás...</h2>
+          <Badge C={C}>El efecto HorasPRO</Badge>
+          <h2 style={{ fontSize: 'clamp(34px,4vw,60px)', fontWeight: 900, letterSpacing: '-2px' }}>Con HorasPRO ahorrarás...</h2>
         </FadeUp>
         <FadeUp delay={.1}>
           <div style={{
@@ -651,7 +651,7 @@ const Section5 = ({ C }: { C: string }) => {
         <FadeUp style={{ position: 'relative', zIndex: 2, maxWidth: 600, margin: '0 auto' }}>
           <Badge C={C}>Sobre el creador</Badge>
           <h2 style={{ fontSize: 'clamp(30px,4vw,54px)', fontWeight: 900, letterSpacing: '-2px', marginBottom: 24, lineHeight: 1.1 }}>Soy estudiante.<br />Y estaba cansado del software mediocre.</h2>
-          <p style={{ color: '#4B5563', fontSize: 17, lineHeight: 1.85, marginBottom: 44 }}>Gainora no es una corporación sin alma. Es una herramienta construida desde las trincheras para devolver el control financiero a agencias y freelancers. Sin ruido, sin capital riesgo. Solo buen código.</p>
+          <p style={{ color: '#4B5563', fontSize: 17, lineHeight: 1.85, marginBottom: 44 }}>HorasPRO no es una corporación sin alma. Es una herramienta construida desde las trincheras para devolver el control financiero a agencias y freelancers. Sin ruido, sin capital riesgo. Solo buen código.</p>
           <Btn onClick={() => window.open('https://tandemsoftware.es', '_blank')}>Conoce mi historia</Btn>
         </FadeUp>
       </section>
@@ -677,7 +677,7 @@ const Section5 = ({ C }: { C: string }) => {
           </FadeUp>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 40, marginBottom: 48 }}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}><Ic n="target" c={C} s={19} /><span style={{ fontSize: 17, fontWeight: 800 }}>Gainora</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}><Ic n="target" c={C} s={19} /><span style={{ fontSize: 17, fontWeight: 800 }}>HorasPRO</span></div>
               <p style={{ color: '#374151', fontSize: 13, lineHeight: 1.75, maxWidth: 210 }}>Control financiero real para agencias y freelancers que quieren crecer con la cabeza fría.</p>
               <div style={{ display: 'flex', gap: 14, marginTop: 20 }}>
                 {['github', 'twitter'].map(n => (
@@ -694,7 +694,7 @@ const Section5 = ({ C }: { C: string }) => {
               </div>
             ))}
           </div>
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 24, color: '#1F2937', fontSize: 12, textAlign: 'center' }}>© 2026 Gainora. Todos los derechos reservados.</div>
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 24, color: '#1F2937', fontSize: 12, textAlign: 'center' }}>© 2026 HorasPRO. Todos los derechos reservados.</div>
         </div>
       </footer>
     </>

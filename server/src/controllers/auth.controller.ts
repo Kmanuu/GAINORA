@@ -40,6 +40,16 @@ export async function register(req: Request, res: Response) {
           role: "OWNER",
         },
       },
+      // Serie A por defecto. Sin esto, las primeras facturas devuelven 409
+      // ("no tienes ninguna serie") y la creación falla silenciosamente.
+      invoiceSeries: {
+        create: {
+          code: "A",
+          name: "General",
+          nextNumber: 1,
+          isDefault: true,
+        },
+      },
     },
     include: { users: true },
   });

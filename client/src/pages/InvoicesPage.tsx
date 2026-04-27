@@ -479,7 +479,9 @@ function NewInvoiceModal({
       }
       onCreated();
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : 'Error al guardar');
+      const msg = e instanceof Error ? e.message : 'Error al guardar';
+      setErr(msg);
+      toast('error', msg);
     } finally {
       setSaving(false);
     }
