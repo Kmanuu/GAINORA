@@ -22,7 +22,7 @@ import { useOnboarding }  from '@/context/OnboardingContext';
 import { fmt, fmtCurrency, greeting, toNum } from '@/lib/format';
 import type {
   DashboardData, ApiResponse, ProjectMetrics, TimeEntry,
-  DashboardProjection, DashboardRangeKey,
+  DashboardProjection, DashboardRangeKey, CollectionsHealth,
 } from '@/types';
 import clsx from 'clsx';
 
@@ -63,6 +63,7 @@ export default function DashboardPage() {
   const [data,       setData]       = useState<DashboardData | null>(null);
   const [projection, setProjection] = useState<DashboardProjection | null>(null);
   const [entries,    setEntries]    = useState<TimeEntry[]>([]);
+  const [collections, setCollections] = useState<CollectionsHealth | null>(null);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState('');
   const [range,      setRange]      = useState<DashboardRangeKey>('month');
@@ -71,14 +72,16 @@ export default function DashboardPage() {
     if (!silent) setLoading(true);
     setError('');
     try {
-      const [res, proj, all] = await Promise.all([
+      const [res, proj, all, col] = await Promise.all([
         api.get<ApiResponse<DashboardData>>(`/v1/dashboard?range=${currentRange}`),
         api.get<ApiResponse<DashboardProjection>>('/v1/dashboard/projection?months=12'),
         api.get<TimeEntry[]>('/v1/time-entries'),
+        api.get<ApiResponse<CollectionsHealth>>('/v1/dashboard/collections-health'),
       ]);
       setData(res.data);
       setProjection(proj.data);
       setEntries(all);
+      setCollections(col.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -388,6 +391,120 @@ export default function DashboardPage() {
           )}
         </Card>
       </section>
+
+      {/* ═══ Salud de cobros (DSO + morosidad) ═══ */}
+      {collections && (collections.totalPendingGross > 0 || collections.invoicesPaid > 0) && (
+        <CollectionsHealthSection data={collections} onOpenCobros={() => navigate('/cobros')} />
+      )}
+    </div>
+  );
+}
+
+// ===========================================================================
+// CollectionsHealthSection — DSO + morosidad
+// ===========================================================================
+
+function CollectionsHealthSection({
+  data, onOpenCobros,
+}: {
+  data:         CollectionsHealth;
+  onOpenCobros: () => void;
+}) {
+  const totalPending = data.totalPendingGross;
+  const buckets = data.pendingByAge;
+
+  return (
+    <section
+      className="mt-6 lg:mt-8 animate-fade-up"
+      style={{ animationDelay: '0.4s' }}
+    >
+      <h3 className="text-[15px] font-semibold text-[var(--color-text)] mb-3 tracking-tight flex items-center gap-2">
+        <Wallet className="w-4 h-4 text-[var(--color-text-secondary)]" strokeWidth={1.9} />
+        Salud de cobros
+      </h3>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card padding="md">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)] mb-1.5">
+            DSO global
+          </p>
+          <p className="text-[28px] font-semibold text-[var(--color-text)] tabular-nums leading-none">
+            {data.dsoGlobalDays != null ? `${data.dsoGlobalDays}` : '—'}
+            <span className="text-[14px] font-normal text-[var(--color-text-tertiary)] ml-1">días</span>
+          </p>
+          <p className="text-[11.5px] text-[var(--color-text-tertiary)] mt-2 leading-relaxed">
+            {data.dsoGlobalDays != null
+              ? `Promedio sobre ${data.invoicesPaid} pago${data.invoicesPaid !== 1 ? 's' : ''} cobrado${data.invoicesPaid !== 1 ? 's' : ''}.`
+              : 'Aún no hay pagos cobrados. Marca un pago como pagado para empezar a medir.'}
+          </p>
+        </Card>
+
+        <Card padding="md">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)] mb-1.5">
+            Pendiente por antigüedad
+          </p>
+          {totalPending > 0 ? (
+            <div className="space-y-1.5 mt-2">
+              <AgeBucket label="0–30 días"  value={buckets.d0_30}    total={totalPending} color="#30D158" />
+              <AgeBucket label="30–60 días" value={buckets.d30_60}   total={totalPending} color="#FFD60A" />
+              <AgeBucket label="60–90 días" value={buckets.d60_90}   total={totalPending} color="#FF9F0A" />
+              <AgeBucket label="+90 días"   value={buckets.d90_plus} total={totalPending} color="#FF453A" />
+            </div>
+          ) : (
+            <p className="text-[12.5px] text-[var(--color-text-tertiary)] mt-1">
+              Todo al día. Sin importes pendientes de cobro.
+            </p>
+          )}
+        </Card>
+
+        <Card padding="md">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)] mb-1.5">
+            Clientes que más tardan
+          </p>
+          {data.slowestClients.length > 0 ? (
+            <ol className="space-y-1.5 mt-2">
+              {data.slowestClients.map((c, i) => (
+                <li key={c.clientId} className="flex items-center gap-2 text-[13px]">
+                  <span className="text-[10px] font-bold text-[var(--color-text-tertiary)] w-4">{i + 1}</span>
+                  <span className="flex-1 truncate text-[var(--color-text)]">{c.name}</span>
+                  <span className="text-[var(--color-text-tertiary)] tabular-nums shrink-0">{c.avgDays}d</span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-[12.5px] text-[var(--color-text-tertiary)] mt-1">
+              Aún no hay datos suficientes.
+            </p>
+          )}
+          <button
+            onClick={onOpenCobros}
+            className="mt-3 text-[12px] font-medium text-[var(--color-blue)] hover:text-[var(--color-blue-hover)]"
+          >
+            Ver detalle en Cobros →
+          </button>
+        </Card>
+      </div>
+    </section>
+  );
+}
+
+function AgeBucket({
+  label, value, total, color,
+}: { label: string; value: number; total: number; color: string }) {
+  const pct = total > 0 ? Math.min(100, (value / total) * 100) : 0;
+  return (
+    <div>
+      <div className="flex items-center justify-between text-[11.5px] mb-0.5">
+        <span className="text-[var(--color-text-secondary)]">{label}</span>
+        <span className="tabular-nums text-[var(--color-text)] font-medium">
+          {fmtCurrency(value, 0)}
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full bg-[var(--color-border)] overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${pct}%`, background: color }}
+        />
+      </div>
     </div>
   );
 }

@@ -371,6 +371,26 @@ export interface ProjectMetrics {
   profitabilityPct:number;
 }
 
+export interface CollectionsHealth {
+  /** DSO global = días promedio entre creación de pago y cobro. null si aún no hay pagos PAID. */
+  dsoGlobalDays:    number | null;
+  invoicesPaid:     number;
+  slowestClients:   Array<{
+    clientId:     string;
+    name:         string;
+    avgDays:      number;
+    invoicesPaid: number;
+  }>;
+  pendingByAge: {
+    d0_30:    number;
+    d30_60:   number;
+    d60_90:   number;
+    d90_plus: number;
+  };
+  totalPendingGross: number;
+  totalPendingNet:   number;
+}
+
 export type DashboardRangeKey = 'week' | 'month' | 'quarter' | 'year' | 'custom';
 
 export interface DashboardSummary {

@@ -446,3 +446,107 @@ export async function getProjection(req: Request, res: Response, next: NextFunct
     next(error);
   }
 }
+
+// ===========================================================================
+// GET /api/v1/dashboard/collections-health
+// ===========================================================================
+// Métricas de morosidad: DSO global y por cliente, top 3 clientes que más
+// tardan en pagar, y desglose del pendiente por antigüedad (0-30, 30-60,
+// 60-90, 90+ días).
+// ===========================================================================
+export async function getCollectionsHealth(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const tenantId = req.user!.tenantId;
+    const now = new Date();
+
+    const payments = await prisma.payment.findMany({
+      where: { tenantId },
+      include: {
+        contract: {
+          select: {
+            id:     true,
+            client: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    // DSO = Days Sales Outstanding = días promedio entre creación del pago
+    // y su cobro. Solo se computa en payments PAID.
+    const paid = payments.filter((p) => p.status === "PAID" && p.paidAt);
+    const dsoSamples: number[] = [];
+    const dsoByClient: Map<string, { name: string; sum: number; count: number }> = new Map();
+
+    for (const p of paid) {
+      const days = Math.max(0, Math.round(
+        (new Date(p.paidAt!).getTime() - new Date(p.createdAt).getTime()) / 86_400_000,
+      ));
+      dsoSamples.push(days);
+      const cid  = p.contract.client.id;
+      const cnam = p.contract.client.name;
+      const cur  = dsoByClient.get(cid) ?? { name: cnam, sum: 0, count: 0 };
+      cur.sum += days;
+      cur.count++;
+      dsoByClient.set(cid, cur);
+    }
+
+    const dsoGlobal = dsoSamples.length > 0
+      ? Math.round(dsoSamples.reduce((s, n) => s + n, 0) / dsoSamples.length)
+      : null;
+
+    const slowestClients = Array.from(dsoByClient.entries())
+      .map(([id, v]) => ({ clientId: id, name: v.name, avgDays: Math.round(v.sum / v.count), invoicesPaid: v.count }))
+      .filter((c) => c.invoicesPaid >= 1)
+      .sort((a, b) => b.avgDays - a.avgDays)
+      .slice(0, 3);
+
+    // Pendiente por antigüedad (sólo PENDING y PARTIAL)
+    const buckets = { d0_30: 0, d30_60: 0, d60_90: 0, d90_plus: 0 };
+    let totalPendingGross = 0;
+    let totalPendingNet   = 0;
+
+    for (const p of payments) {
+      if (p.status === "PAID") continue;
+      const remaining = Math.max(0, Number(p.amountDue) - Number(p.amountPaid));
+      if (remaining === 0) continue;
+      const ageDays = Math.max(0, Math.round(
+        (now.getTime() - new Date(p.createdAt).getTime()) / 86_400_000,
+      ));
+      // Net pendiente proporcional
+      const dueGross = Number(p.amountDue);
+      const fraction = dueGross > 0 ? remaining / dueGross : 0;
+      const netRemaining = Number(p.amountNet) * fraction;
+
+      totalPendingGross += remaining;
+      totalPendingNet   += netRemaining;
+
+      if (ageDays < 30)       buckets.d0_30   += remaining;
+      else if (ageDays < 60)  buckets.d30_60  += remaining;
+      else if (ageDays < 90)  buckets.d60_90  += remaining;
+      else                    buckets.d90_plus += remaining;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        dsoGlobalDays: dsoGlobal,
+        invoicesPaid:  paid.length,
+        slowestClients,
+        pendingByAge: {
+          d0_30:   round2(buckets.d0_30),
+          d30_60:  round2(buckets.d30_60),
+          d60_90:  round2(buckets.d60_90),
+          d90_plus: round2(buckets.d90_plus),
+        },
+        totalPendingGross: round2(totalPendingGross),
+        totalPendingNet:   round2(totalPendingNet),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}

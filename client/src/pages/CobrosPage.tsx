@@ -112,15 +112,36 @@ export default function CobrosPage() {
     PAID:    payments.filter((p) => p.status === 'PAID').length,
   }), [payments]);
 
+  /**
+   * Totales separados por modo:
+   *   GROSS = lo que el cliente paga en caja (amountDue/Paid del Payment).
+   *   NET   = base imponible (amountNet) — ingreso real del negocio sin IVA.
+   * El usuario elige cuál ver desde un toggle en el hero.
+   */
   const totals = useMemo(() => {
-    let due = 0, paid = 0, pending = 0;
+    let dueGross = 0, paidGross = 0, pendingGross = 0;
+    let dueNet   = 0, paidNet   = 0, pendingNet   = 0;
     for (const p of payments) {
-      due  += toNum(p.amountDue);
-      paid += toNum(p.amountPaid);
-      if (p.status !== 'PAID') pending += toNum(p.amountDue) - toNum(p.amountPaid);
+      const dGross = toNum(p.amountDue);
+      const pGross = toNum(p.amountPaid);
+      const dNet   = toNum(p.amountNet);
+      // Para NET cobrado: proporcionar amountNet según fracción ya pagada.
+      const fraction = dGross > 0 ? Math.min(1, pGross / dGross) : 0;
+      const pNet     = dNet * fraction;
+
+      dueGross  += dGross;
+      paidGross += pGross;
+      dueNet    += dNet;
+      paidNet   += pNet;
+      if (p.status !== 'PAID') {
+        pendingGross += dGross - pGross;
+        pendingNet   += dNet   - pNet;
+      }
     }
-    return { due, paid, pending };
+    return { dueGross, paidGross, pendingGross, dueNet, paidNet, pendingNet };
   }, [payments]);
+
+  const [amountMode, setAmountMode] = useState<'NET' | 'GROSS'>('NET');
 
   // Estados de carga --------------------------------------------------------
 
@@ -184,20 +205,49 @@ export default function CobrosPage() {
           className="pointer-events-none absolute -top-16 -right-10 w-56 h-56 rounded-full blur-3xl opacity-60"
           style={{ background: 'radial-gradient(circle, rgba(48,209,88,0.30) 0%, transparent 70%)' }}
         />
+        {/* Toggle NET/GROSS en esquina superior derecha */}
+        <div className="absolute top-3 right-3 z-10">
+          <div className="flex bg-[rgba(255,255,255,0.65)] dark:bg-[rgba(28,28,30,0.65)] backdrop-blur-md rounded-[10px] p-0.5 border border-[var(--color-border-subtle)]">
+            <button
+              onClick={() => setAmountMode('NET')}
+              className={clsx(
+                'px-2.5 py-1 text-[11px] font-semibold rounded-[8px] transition-all',
+                amountMode === 'NET'
+                  ? 'bg-[var(--color-surface)] text-[var(--color-text)] shadow-sm'
+                  : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]',
+              )}
+              title="Sin IVA — ingreso real del negocio"
+            >
+              Neto
+            </button>
+            <button
+              onClick={() => setAmountMode('GROSS')}
+              className={clsx(
+                'px-2.5 py-1 text-[11px] font-semibold rounded-[8px] transition-all',
+                amountMode === 'GROSS'
+                  ? 'bg-[var(--color-surface)] text-[var(--color-text)] shadow-sm'
+                  : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]',
+              )}
+              title="Con IVA — lo que cobras al cliente"
+            >
+              Bruto
+            </button>
+          </div>
+        </div>
         <div className="relative grid grid-cols-3 gap-4 sm:gap-6">
           <HeroBlock
-            label="Cobrado"
-            value={fmtCurrency(totals.paid, 0)}
+            label={amountMode === 'NET' ? 'Cobrado (neto)' : 'Cobrado (bruto)'}
+            value={fmtCurrency(amountMode === 'NET' ? totals.paidNet : totals.paidGross, 0)}
             color="#30D158"
           />
           <HeroBlock
             label="Pendiente de cobro"
-            value={fmtCurrency(totals.pending, 0)}
+            value={fmtCurrency(amountMode === 'NET' ? totals.pendingNet : totals.pendingGross, 0)}
             color="#FF9F0A"
           />
           <HeroBlock
-            label="Total emitido"
-            value={fmtCurrency(totals.due, 0)}
+            label={amountMode === 'NET' ? 'Total emitido (neto)' : 'Total emitido (bruto)'}
+            value={fmtCurrency(amountMode === 'NET' ? totals.dueNet : totals.dueGross, 0)}
             color="#0A84FF"
           />
         </div>
