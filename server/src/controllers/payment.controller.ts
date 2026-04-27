@@ -61,6 +61,7 @@ export async function getPayment(req: Request, res: Response) {
           project: { select: { id: true, name: true } },
         },
       },
+      transactions: { orderBy: { paidAt: "desc" } },
     },
   });
 
@@ -265,13 +266,18 @@ export async function runRollForTenant(tenantId: string): Promise<{
 
     if (periods.length > 1) backfilledPeriods += periods.length - 1;
 
-    const vatRate = Number(contract.vatRate ?? 21);
-    const price   = Number(contract.price);
+    const vatRate  = Number(contract.vatRate ?? 21);
+    const price    = Number(contract.price);
+    const irpfRate = contract.irpfRate != null ? Number(contract.irpfRate) : 0;
 
     for (const p of periods) {
       const base = breakdownFromContractPrice(price, vatRate, contract.priceIncludesVat);
       const amountNet   = round2(base.amountNet   * p.prorationFactor);
       const amountGross = round2(base.amountGross * p.prorationFactor);
+      const irpfAmount  = round2(amountNet * (irpfRate / 100));
+      // amountDue = lo que el cliente abona = gross − irpf (IRPF lo retiene él
+      // y lo ingresa al Estado en nuestro nombre).
+      const amountDue   = round2(amountGross - irpfAmount);
       try {
         await prisma.payment.create({
           data: {
@@ -282,7 +288,8 @@ export async function runRollForTenant(tenantId: string): Promise<{
             amountNet,
             vatRate,
             amountGross,
-            amountDue:   amountGross,
+            irpfAmount,
+            amountDue,
             amountPaid:  0,
             status:      "PENDING",
           },
@@ -328,21 +335,122 @@ export async function regeneratePayment(req: Request, res: Response) {
     payment.periodStart, payment.periodEnd, c.startedAt, c.endedAt ?? null,
   );
 
-  const vatRate = Number(c.vatRate ?? 21);
+  const vatRate  = Number(c.vatRate ?? 21);
+  const irpfRate = c.irpfRate != null ? Number(c.irpfRate) : 0;
   const base = breakdownFromContractPrice(Number(c.price), vatRate, c.priceIncludesVat);
   const amountNet   = round2(base.amountNet   * factor);
   const amountGross = round2(base.amountGross * factor);
+  const irpfAmount  = round2(amountNet * (irpfRate / 100));
+  const amountDue   = round2(amountGross - irpfAmount);
 
   const updated = await prisma.payment.update({
     where: { id: id as string },
     data:  {
       amountNet,
       amountGross,
-      amountDue: amountGross,
+      amountDue,
       vatRate,
+      irpfAmount,
       // amountPaid intacto; status seguirá PENDING porque solo regeneramos
       // si estaba en PENDING.
     },
   });
   res.json(updated);
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/payments/:id/transactions
+// ---------------------------------------------------------------------------
+// Registra un abono parcial o total. Crea una PaymentTransaction y recalcula
+// Payment.amountPaid sumando todas las transacciones existentes. Status del
+// pago se deriva (PENDING/PARTIAL/PAID).
+// ---------------------------------------------------------------------------
+export async function addPaymentTransaction(req: Request, res: Response) {
+  const tenantId = req.user!.tenantId;
+  const { id } = req.params;
+  const { amount, paidAt, method, reference, notes } = req.body;
+
+  const payment = await prisma.payment.findUnique({
+    where: { id: id as string, tenantId },
+  });
+  if (!payment) throw new AppError(404, "Pago no encontrado");
+  if (Number(amount) <= 0) throw new AppError(422, "El importe del abono debe ser mayor que cero.");
+
+  const result = await prisma.$transaction(async (tx) => {
+    const trx = await tx.paymentTransaction.create({
+      data: {
+        tenantId,
+        paymentId: id as string,
+        amount:    round2(Number(amount)),
+        paidAt:    paidAt ? new Date(paidAt) : new Date(),
+        method:    method ?? "TRANSFER",
+        reference: reference ?? null,
+        notes:     notes ?? null,
+      },
+    });
+    // Recalcular amountPaid sumando todas las transacciones del pago
+    const agg = await tx.paymentTransaction.aggregate({
+      where:  { paymentId: id as string },
+      _sum:   { amount: true },
+    });
+    const totalPaid = round2(Number(agg._sum.amount ?? 0));
+    const status    = deriveStatus(totalPaid, Number(payment.amountDue));
+    const lastTrx   = await tx.paymentTransaction.findFirst({
+      where:   { paymentId: id as string },
+      orderBy: { paidAt: "desc" },
+      select:  { paidAt: true },
+    });
+    const updated = await tx.payment.update({
+      where: { id: id as string },
+      data:  {
+        amountPaid: totalPaid,
+        status,
+        paidAt: status === "PAID" ? (lastTrx?.paidAt ?? new Date()) : null,
+      },
+    });
+    return { transaction: trx, payment: updated };
+  });
+
+  res.status(201).json(result);
+}
+
+// ---------------------------------------------------------------------------
+// DELETE /api/v1/payments/transactions/:trxId
+// ---------------------------------------------------------------------------
+// Elimina una transacción (corrección de error) y recalcula amountPaid/status.
+// ---------------------------------------------------------------------------
+export async function deletePaymentTransaction(req: Request, res: Response) {
+  const tenantId = req.user!.tenantId;
+  const { trxId } = req.params;
+
+  const trx = await prisma.paymentTransaction.findUnique({
+    where: { id: trxId as string, tenantId },
+  });
+  if (!trx) throw new AppError(404, "Transacción no encontrada");
+
+  await prisma.$transaction(async (tx) => {
+    await tx.paymentTransaction.delete({ where: { id: trxId as string } });
+    const agg = await tx.paymentTransaction.aggregate({
+      where:  { paymentId: trx.paymentId },
+      _sum:   { amount: true },
+    });
+    const totalPaid = round2(Number(agg._sum.amount ?? 0));
+    const payment   = await tx.payment.findUnique({ where: { id: trx.paymentId } });
+    const status    = payment ? deriveStatus(totalPaid, Number(payment.amountDue)) : "PENDING";
+    const lastTrx   = await tx.paymentTransaction.findFirst({
+      where:   { paymentId: trx.paymentId },
+      orderBy: { paidAt: "desc" },
+      select:  { paidAt: true },
+    });
+    await tx.payment.update({
+      where: { id: trx.paymentId },
+      data:  {
+        amountPaid: totalPaid,
+        status,
+        paidAt: status === "PAID" ? (lastTrx?.paidAt ?? new Date()) : null,
+      },
+    });
+  });
+
+  res.status(204).send();
 }

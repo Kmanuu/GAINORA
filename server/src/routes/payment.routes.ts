@@ -8,6 +8,8 @@ import {
   deletePayment,
   rollPayments,
   regeneratePayment,
+  addPaymentTransaction,
+  deletePaymentTransaction,
 } from "../controllers/payment.controller.js";
 import { requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
@@ -49,12 +51,22 @@ const updatePaymentSchema = z.object({
   notes:       z.string().nullish(),
 });
 
-router.get("/",                   listPayments);
-router.post("/roll",              rollPayments);
-router.post("/:id/regenerate",    regeneratePayment);
-router.post("/",                  validate(createPaymentSchema), createPayment);
-router.get("/:id",                getPayment);
-router.patch("/:id",              validate(updatePaymentSchema), updatePayment);
-router.delete("/:id",             deletePayment);
+const transactionSchema = z.object({
+  amount:    z.number().positive(),
+  paidAt:    z.string().optional(),
+  method:    z.enum(["TRANSFER", "CARD", "CASH", "OTHER"]).optional(),
+  reference: z.string().nullish(),
+  notes:     z.string().nullish(),
+});
+
+router.get("/",                       listPayments);
+router.post("/roll",                  rollPayments);
+router.post("/:id/regenerate",        regeneratePayment);
+router.post("/:id/transactions",      validate(transactionSchema), addPaymentTransaction);
+router.delete("/transactions/:trxId", deletePaymentTransaction);
+router.post("/",                      validate(createPaymentSchema), createPayment);
+router.get("/:id",                    getPayment);
+router.patch("/:id",                  validate(updatePaymentSchema), updatePayment);
+router.delete("/:id",                 deletePayment);
 
 export default router;

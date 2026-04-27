@@ -26,6 +26,7 @@ model Tenant {
   invoiceSeries         InvoiceSeries[]
   issues                Issue[]
   payments              Payment[]
+  paymentTransactions   PaymentTransaction[]
   plans                 Plan[]
   projects              Project[]
   users                 User[]
@@ -141,6 +142,9 @@ model Contract {
   maintenanceFixedAmount Decimal?        @map("maintenance_fixed_amount") @db.Decimal(12, 2)
   billingDay             Int?            @map("billing_day")
   billingFrequency       Freq            @default(MONTHLY) @map("billing_frequency")
+  /// Retención IRPF por defecto al generar pagos/facturas. null = no aplica.
+  /// España: 15% para profesionales, 7% nuevos autónomos primer año.
+  irpfRate               Decimal?        @map("irpf_rate") @db.Decimal(5, 2)
   priceIncludesVat       Boolean         @default(false) @map("price_includes_vat")
   vatRate                Decimal         @default(21) @map("vat_rate") @db.Decimal(5, 2)
   status                 ContractStatus  @default(ACTIVE)
@@ -205,13 +209,36 @@ model Payment {
   vatRate     Decimal       @default(21) @map("vat_rate") @db.Decimal(5, 2)
   amountGross Decimal       @map("amount_gross") @db.Decimal(12, 2)
   amountDue   Decimal       @map("amount_due") @db.Decimal(12, 2)
+  /// Retención IRPF aplicada al generar este pago. Si > 0, el cliente
+  /// paga (amountGross - irpfAmount); el IRPF lo ingresa al Estado.
+  irpfAmount  Decimal       @default(0) @map("irpf_amount") @db.Decimal(12, 2)
   contract    Contract      @relation(fields: [contractId], references: [id], onDelete: Cascade)
   tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoices    Invoice[]
+  transactions PaymentTransaction[]
 
   @@unique([contractId, periodStart])
   @@index([tenantId, status])
   @@map("payments")
+}
+
+model PaymentTransaction {
+  id        String        @id @default(uuid()) @db.Uuid
+  tenantId  String        @map("tenant_id") @db.Uuid
+  paymentId String        @map("payment_id") @db.Uuid
+  amount    Decimal       @db.Decimal(12, 2)
+  paidAt    DateTime      @map("paid_at")
+  method    PaymentMethod @default(TRANSFER)
+  reference String?
+  notes     String?
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  tenant   Tenant  @relation(fields: [tenantId],  references: [id], onDelete: Cascade)
+  payment  Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([tenantId, paidAt])
+  @@map("payment_transactions")
 }
 
 model InvoiceSeries {
@@ -408,6 +435,13 @@ enum PaymentStatus {
   PENDING
   PARTIAL
   PAID
+}
+
+enum PaymentMethod {
+  TRANSFER
+  CARD
+  CASH
+  OTHER
 }
 
 enum InvoiceStatus {

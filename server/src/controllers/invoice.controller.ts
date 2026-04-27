@@ -240,12 +240,20 @@ export async function createInvoiceFromPayment(req: Request, res: Response) {
     ? `${payment.contract.project.name} — Cuota ${payment.periodStart.toISOString().slice(0,10)} a ${payment.periodEnd.toISOString().slice(0,10)}`
     : `${payment.contract.project.name} — Servicio`;
 
+  // Derivar irpfRate efectivo: si el Payment tiene irpfAmount > 0, calcularlo
+  // sobre amountNet (es lo que el contrato aplicó al generar el pago).
+  const paymentNet  = Number(payment.amountNet);
+  const paymentIrpf = Number(payment.irpfAmount);
+  const irpfRate    = paymentNet > 0 && paymentIrpf > 0
+    ? round2((paymentIrpf / paymentNet) * 100)
+    : 0;
+
   const lines: LineInput[] = [{
     description,
     quantity:  1,
-    unitPrice: Number(payment.amountNet),
+    unitPrice: paymentNet,
     vatRate:   Number(payment.vatRate),
-    irpfRate:  0,
+    irpfRate,
     discount:  0,
   }];
   const computed = lines.map((l, i) => computeLine(l, i));

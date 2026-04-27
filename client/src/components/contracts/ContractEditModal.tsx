@@ -48,6 +48,7 @@ interface FormState {
   partsMarkupPct:      string;
   vatRate:             string;
   priceIncludesVat:    boolean;
+  irpfRate:            string;
   maintenanceMode:     MaintenanceMode;
   maintenanceExtraPct: string;
   status:              ContractStatus;
@@ -67,6 +68,7 @@ function contractToForm(c: Contract): FormState {
     partsMarkupPct:      c.partsMarkupPct ?? '',
     vatRate:             c.vatRate ?? '21',
     priceIncludesVat:    c.priceIncludesVat,
+    irpfRate:            (c as { irpfRate?: string | null }).irpfRate ?? '',
     maintenanceMode:     c.maintenanceMode,
     maintenanceExtraPct: c.maintenanceExtraPct ?? '',
     status:              c.status,
@@ -135,6 +137,7 @@ export default function ContractEditModal({
         partsMarkupPct:      form.partsMarkupPct ? parseFloat(form.partsMarkupPct) : null,
         vatRate:             form.vatRate ? parseFloat(form.vatRate) : 21,
         priceIncludesVat:    form.priceIncludesVat,
+        irpfRate:            form.irpfRate ? parseFloat(form.irpfRate) : null,
         maintenanceMode:     form.maintenanceMode,
         maintenanceExtraPct: form.maintenanceExtraPct ? parseFloat(form.maintenanceExtraPct) : null,
         billingFrequency:    isSubscription ? form.billingFrequency : undefined,
@@ -202,6 +205,14 @@ export default function ContractEditModal({
           checked={form.priceIncludesVat}
           onChange={(v) => set('priceIncludesVat', v)}
           label="El precio ya incluye IVA"
+        />
+
+        <Input
+          label="Retención IRPF"
+          type="number" suffix="%" min="0" max="100" step="0.5"
+          value={form.irpfRate}
+          onChange={(e) => set('irpfRate', e.target.value)}
+          hint="España: 15% profesionales, 7% nuevos autónomos primer año. Déjalo vacío si no aplica."
         />
 
         {(form.billingMode === 'FIXED' || form.billingMode === 'HYBRID' || form.billingMode === 'SUBSCRIPTION') && (

@@ -187,6 +187,7 @@ export interface Contract {
   maintenanceFixedAmount: string | null;
   billingDay:             number | null;
   billingFrequency:       'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+  irpfRate:               string | null;
   priceIncludesVat:       boolean;
   vatRate:                string;
   status:                 ContractStatus;
@@ -219,28 +220,44 @@ export interface Contract {
 
 export type PaymentStatus = 'PENDING' | 'PARTIAL' | 'PAID';
 
+export type PaymentMethod = 'TRANSFER' | 'CARD' | 'CASH' | 'OTHER';
+
+export interface PaymentTransaction {
+  id:        string;
+  tenantId:  string;
+  paymentId: string;
+  amount:    string;
+  paidAt:    string;
+  method:    PaymentMethod;
+  reference: string | null;
+  notes:     string | null;
+  createdAt: string;
+}
+
 export interface Payment {
-  id:          string;
-  tenantId:    string;
-  contractId:  string;
-  periodStart: string;
-  periodEnd:   string;
-  amountNet:   string;
-  vatRate:     string;
-  amountGross: string;
-  amountDue:   string;
-  amountPaid:  string;
-  status:      PaymentStatus;
-  paidAt:      string | null;
-  notes:       string | null;
-  createdAt:   string;
-  updatedAt:   string;
+  id:           string;
+  tenantId:     string;
+  contractId:   string;
+  periodStart:  string;
+  periodEnd:    string;
+  amountNet:    string;
+  vatRate:      string;
+  amountGross:  string;
+  amountDue:    string;
+  amountPaid:   string;
+  irpfAmount:   string;
+  status:       PaymentStatus;
+  paidAt:       string | null;
+  notes:        string | null;
+  createdAt:    string;
+  updatedAt:    string;
   contract?: {
     id:          string;
     billingMode: ExtendedBillingMode;
     client:      { id: string; name: string };
     project:     { id: string; name: string };
   };
+  transactions?: PaymentTransaction[];
 }
 
 // --- Facturación ------------------------------------------------------------
