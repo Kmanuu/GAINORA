@@ -769,6 +769,10 @@ function FeaturesEditor({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+          // Safety net: si el usuario teclea una feature y hace click en
+          // "Crear plan" sin pasar antes por "Añadir" o Enter, el blur
+          // flushea el draft para que no se pierda en el submit.
+          onBlur={() => { if (draft.trim()) add(); }}
           placeholder="Añade una característica y pulsa Enter…"
           className="flex-1 h-10 px-3 text-[13.5px] text-[var(--color-text)] bg-[var(--color-surface)] border border-[var(--color-border-medium)] rounded-[11px] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-blue)] focus:ring-[3px] focus:ring-[rgba(10,132,255,0.20)] transition-all"
         />
