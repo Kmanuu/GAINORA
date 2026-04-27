@@ -19,6 +19,7 @@ import {
   Sun,
   Moon,
   PlayCircle,
+  Sparkles,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth }        from '@/context/AuthContext';
@@ -40,6 +41,10 @@ const mainNav: NavItem[] = [
   { label: 'Proyectos',   path: '/proyectos',      icon: FolderKanban    },
   { label: 'Clientes',    path: '/clientes',       icon: Users           },
   { label: 'Horas',       path: '/horas',          icon: Clock           },
+];
+
+const catalogNav: NavItem[] = [
+  { label: 'Planes',      path: '/planes',         icon: Sparkles        },
 ];
 
 const costsNav: NavItem[] = [
@@ -144,6 +149,13 @@ export default function Sidebar() {
         <SectionLabel label="Principal" />
         {mainNav.map((item) => (
           <NavItem key={item.path} {...item} badge={item.path === '/horas' && timerActive ? 'timer' : undefined} />
+        ))}
+
+        <div className="pt-4">
+          <SectionLabel label="Catálogo" />
+        </div>
+        {catalogNav.map((item) => (
+          <NavItem key={item.path} {...item} />
         ))}
 
         <div className="pt-4">

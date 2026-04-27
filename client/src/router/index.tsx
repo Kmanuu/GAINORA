@@ -17,6 +17,7 @@ import VarCostsPage       from '@/pages/VarCostsPage';
 import SettingsPage       from '@/pages/SettingsPage';
 import ProjectDetailPage from '@/pages/ProjectDetailPage';
 import ClientsPage        from '@/pages/ClientsPage';
+import PlansPage          from '@/pages/PlansPage';
 import ContractDetailPage from '@/pages/ContractDetailPage';
 import CobrosPage         from '@/pages/CobrosPage';
 import NotFoundPage       from '@/pages/NotFoundPage';
@@ -89,6 +90,7 @@ export const router = createBrowserRouter([
       { path: '/proyectos',         element: <ProjectsPage />       },
       { path: '/proyectos/:id',     element: <ProjectDetailPage />  },
       { path: '/clientes',          element: <ClientsPage />        },
+      { path: '/planes',            element: <PlansPage />          },
       { path: '/contratos/:id',     element: <ContractDetailPage /> },
       { path: '/cobros',            element: <CobrosPage />         },
       { path: '/horas',             element: <HorasPage />      },
