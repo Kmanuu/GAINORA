@@ -230,7 +230,7 @@ const Navbar = ({ C }: { C: string }) => {
   return (
     <nav style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200, padding: '0 40px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      background: sc ? 'rgba(5,10,20,0.94)' : 'transparent', backdropFilter: sc ? 'blur(24px)' : 'none',
+      background: sc ? 'rgba(5,10,20,1)' : 'transparent', backdropFilter: sc ? 'blur(24px)' : 'none',
       borderBottom: sc ? '1px solid rgba(255,255,255,0.06)' : 'none', transition: 'all .35s'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
@@ -740,6 +740,7 @@ const Comparison = ({ C }: { C: string }) => {
       ref={ref}
       style={{
         padding: '120px 24px',
+        scrollMarginTop: 80,        // compensa el navbar fixed de 64px + aire
         background: '#FAFAFA',
         opacity: vis ? 1 : 0,
         transform: vis ? 'translateY(0)' : 'translateY(20px)',

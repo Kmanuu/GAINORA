@@ -359,7 +359,8 @@ function ClientCard({
   return (
     <Card
       padding="md"
-      className="animate-fade-up relative"
+      onClick={onEdit}
+      className="animate-fade-up relative cursor-pointer hover:border-[var(--color-border-strong)] transition-colors"
       style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' } as React.CSSProperties}
     >
       <div className="flex items-start justify-between mb-3">
