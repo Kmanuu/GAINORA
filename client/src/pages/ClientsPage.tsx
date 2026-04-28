@@ -303,7 +303,17 @@ export default function ClientsPage() {
             }
           />
 
-          {form.taxRegime === 'NATIONAL' && (
+          {/* Toggle recargo — wrapper con transición suave de altura/opacidad
+               para que aparezca/desaparezca con fade al cambiar régimen. */}
+          <div
+            className={clsx(
+              'overflow-hidden transition-all duration-300 ease-out',
+              form.taxRegime === 'NATIONAL'
+                ? 'max-h-[120px] opacity-100'
+                : 'max-h-0 opacity-0 pointer-events-none',
+            )}
+            aria-hidden={form.taxRegime !== 'NATIONAL'}
+          >
             <div className="flex items-start gap-3 px-1 pt-1">
               <Toggle
                 checked={form.hasSurcharge}
@@ -316,7 +326,7 @@ export default function ClientsPage() {
                 </p>
               </div>
             </div>
-          )}
+          </div>
 
           {formError && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-[10px] bg-[var(--color-red-subtle)] border border-[rgba(255,69,58,0.20)]">

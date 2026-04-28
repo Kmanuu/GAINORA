@@ -111,24 +111,76 @@ export function generateModel303Pdf(
     };
 
     y = drawTableHeader(doc, y, W, ["Casilla", "Concepto", "Base imp.", "Cuota"]);
-    let totalBase = 0, totalCuota = 0;
-    for (const r of data.invoices.byVatRate) {
+    let totalCuota = 0;
+
+    // ── Régimen general (operaciones interiores corrientes) — casillas 01-09
+    const domestic = data.invoices.domesticByVatRate.length > 0
+      ? data.invoices.domesticByVatRate
+      : [];
+    for (const r of domestic) {
       const map = boxesByRate[String(r.rate)] ?? { base: "—", cuota: "—" };
       y = drawRow(doc, y, W, [
         `${map.base}/${map.cuota}`,
-        `Tipo ${r.rate}% — base / cuota`,
+        `Régimen general ${r.rate}% — base / cuota`,
         EUR(r.base),
         EUR(r.vat),
       ]);
-      totalBase  += r.base;
       totalCuota += r.vat;
     }
-    if (data.invoices.byVatRate.length === 0) {
+
+    // ── Recargo de equivalencia — casillas 16-21
+    // Casillas 16/17/18 son base imponible por tipo (5,2 / 1,4 / 0,5)
+    // Casillas 19/20/21 son cuota del recargo
+    const surchargeBoxes: Record<string, { base: string; cuota: string }> = {
+      "5.2": { base: "16", cuota: "19" },
+      "5":   { base: "16", cuota: "19" }, // tolerancia decimal
+      "1.4": { base: "17", cuota: "20" },
+      "0.5": { base: "18", cuota: "21" },
+    };
+    let totalSurcharge = 0;
+    for (const r of data.invoices.surchargeByRate) {
+      const map = surchargeBoxes[String(r.rate)] ?? { base: "—", cuota: "—" };
+      y = drawRow(doc, y, W, [
+        `${map.base}/${map.cuota}`,
+        `Recargo equivalencia ${r.rate}% — base / cuota`,
+        EUR(r.base),
+        EUR(r.surcharge),
+      ]);
+      totalSurcharge += r.surcharge;
+    }
+    if (totalSurcharge > 0) {
+      totalCuota += totalSurcharge;
+    }
+
+    // ── Entregas intracomunitarias — casillas 59/60
+    const intra = data.invoices.intraCommunity;
+    if (intra.base > 0) {
+      y = drawRow(doc, y, W, [
+        "59/60",
+        "Entregas intracomunitarias (art. 25 LIVA)",
+        EUR(intra.base),
+        EUR(intra.vat),
+      ]);
+      // La cuota intracomunitaria normalmente es 0, no suma a totalCuota.
+    }
+
+    if (domestic.length === 0 && totalSurcharge === 0 && intra.base === 0) {
       y = drawRow(doc, y, W, ["—", "Sin operaciones devengadas en el trimestre", "0,00 €", "0,00 €"]);
     }
-    // Total IVA devengado (casilla 27)
+
+    // Total IVA devengado (casilla 27 = régimen general + cuota recargo)
     y = drawSummaryRow(doc, y, W, "27", "Total cuota IVA devengado", EUR(totalCuota));
     y += 10;
+
+    // Exportaciones a tercer país: informativo, no van al 303 estándar
+    if (data.invoices.exportNet > 0) {
+      doc.fillColor(COLOR_SECONDARY).font("Helvetica").fontSize(8.5)
+         .text(
+           `Exportaciones a tercer país (informativo): ${EUR(data.invoices.exportNet)}. No se declaran en el 303 sino en modelo 349 / aduanas.`,
+           50, y, { width: W, align: "left" },
+         );
+      y += 16;
+    }
 
     // ── Sección B: IVA Deducible (soportado) ──────────────────────────────
     y = drawSectionTitle(doc, "B. IVA deducible (soportado)", y, W);

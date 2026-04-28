@@ -282,20 +282,26 @@ export async function generateInvoicePdf(
     if (qrBuffer) {
       const qrSize = 70;
       const qrX = 50;
-      const qrY = 720;
+      const qrY = 710;
       doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
       doc.fillColor(COLOR_TEXT).font("Helvetica-Bold").fontSize(8)
-         .text("VERI*FACTU", qrX + qrSize + 10, qrY + 4);
+         .text("VERI*FACTU", qrX + qrSize + 10, qrY + 2);
       doc.fillColor(COLOR_SECONDARY).font("Helvetica").fontSize(7)
-         .text("Sistema de facturación electrónica verificable.", qrX + qrSize + 10, qrY + 16, { width: 350 });
+         .text("Sistema de facturación electrónica verificable (RD 1007/2023).", qrX + qrSize + 10, qrY + 13, { width: 350 });
       if (invoice.currentHash) {
         doc.fillColor(COLOR_SECONDARY).font("Courier").fontSize(7)
-           .text(`Hash: ${invoice.currentHash.slice(0, 32)}…`, qrX + qrSize + 10, qrY + 30, { width: 350 });
+           .text(`Hash: ${invoice.currentHash.slice(0, 32)}…`, qrX + qrSize + 10, qrY + 24, { width: 350 });
       }
       doc.fillColor(COLOR_SECONDARY).font("Helvetica").fontSize(7)
          .text(
-           "Escanea el QR para verificar la integridad de la factura. La cadena de hashes garantiza que no se ha modificado.",
-           qrX + qrSize + 10, qrY + 44, { width: 350, lineBreak: true },
+           "El QR contiene los datos para verificar la integridad. La cadena de hashes garantiza que la factura no se ha modificado tras emitirla.",
+           qrX + qrSize + 10, qrY + 35, { width: 350, lineBreak: true },
+         );
+      // Disclaimer honesto: arquitectura preparada, certificado real pendiente.
+      doc.fillColor("#8a6d00").font("Helvetica-Oblique").fontSize(6.5)
+         .text(
+           "Verificación oficial AEAT pendiente de enchufar certificado FNMT del emisor. Hasta entonces el QR vale para integridad local pero no sustituye al envío SOAP a la sede.",
+           qrX + qrSize + 10, qrY + 56, { width: 350, lineBreak: true },
          );
     }
 

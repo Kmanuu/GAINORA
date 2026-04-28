@@ -64,16 +64,36 @@ export async function updateTenant(req: Request, res: Response) {
     name,
     taxId,
     billing,
+    taxOverrides,
   } = req.body;
 
-  // Merge de settings: solo sobreescribimos `billing` cuando viene en el body.
+  // Merge de settings: solo sobreescribimos `billing` y `taxOverrides`
+  // cuando vienen en el body. El merge es PROFUNDO para taxOverrides:
+  // si llega { model130: { 2026: { 1: 250 } } }, se fusiona con lo
+  // existente en lugar de reemplazar todo el árbol.
   let mergedSettings: any | undefined;
-  if (billing !== undefined) {
+  if (billing !== undefined || taxOverrides !== undefined) {
     const current = await prisma.tenant.findUnique({
       where: { id: tenantId }, select: { settings: true },
     });
     const settings = (current?.settings ?? {}) as Record<string, any>;
-    mergedSettings = { ...settings, billing: { ...(settings.billing ?? {}), ...billing } };
+    mergedSettings = { ...settings };
+    if (billing !== undefined) {
+      mergedSettings.billing = { ...(settings.billing ?? {}), ...billing };
+    }
+    if (taxOverrides !== undefined) {
+      const prev = (settings.taxOverrides ?? {}) as Record<string, any>;
+      const merged: Record<string, any> = { ...prev };
+      if (taxOverrides.model130) {
+        const prev130 = (prev.model130 ?? {}) as Record<string, any>;
+        const next130: Record<string, any> = { ...prev130 };
+        for (const [year, qs] of Object.entries(taxOverrides.model130)) {
+          next130[year] = { ...(prev130[year] ?? {}), ...(qs as Record<string, number>) };
+        }
+        merged.model130 = next130;
+      }
+      mergedSettings.taxOverrides = merged;
+    }
   }
 
   const updated = await prisma.tenant.update({

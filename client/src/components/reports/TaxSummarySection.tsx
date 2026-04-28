@@ -42,6 +42,7 @@ interface TaxData {
     ytdNet?: number; ytdDeductibleNet?: number;
     ytdProfit?: number; ytdIrpfRetenido?: number;
     previousPayments?: number;
+    previousPaymentsOverridden?: boolean;
     estimate: number; mayBeExempt: boolean;
   };
   monthsBreakdown: { month: number; label: string; net: number; vat: number }[];
@@ -270,14 +271,13 @@ export default function TaxSummarySection() {
                     value={fmtCurrency(data.model130.ytdProfit, 2)}
                     bold
                   />
-                  {/* El modelo 130 es acumulativo. Para Q2-Q4 mostramos
-                      siempre la línea de pagos anteriores aunque sea 0,
-                      para que el usuario entienda la lógica del resultado. */}
                   {data.period.quarter > 1 && (
-                    <Row
-                      label="130 ya pagado en trimestres anteriores"
-                      value={`-${fmtCurrency(data.model130.previousPayments ?? 0, 2)}`}
-                      tone={(data.model130.previousPayments ?? 0) > 0 ? 'positive' : undefined}
+                    <Previous130Override
+                      year={data.period.year}
+                      quarter={data.period.quarter}
+                      computedPreviousPayments={data.model130.previousPayments ?? 0}
+                      overridden={data.model130.previousPaymentsOverridden ?? false}
+                      onSaved={() => window.location.reload()}
                     />
                   )}
                 </>
@@ -400,6 +400,108 @@ export default function TaxSummarySection() {
         </p>
       </div>
     </section>
+  );
+}
+
+/** Línea editable de "130 ya pagado en trimestres anteriores".
+ *  Por defecto muestra el cálculo automático recursivo. Si el usuario lo
+ *  edita, persistimos el valor en tenant.settings.taxOverrides.model130
+ *  para que el resultado del trimestre actual lo descuente correctamente. */
+function Previous130Override({
+  year, quarter, computedPreviousPayments, overridden, onSaved,
+}: {
+  year: number; quarter: number;
+  computedPreviousPayments: number;
+  overridden: boolean;
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const [editing,    setEditing]    = useState(false);
+  const [draftValue, setDraftValue] = useState(String(computedPreviousPayments));
+  const [saving,     setSaving]     = useState(false);
+
+  async function save() {
+    const value = parseFloat(draftValue);
+    if (Number.isNaN(value) || value < 0) {
+      toast('error', 'Introduce un importe positivo');
+      return;
+    }
+    setSaving(true);
+    try {
+      // Guardamos sólo el último trimestre anterior. Si se quiere afinar más
+      // (Q1 con un valor y Q2 con otro), se podría exponer un editor por trimestre.
+      // Para simplificar: el valor introducido es el TOTAL acumulado pagado
+      // hasta el trimestre anterior. Lo guardamos como override del Q-1.
+      const prevQ = String(quarter - 1);
+      await api.patch('/v1/me/tenant', {
+        taxOverrides: { model130: { [String(year)]: { [prevQ]: value } } },
+      });
+      toast('success', 'Pagos anteriores actualizados');
+      setEditing(false);
+      onSaved();
+    } catch (e: unknown) {
+      toast('error', e instanceof Error ? e.message : 'No se pudo guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-[12.5px] text-[var(--color-text-secondary)] truncate">
+          130 ya pagado (manual)
+        </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={draftValue}
+            onChange={(e) => setDraftValue(e.target.value)}
+            className="w-24 text-right text-[13px] tabular-nums px-2 py-0.5 rounded-[6px] border border-[var(--color-border-medium)] bg-[var(--color-surface)] text-[var(--color-text)]"
+            autoFocus
+          />
+          <button
+            onClick={save}
+            disabled={saving}
+            className="text-[11.5px] font-semibold text-[var(--color-blue)] disabled:opacity-50"
+          >
+            {saving ? '…' : 'Guardar'}
+          </button>
+          <button
+            onClick={() => { setEditing(false); setDraftValue(String(computedPreviousPayments)); }}
+            className="text-[11.5px] text-[var(--color-text-tertiary)]"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-baseline justify-between gap-3 group">
+      <span className="text-[12.5px] text-[var(--color-text-secondary)] truncate">
+        130 ya pagado en trimestres anteriores
+        {overridden && <span className="ml-1.5 text-[10px] text-[var(--color-text-tertiary)]">(manual)</span>}
+      </span>
+      <div className="flex items-center gap-2 shrink-0">
+        <span className={clsx(
+          'tabular-nums text-[13px]',
+          computedPreviousPayments > 0 ? 'text-[var(--color-green)]' : 'text-[var(--color-text)]',
+        )}>
+          -{fmtCurrency(computedPreviousPayments, 2)}
+        </span>
+        <button
+          onClick={() => setEditing(true)}
+          className="text-[10.5px] font-semibold text-[var(--color-blue)] hover:underline opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Ajustar manualmente lo realmente pagado en sede AEAT"
+        >
+          Ajustar
+        </button>
+      </div>
+    </div>
   );
 }
 

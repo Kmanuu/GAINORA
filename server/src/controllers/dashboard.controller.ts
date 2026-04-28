@@ -570,7 +570,18 @@ export interface TaxSummaryData {
   invoices: {
     count: number; totalNet: number; totalVat: number; totalIrpf: number;
     totalGross: number;
+    /** Mezcla todos los regímenes — útil para resumen UI */
     byVatRate: { rate: number; base: number; vat: number }[];
+    /** Operaciones interiores corrientes (régimen general, sin recargo) — casillas 01-09 del 303 */
+    domesticByVatRate: { rate: number; base: number; vat: number }[];
+    /** Recargo de equivalencia — casillas 16-21 del 303 */
+    surchargeByRate:   { rate: number; base: number; surcharge: number }[];
+    /** Entregas intracomunitarias — casillas 59/60 del 303 */
+    intraCommunity:    { base: number; vat: number };
+    /** Exportaciones a tercer país (informativo) */
+    exportNet:         number;
+    /** Total recargo equivalencia agregado */
+    totalSurcharge:    number;
   };
   deductibleExpenses: {
     fixedNet: number; fixedVat: number;
@@ -600,6 +611,9 @@ export interface TaxSummaryData {
     ytdIrpfRetenido: number;
     /** Suma de los pagos fraccionados estimados de los trimestres anteriores */
     previousPayments: number;
+    /** Si previousPayments incluye al menos un valor introducido manualmente
+     *  por el usuario (no el cálculo automático). */
+    previousPaymentsOverridden: boolean;
     /** Resultado a ingresar de este trimestre (acumulado YTD - retenciones - pagos previos) */
     estimate: number;
     /** Heurística: si >70% del facturado lleva retención, podría no aplicar el 130 */
@@ -617,7 +631,21 @@ interface PeriodIncome {
   net:   number;
   vat:   number;
   irpf:  number;
+  surcharge: number;
+  /** Total de IVA agrupado por tipo (compat). Mezcla operaciones nacionales,
+   *  intracomunitarias y exportación. Para el 303 oficial usar los buckets
+   *  separados de abajo. */
   byVatRate: Map<string, { base: number; vat: number }>;
+  /** Operaciones interiores corrientes (régimen general, sin recargo).
+   *  Casillas 01-09 del 303. */
+  domesticByVatRate: Map<string, { base: number; vat: number }>;
+  /** Operaciones con recargo de equivalencia. Casillas 16-21. */
+  surchargeByRate:   Map<string, { base: number; surcharge: number }>;
+  /** Entregas intracomunitarias (UE). Casillas 59-60 del 303. */
+  intraCommunityNet: number;
+  intraCommunityVat: number;
+  /** Exportaciones a tercer país. Informativo (no van al 303 estándar). */
+  exportNet: number;
 }
 
 interface PeriodDeductibles {
@@ -644,13 +672,63 @@ async function computeIncome(
   to: Date,
 ): Promise<PeriodIncome> {
   const out: PeriodIncome = {
-    count: 0, net: 0, vat: 0, irpf: 0, byVatRate: new Map(),
+    count: 0, net: 0, vat: 0, irpf: 0, surcharge: 0,
+    byVatRate: new Map(),
+    domesticByVatRate: new Map(),
+    surchargeByRate:   new Map(),
+    intraCommunityNet: 0, intraCommunityVat: 0,
+    exportNet: 0,
   };
+
+  /** Suma una línea a los buckets contables. fraction permite prorratear
+   *  para el modo CASH (cobros parciales en el periodo). */
+  function pushLine(
+    line: { vatRate: number; lineNet: number; surchargeRate: number; lineSurcharge: number },
+    fraction: number,
+    regime: "NATIONAL" | "EU_INTRA" | "NON_EU",
+  ) {
+    const lineNet  = line.lineNet * fraction;
+    const lineVat  = lineNet * (line.vatRate / 100);
+    const lineSurc = line.lineSurcharge * fraction;
+
+    // byVatRate (legacy compat — mezcla todo)
+    const k = String(line.vatRate);
+    const cur = out.byVatRate.get(k) ?? { base: 0, vat: 0 };
+    cur.base += lineNet;
+    cur.vat  += lineVat;
+    out.byVatRate.set(k, cur);
+
+    // Buckets contables del 303
+    if (regime === "NATIONAL") {
+      const dom = out.domesticByVatRate.get(k) ?? { base: 0, vat: 0 };
+      dom.base += lineNet;
+      dom.vat  += lineVat;
+      out.domesticByVatRate.set(k, dom);
+
+      if (line.surchargeRate > 0) {
+        const sk = String(line.surchargeRate);
+        const sb = out.surchargeByRate.get(sk) ?? { base: 0, surcharge: 0 };
+        sb.base      += lineNet;
+        sb.surcharge += lineSurc;
+        out.surchargeByRate.set(sk, sb);
+        out.surcharge += lineSurc;
+      }
+    } else if (regime === "EU_INTRA") {
+      out.intraCommunityNet += lineNet;
+      out.intraCommunityVat += lineVat;  // normalmente 0
+    } else {
+      out.exportNet += lineNet;
+    }
+  }
 
   if (criterion === "CASH") {
     const invoices = await prisma.invoice.findMany({
       where: { tenantId, status: { not: "VOIDED" } },
-      include: { lines: true, payment: { include: { transactions: true } } },
+      include: {
+        lines:   true,
+        payment: { include: { transactions: true } },
+        client:  { select: { taxRegime: true } },
+      },
     });
     for (const inv of invoices) {
       const totalGross = Number(inv.totalGross);
@@ -664,17 +742,18 @@ async function computeIncome(
         .reduce((s, t) => s + Number(t.amount), 0);
       if (paidInPeriod === 0) continue;
       const fraction = paidInPeriod / totalGross;
+      const regime = inv.client?.taxRegime ?? "NATIONAL";
       out.count += 1;
       out.net   += Number(inv.subtotalNet) * fraction;
       out.vat   += Number(inv.totalVat)    * fraction;
       out.irpf  += Number(inv.totalIrpf)   * fraction;
       for (const line of inv.lines) {
-        const k = String(Number(line.vatRate));
-        const cur = out.byVatRate.get(k) ?? { base: 0, vat: 0 };
-        const lineNet = Number(line.lineNet) * fraction;
-        cur.base += lineNet;
-        cur.vat  += lineNet * (Number(line.vatRate) / 100);
-        out.byVatRate.set(k, cur);
+        pushLine({
+          vatRate:       Number(line.vatRate),
+          lineNet:       Number(line.lineNet),
+          surchargeRate: Number(line.surchargeRate),
+          lineSurcharge: Number(line.lineSurcharge),
+        }, fraction, regime);
       }
     }
   } else {
@@ -684,19 +763,24 @@ async function computeIncome(
         status: { in: ["ISSUED", "PAID"] },
         issueDate: { gte: from, lt: to },
       },
-      include: { lines: true },
+      include: {
+        lines:  true,
+        client: { select: { taxRegime: true } },
+      },
     });
     out.count = invoices.length;
     for (const inv of invoices) {
+      const regime = inv.client?.taxRegime ?? "NATIONAL";
       out.net  += Number(inv.subtotalNet);
       out.vat  += Number(inv.totalVat);
       out.irpf += Number(inv.totalIrpf);
       for (const line of inv.lines) {
-        const k = String(Number(line.vatRate));
-        const cur = out.byVatRate.get(k) ?? { base: 0, vat: 0 };
-        cur.base += Number(line.lineNet);
-        cur.vat  += Number(line.lineNet) * (Number(line.vatRate) / 100);
-        out.byVatRate.set(k, cur);
+        pushLine({
+          vatRate:       Number(line.vatRate),
+          lineNet:       Number(line.lineNet),
+          surchargeRate: Number(line.surchargeRate),
+          lineSurcharge: Number(line.lineSurcharge),
+        }, 1, regime);
       }
     }
   }
@@ -816,6 +900,25 @@ export async function computeTaxSummary(
     //   estimate(Q) = max(0, ytdProfit*20% - ytdIrpfRetenido - sum(estimate(Q-1..Q1)))
     // Calculamos primero los YTD del propio trimestre, y luego iteramos
     // los anteriores para sumar los pagos fraccionados ya hechos.
+    //
+    // Override manual: si el usuario ha registrado en
+    // tenant.settings.taxOverrides.model130.{year}.{quarter} cuánto pagó
+    // realmente en sede AEAT en un trimestre anterior, ese valor sustituye
+    // al cálculo recursivo. Necesario porque el AEAT permite correcciones
+    // que no podemos reproducir sin saberlas.
+    const tenantSettings = await prisma.tenant.findUnique({
+      where:  { id: tenantId },
+      select: { settings: true },
+    });
+    const settingsObj = (tenantSettings?.settings ?? {}) as Record<string, unknown>;
+    const taxOverrides = (settingsObj.taxOverrides ?? {}) as {
+      model130?: Record<string, Record<string, number>>;
+    };
+    const overrideFor130 = (y: number, q: number): number | undefined => {
+      const v = taxOverrides.model130?.[String(y)]?.[String(q)];
+      return typeof v === "number" ? v : undefined;
+    };
+
     const incYtd = await computeIncome(tenantId, criterion, yearStart, to);
     const dedYtd = await computeDeductibles(tenantId, yearStart, to);
     const ytdNet = incYtd.net;
@@ -824,14 +927,22 @@ export async function computeTaxSummary(
     const ytdIrpf = incYtd.irpf;
 
     let previousPayments130 = 0;
+    let previousPaymentsOverridden = false;
     for (let q = 1; q < quarter; q++) {
-      const qTo = new Date(Date.UTC(year, q * 3, 1));
-      const incPrev = await computeIncome(tenantId, criterion, yearStart, qTo);
-      const dedPrev = await computeDeductibles(tenantId, yearStart, qTo);
-      const profitPrev = incPrev.net - (
-        dedPrev.fixedCurrNet + dedPrev.fixedInvNet + dedPrev.varCurrNet + dedPrev.varInvNet
-      );
-      const estPrev = Math.max(0, profitPrev * 0.20 - incPrev.irpf - previousPayments130);
+      const override = overrideFor130(year, q);
+      let estPrev: number;
+      if (override !== undefined) {
+        estPrev = override;
+        previousPaymentsOverridden = true;
+      } else {
+        const qTo = new Date(Date.UTC(year, q * 3, 1));
+        const incPrev = await computeIncome(tenantId, criterion, yearStart, qTo);
+        const dedPrev = await computeDeductibles(tenantId, yearStart, qTo);
+        const profitPrev = incPrev.net - (
+          dedPrev.fixedCurrNet + dedPrev.fixedInvNet + dedPrev.varCurrNet + dedPrev.varInvNet
+        );
+        estPrev = Math.max(0, profitPrev * 0.20 - incPrev.irpf - previousPayments130);
+      }
       previousPayments130 += estPrev;
     }
     const grossProfitQuarter = totalNet - totalDeductibleNet;
@@ -854,6 +965,15 @@ export async function computeTaxSummary(
         byVatRate:  Array.from(vatByRate.entries())
                           .map(([rate, v]) => ({ rate: parseFloat(rate), base: round2(v.base), vat: round2(v.vat) }))
                           .sort((a, b) => b.rate - a.rate),
+        domesticByVatRate: Array.from(incQ.domesticByVatRate.entries())
+                          .map(([rate, v]) => ({ rate: parseFloat(rate), base: round2(v.base), vat: round2(v.vat) }))
+                          .sort((a, b) => b.rate - a.rate),
+        surchargeByRate:   Array.from(incQ.surchargeByRate.entries())
+                          .map(([rate, v]) => ({ rate: parseFloat(rate), base: round2(v.base), surcharge: round2(v.surcharge) }))
+                          .sort((a, b) => b.rate - a.rate),
+        intraCommunity:    { base: round2(incQ.intraCommunityNet), vat: round2(incQ.intraCommunityVat) },
+        exportNet:         round2(incQ.exportNet),
+        totalSurcharge:    round2(incQ.surcharge),
       },
       deductibleExpenses: {
         fixedNet:      round2(fixedNetInQuarter),
@@ -874,15 +994,16 @@ export async function computeTaxSummary(
         status: vatToPay303 >= 0 ? "TO_PAY" : "TO_COMPENSATE",
       },
       model130: {
-        grossProfit:        round2(grossProfitQuarter),
-        irpfRetenido:       round2(totalIrpf),
-        ytdNet:             round2(ytdNet),
-        ytdDeductibleNet:   round2(ytdDeductibleNet),
-        ytdProfit:          round2(ytdProfit),
-        ytdIrpfRetenido:    round2(ytdIrpf),
-        previousPayments:   round2(previousPayments130),
-        estimate:           round2(irpf130Estimate),
-        mayBeExempt:        totalNet > 0 && (totalIrpf / (totalNet * 0.15)) > 0.70,
+        grossProfit:                round2(grossProfitQuarter),
+        irpfRetenido:               round2(totalIrpf),
+        ytdNet:                     round2(ytdNet),
+        ytdDeductibleNet:           round2(ytdDeductibleNet),
+        ytdProfit:                  round2(ytdProfit),
+        ytdIrpfRetenido:            round2(ytdIrpf),
+        previousPayments:           round2(previousPayments130),
+        previousPaymentsOverridden,
+        estimate:                   round2(irpf130Estimate),
+        mayBeExempt:                totalNet > 0 && (totalIrpf / (totalNet * 0.15)) > 0.70,
       },
       monthsBreakdown,
     };

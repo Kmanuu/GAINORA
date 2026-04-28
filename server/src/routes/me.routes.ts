@@ -31,6 +31,11 @@ const billingProfileSchema = z.object({
   iban:       z.string().nullish(),
 }).partial();
 
+const taxOverrides130Schema = z.object({
+  /** year (4 dígitos) → quarter (1-4) → importe ya pagado en sede AEAT */
+  model130: z.record(z.string(), z.record(z.string(), z.number().min(0))).optional(),
+}).partial().optional();
+
 const updateTenantSchema = z.object({
   name:                 z.string().min(2).optional(),
   taxId:                z.string().nullish(),
@@ -40,6 +45,7 @@ const updateTenantSchema = z.object({
   reliabilityMinHours:  z.number().int().min(0).max(1000).optional(),
   taxCriterion:         z.enum(["ACCRUAL", "CASH"]).optional(),
   billing:              billingProfileSchema.optional(),
+  taxOverrides:         taxOverrides130Schema,
 });
 
 router.get(  "/",          requireAuth, getMe);
