@@ -31,6 +31,7 @@ const CobrosPage         = lazy(() => import('@/pages/CobrosPage'));
 const InvoicesPage       = lazy(() => import('@/pages/InvoicesPage'));
 const ReportsPage        = lazy(() => import('@/pages/ReportsPage'));
 const HelpPage           = lazy(() => import('@/pages/HelpPage'));
+const AdminPage          = lazy(() => import('@/pages/AdminPage'));
 
 /** Skeleton fallback mientras se descarga el chunk de la página. */
 function PageFallback() {
@@ -125,6 +126,7 @@ export const router = createBrowserRouter([
       { path: '/informes',          element: <L><ReportsPage /></L>        },
       { path: '/ayuda',             element: <L><HelpPage /></L>           },
       { path: '/ajustes',           element: <L><SettingsPage /></L>       },
+      { path: '/admin',             element: <L><AdminPage /></L>          },
     ],
   },
 

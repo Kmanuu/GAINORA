@@ -22,6 +22,7 @@ import {
   PlayCircle,
   Sparkles,
   BookOpen,
+  Shield,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth }        from '@/context/AuthContext';
@@ -180,6 +181,9 @@ export default function Sidebar() {
       <div className="px-3 pb-4 space-y-0.5">
         <div className="mx-1 h-px bg-[var(--color-border)] mb-3" />
 
+        {user?.role === 'SUPERADMIN' && (
+          <NavItem label="Admin SaaS" path="/admin" icon={Shield} />
+        )}
         <NavItem label="Ayuda"   path="/ayuda"   icon={BookOpen} />
         <NavItem label="Ajustes" path="/ajustes" icon={Settings} />
 

@@ -41,3 +41,13 @@ export function requireRole(...roles: string[]) {
     next();
   };
 }
+
+/** Sólo deja pasar si el usuario tiene rol SUPERADMIN. Es el dueño del
+ *  SaaS — nunca se asigna desde la web, sólo desde el script
+ *  admin-users.ts ejecutado en local con acceso a la BD. */
+export function requireSuperAdmin(req: Request, _res: Response, next: NextFunction) {
+  if (!req.user || req.user.role !== "SUPERADMIN") {
+    throw new AppError(403, "Acceso restringido al administrador del SaaS");
+  }
+  next();
+}

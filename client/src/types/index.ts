@@ -4,7 +4,7 @@
 
 // --- Auth -------------------------------------------------------------------
 
-export type UserRole   = 'OWNER' | 'ADMIN' | 'EMPLOYEE' | 'VIEWER';
+export type UserRole   = 'SUPERADMIN' | 'OWNER' | 'ADMIN' | 'EMPLOYEE' | 'VIEWER';
 export type TenantPlan = 'STARTER' | 'GROWTH' | 'EMPIRE';
 
 export interface AuthUser {

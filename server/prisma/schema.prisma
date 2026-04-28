@@ -443,6 +443,7 @@ enum TenantPlan {
 }
 
 enum Role {
+  SUPERADMIN
   OWNER
   ADMIN
   EMPLOYEE
