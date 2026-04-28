@@ -17,6 +17,7 @@ import Input            from '@/components/ui/Input';
 import Select           from '@/components/ui/Select';
 import Toggle           from '@/components/ui/Toggle';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import DemoBadge        from '@/components/ui/DemoBadge';
 import { useToast }     from '@/components/ui/Toast';
 import { useConfirm }   from '@/components/ui/ConfirmDialog';
 import { useAuth }      from '@/context/AuthContext';
@@ -445,7 +446,9 @@ function CostRow({ cost, index, onEdit, onDelete }: {
           {cost.category && (
             <Badge variant="gray" size="sm">{cost.category}</Badge>
           )}
+          {cost.isInvestment && <Badge variant="purple" size="sm">Inversión</Badge>}
           {!cost.isActive && <Badge variant="gray" size="sm">Inactivo</Badge>}
+          <DemoBadge show={cost.isDemo} />
         </div>
       </div>
 

@@ -31,7 +31,8 @@ export async function login(page: Page) {
 export async function loginThenOpenTutorial(page: Page) {
   await login(page);
   await page.evaluate(() => localStorage.removeItem('hp_onboarding_done'));
-  await page.getByRole('button', { name: /cómo usar horaspro/i }).click();
+  // El botón en el sidebar se renombró a "Repetir tutorial" (antes "Cómo usar HorasPRO").
+  await page.getByRole('button', { name: /repetir tutorial|cómo usar horaspro/i }).click();
   await page.waitForSelector('[role="dialog"][aria-label="Tutorial de bienvenida"]', { timeout: 5000 });
 }
 

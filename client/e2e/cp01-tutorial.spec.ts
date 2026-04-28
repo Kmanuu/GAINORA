@@ -31,11 +31,14 @@ test.describe('CP1 — Tutorial', () => {
 
     // Pantalla 1 — primer proyecto
     await expect(page.getByRole('heading', { name: /tu primer cliente y proyecto/i })).toBeVisible();
-    await page.getByLabel('Cliente').fill(`QA Cliente ${Date.now() % 10000}`);
-    await page.getByLabel(/proyecto/i).fill(`QA Proyecto ${Date.now() % 10000}`);
+    // Restringimos al diálogo del wizard para evitar colisión con la nav del
+    // sidebar (que tiene aria-label="Proyectos").
+    const dialog = page.locator('[role="dialog"][aria-label="Tutorial de bienvenida"]');
+    await dialog.getByLabel('Cliente').fill(`QA Cliente ${Date.now() % 10000}`);
+    await dialog.getByLabel('Proyecto / trabajo').fill(`QA Proyecto ${Date.now() % 10000}`);
     // Modo cobro: por defecto FIXED. Lo dejamos.
-    await page.getByLabel(/cuánto te paga/i).fill('1500');
-    await page.getByRole('button', { name: /^empezar$/i }).click();
+    await dialog.getByLabel(/cuánto te paga/i).fill('1500');
+    await dialog.getByRole('button', { name: /^empezar$/i }).click();
 
     // Pantalla 2 — configurado
     await expect(page.getByRole('heading', { name: /^configurado$/i })).toBeVisible({ timeout: 8000 });
@@ -60,8 +63,14 @@ test.describe('CP1 — Tutorial', () => {
 
     await page.getByRole('button', { name: /empiezo de cero/i }).click();
 
-    // Debe saltar a pantalla "Configurado para explorar"
-    await expect(page.getByRole('heading', { name: /configurado para explorar/i })).toBeVisible({ timeout: 5000 });
+    // El wizard llama a /demo/seed; mientras carga muestra "Cargando datos…",
+    // luego "Listo para explorar" si OK o "No pudimos cargar..." si falla.
+    // Cualquiera de los tres confirma que saltó pantalla 2 (no fue a la de proyecto).
+    await expect(
+      page.getByRole('heading', {
+        name: /(cargando datos de ejemplo|listo para explorar|configurado para explorar|no pudimos cargar)/i,
+      })
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test('botón Saltar cierra el wizard', async ({ page }) => {

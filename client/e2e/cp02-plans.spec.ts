@@ -24,7 +24,7 @@ test.describe('CP2 — PlansPage', () => {
     await page.getByRole('textbox', { name: /nombre del plan/i }).fill(planName);
     await page.getByLabel(/^nivel$/i).selectOption('PRO');
     // Modo facturación default es SUBSCRIPTION (suscripción)
-    await page.getByRole('spinbutton', { name: /cuota/i }).fill('99.90');
+    await page.getByRole('spinbutton', { name: /^Cuota \*/i }).fill('99.90');
 
     // Añadir 3 features
     const featureInput = page.getByPlaceholder(/añade una característica/i);
@@ -84,7 +84,7 @@ test.describe('CP2 — PlansPage', () => {
     // El seed tiene "Free". Intentamos duplicarlo.
     await page.getByRole('button', { name: /^nuevo plan$/i }).click();
     await page.getByRole('textbox', { name: /nombre del plan/i }).fill('Free');
-    await page.getByRole('spinbutton', { name: /cuota/i }).fill('1');
+    await page.getByRole('spinbutton', { name: /^Cuota \*/i }).fill('1');
     await page.getByRole('button', { name: /^crear plan$/i }).click();
 
     // Debe mostrar error 409

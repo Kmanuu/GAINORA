@@ -32,6 +32,7 @@ import Select           from '@/components/ui/Select';
 import Textarea         from '@/components/ui/Textarea';
 import DatePicker       from '@/components/ui/DatePicker';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import DemoBadge        from '@/components/ui/DemoBadge';
 import { useToast }     from '@/components/ui/Toast';
 import { useConfirm }   from '@/components/ui/ConfirmDialog';
 import NewClientModal   from '@/components/clients/NewClientModal';
@@ -574,9 +575,12 @@ function ProjectCard({
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0 pr-2">
-          <Badge variant={STATUS_BADGE[project.status]} dot>
-            {STATUS_LABEL[project.status]}
-          </Badge>
+          <div className="flex items-center gap-1.5">
+            <Badge variant={STATUS_BADGE[project.status]} dot>
+              {STATUS_LABEL[project.status]}
+            </Badge>
+            <DemoBadge show={project.isDemo} />
+          </div>
           <h3 className="text-[16px] font-semibold text-[var(--color-text)] mt-1.5 leading-tight tracking-tight">
             {project.name}
           </h3>

@@ -20,6 +20,7 @@ import Textarea         from '@/components/ui/Textarea';
 import DatePicker       from '@/components/ui/DatePicker';
 import Select           from '@/components/ui/Select';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import DemoBadge        from '@/components/ui/DemoBadge';
 import { useToast }     from '@/components/ui/Toast';
 import { useConfirm }   from '@/components/ui/ConfirmDialog';
 
@@ -297,6 +298,7 @@ function InvoiceRow({
           {invoice.rectifies && (
             <Badge variant="orange" size="sm">Rectificativa</Badge>
           )}
+          <DemoBadge show={invoice.series?.code === 'DEMO'} />
         </div>
         <p className="text-[12.5px] text-[var(--color-text-secondary)] mt-0.5 truncate">
           {invoice.client?.name ?? '—'}

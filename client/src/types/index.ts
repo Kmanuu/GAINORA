@@ -58,6 +58,7 @@ export interface Project {
   productMaintenanceCost: string | null;
   startDate:              string | null;
   endDate:                string | null;
+  isDemo?:                boolean;
   createdAt:              string;
   updatedAt:              string;
   _count?: {
@@ -133,6 +134,7 @@ export interface Client {
   email:     string | null;
   phone:     string | null;
   notes:     string | null;
+  isDemo?:   boolean;
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -197,6 +199,7 @@ export interface Contract {
   startedAt:              string;
   endedAt:                string | null;
   notes:                  string | null;
+  isDemo?:                boolean;
   createdAt:              string;
   updatedAt:              string;
   client?: Pick<Client, 'id' | 'name' | 'taxId'>;
@@ -257,6 +260,7 @@ export interface Payment {
   contract?: {
     id:          string;
     billingMode: ExtendedBillingMode;
+    isDemo?:     boolean;
     client:      { id: string; name: string };
     project:     { id: string; name: string };
   };

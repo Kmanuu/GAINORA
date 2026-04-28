@@ -16,6 +16,7 @@ import Modal       from '@/components/ui/Modal';
 import Input       from '@/components/ui/Input';
 import Textarea    from '@/components/ui/Textarea';
 import EmptyState  from '@/components/ui/EmptyState';
+import DemoBadge   from '@/components/ui/DemoBadge';
 import { useToast }    from '@/components/ui/Toast';
 import { useConfirm }  from '@/components/ui/ConfirmDialog';
 
@@ -318,8 +319,9 @@ function ClientCard({
             {client.name[0]?.toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-[15.5px] font-semibold text-[var(--color-text)] leading-tight tracking-tight truncate">
-              {client.name}
+            <h3 className="text-[15.5px] font-semibold text-[var(--color-text)] leading-tight tracking-tight truncate flex items-center gap-1.5">
+              <span className="truncate">{client.name}</span>
+              <DemoBadge show={client.isDemo} />
             </h3>
             {client.taxId && (
               <p className="text-[11.5px] text-[var(--color-text-tertiary)] mt-0.5 flex items-center gap-1 tabular-nums">

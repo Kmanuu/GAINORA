@@ -20,6 +20,7 @@ import Card             from '@/components/ui/Card';
 import Badge            from '@/components/ui/Badge';
 import Button           from '@/components/ui/Button';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import DemoBadge        from '@/components/ui/DemoBadge';
 import { useToast }    from '@/components/ui/Toast';
 import { useConfirm }  from '@/components/ui/ConfirmDialog';
 import PaymentMarkModal from '@/components/payments/PaymentMarkModal';
@@ -396,6 +397,7 @@ function PaymentRow({ payment, index, onMark, onOpen }: {
             <Badge variant={STATUS_BADGE[payment.status]} size="sm">
               {STATUS_LABEL[payment.status]}
             </Badge>
+            <DemoBadge show={payment.contract?.isDemo} />
           </div>
           <p className="text-[12px] text-[var(--color-text-tertiary)] truncate mt-0.5">
             {payment.contract?.project?.name ?? '—'} · <Clock className="w-3 h-3 inline -mt-0.5" />{' '}

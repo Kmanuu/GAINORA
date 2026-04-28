@@ -35,6 +35,7 @@ export async function listPayments(req: Request, res: Response) {
         select: {
           id: true,
           billingMode: true,
+          isDemo: true,
           client:  { select: { id: true, name: true } },
           project: { select: { id: true, name: true } },
         },
