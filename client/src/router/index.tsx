@@ -23,6 +23,7 @@ import CobrosPage         from '@/pages/CobrosPage';
 import InvoicesPage       from '@/pages/InvoicesPage';
 import NotFoundPage       from '@/pages/NotFoundPage';
 import ReportsPage        from '@/pages/ReportsPage';
+import HelpPage           from '@/pages/HelpPage';
 import LandingPage        from '@/pages/LandingPage';
 import type { ReactNode } from 'react';
 
@@ -99,6 +100,7 @@ export const router = createBrowserRouter([
       { path: '/costes-fijos',      element: <FixedCostsPage /> },
       { path: '/costes-variables',  element: <VarCostsPage />   },
       { path: '/informes',          element: <ReportsPage />    },
+      { path: '/ayuda',             element: <HelpPage />       },
       { path: '/ajustes',           element: <SettingsPage /> },
     ],
   },

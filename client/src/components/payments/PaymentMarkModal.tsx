@@ -142,7 +142,7 @@ export default function PaymentMarkModal({ payment, onClose, onSuccess }: Props)
     <Modal
       open={!!payment}
       onClose={onClose}
-      title="Registrar cobro"
+      title={isPaid ? 'Detalle del cobro' : 'Registrar cobro'}
       subtitle={`Periodo ${fmtDate(payment.periodStart)} → ${fmtDate(payment.periodEnd)}`}
       footer={
         <div className="flex justify-end gap-2">

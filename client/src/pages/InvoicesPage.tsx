@@ -614,22 +614,67 @@ function NewInvoiceModal({
 // ---------------------------------------------------------------------------
 
 function EmptyInvoices({ onNew, hasAny }: { onNew: () => void; hasAny: boolean }) {
+  if (hasAny) {
+    return (
+      <Card padding="lg" className="flex flex-col items-center py-12 text-center animate-fade-up">
+        <div className="w-14 h-14 rounded-[18px] bg-[var(--color-blue-subtle)] flex items-center justify-center mb-4">
+          <FileText className="w-6 h-6 text-[var(--color-blue)]" strokeWidth={1.6} />
+        </div>
+        <p className="text-[16px] font-semibold text-[var(--color-text)] mb-1">Sin facturas en este filtro</p>
+        <p className="text-[13.5px] text-[var(--color-text-secondary)] max-w-[300px] mb-4 leading-relaxed">
+          Cambia el filtro para ver el resto.
+        </p>
+        <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
+          Nueva factura
+        </Button>
+      </Card>
+    );
+  }
   return (
-    <Card padding="lg" className="flex flex-col items-center py-14 text-center animate-fade-up">
-      <div className="w-16 h-16 rounded-[20px] bg-[var(--color-blue-subtle)] flex items-center justify-center mb-5 animate-float">
+    <Card padding="lg" className="flex flex-col items-center py-12 text-center animate-fade-up">
+      <div className="w-16 h-16 rounded-[20px] bg-[var(--color-blue-subtle)] flex items-center justify-center mb-4 animate-float">
         <FileText className="w-7 h-7 text-[var(--color-blue)]" strokeWidth={1.6} />
       </div>
-      <p className="text-[17px] font-semibold text-[var(--color-text)] tracking-tight mb-1">
-        {hasAny ? 'Sin facturas en este filtro' : 'Aún no tienes facturas'}
+      <p className="text-[18px] font-semibold text-[var(--color-text)] tracking-tight">
+        Tus facturas legales, listas para Hacienda
       </p>
-      <p className="text-[14px] text-[var(--color-text-secondary)] max-w-[320px] mb-5 leading-relaxed">
-        {hasAny
-          ? 'Cambia el filtro para ver el resto.'
-          : 'Crea facturas con número correlativo correcto. También puedes generarlas automáticamente al cobrar un pago.'}
+      <p className="text-[14px] text-[var(--color-text-secondary)] mt-1.5 max-w-[440px] leading-relaxed">
+        Cada factura tiene número correlativo único, IVA por línea, IRPF cuando aplique
+        y PDF descargable. Lo único legal que la AEAT te puede pedir.
       </p>
-      <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
-        Nueva factura
-      </Button>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 max-w-[480px] w-full mt-6 text-left">
+        <div className="rounded-[10px] bg-[var(--color-surface-alt)] p-3">
+          <p className="text-[12px] font-semibold text-[var(--color-text)]">📋 Número único</p>
+          <p className="text-[11px] text-[var(--color-text-secondary)] mt-0.5 leading-relaxed">
+            Correlativo atómico por serie
+          </p>
+        </div>
+        <div className="rounded-[10px] bg-[var(--color-surface-alt)] p-3">
+          <p className="text-[12px] font-semibold text-[var(--color-text)]">🧾 IVA + IRPF</p>
+          <p className="text-[11px] text-[var(--color-text-secondary)] mt-0.5 leading-relaxed">
+            Distintos tipos por línea
+          </p>
+        </div>
+        <div className="rounded-[10px] bg-[var(--color-surface-alt)] p-3">
+          <p className="text-[12px] font-semibold text-[var(--color-text)]">📄 PDF profesional</p>
+          <p className="text-[11px] text-[var(--color-text-secondary)] mt-0.5 leading-relaxed">
+            Listo para enviar al cliente
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center gap-2.5 mt-6">
+        <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
+          Crear primera factura
+        </Button>
+        <a
+          href="/ayuda?a=que-es-factura"
+          className="text-[12.5px] font-semibold text-[var(--color-blue)] hover:underline"
+        >
+          Qué tiene que llevar una factura legal
+        </a>
+      </div>
     </Card>
   );
 }

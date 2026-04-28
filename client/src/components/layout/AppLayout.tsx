@@ -6,10 +6,11 @@
 
 import { type ReactNode } from 'react';
 import { Outlet } from 'react-router-dom';
-import Sidebar          from './Sidebar';
-import BottomNav        from './BottomNav';
-import OnboardingWizard from '@/components/OnboardingWizard';
-import CommandPalette   from '@/components/ui/CommandPalette';
+import Sidebar             from './Sidebar';
+import BottomNav           from './BottomNav';
+import FloatingHelpButton  from './FloatingHelpButton';
+import OnboardingWizard    from '@/components/OnboardingWizard';
+import CommandPalette      from '@/components/ui/CommandPalette';
 
 interface AppLayoutProps {
   children?: ReactNode;
@@ -43,6 +44,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       {/* Command Palette global — ⌘K / Ctrl+K */}
       <CommandPalette />
+
+      {/* Botón flotante de ayuda contextual */}
+      <FloatingHelpButton />
     </div>
   );
 }

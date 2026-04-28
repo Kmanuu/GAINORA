@@ -457,8 +457,17 @@ function PaymentRow({ payment, index, onMark, onRegenerate }: {
               <span className="hidden sm:inline">Regenerar</span>
             </Button>
           )}
-          {!isPaid && (
+          {!isPaid ? (
             <Button variant="ghost" size="sm" onClick={onMark}>Cobrar</Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onMark}
+              title="Ver historial de abonos"
+            >
+              Detalles
+            </Button>
           )}
         </div>
       </div>

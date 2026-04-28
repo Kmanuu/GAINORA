@@ -26,6 +26,7 @@ import Select           from '@/components/ui/Select';
 import Textarea         from '@/components/ui/Textarea';
 import Toggle           from '@/components/ui/Toggle';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import HelpTooltip      from '@/components/ui/HelpTooltip';
 import { useToast }     from '@/components/ui/Toast';
 import { useConfirm }   from '@/components/ui/ConfirmDialog';
 
@@ -569,12 +570,23 @@ function PlanFormModal({
             placeholder="Ej: Mantenimiento web mensual"
           />
           <div className="grid grid-cols-2 gap-3">
-            <Select
-              label="Nivel"
-              value={form.tier}
-              onChange={(e) => set('tier', e.target.value as ContractTier)}
-              options={TIER_OPTIONS}
-            />
+            <div>
+              <div className="flex items-center gap-1.5 mb-1 ml-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                  Nivel
+                </span>
+                <HelpTooltip
+                  text="Categoría visual del plan que ofreces a tus clientes (Básico/Pro/Élite). No tiene relación con tu plan de suscripción a HorasPRO."
+                  maxWidth={260}
+                />
+              </div>
+              <Select
+                label="Selecciona nivel"
+                value={form.tier}
+                onChange={(e) => set('tier', e.target.value as ContractTier)}
+                options={TIER_OPTIONS}
+              />
+            </div>
             <Select
               label="Estado"
               value={form.isActive ? 'active' : 'archived'}

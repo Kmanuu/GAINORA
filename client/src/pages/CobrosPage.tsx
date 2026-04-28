@@ -10,7 +10,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Wallet, AlertCircle, RefreshCw, Receipt, CheckCircle2,
-  Repeat, Clock, ChevronRight, Search,
+  Repeat, Clock, Search,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { api } from '@/lib/api';
@@ -19,7 +19,6 @@ import type { Payment, PaymentStatus } from '@/types';
 import Card             from '@/components/ui/Card';
 import Badge            from '@/components/ui/Badge';
 import Button           from '@/components/ui/Button';
-import EmptyState       from '@/components/ui/EmptyState';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { useToast }    from '@/components/ui/Toast';
 import { useConfirm }  from '@/components/ui/ConfirmDialog';
@@ -281,14 +280,30 @@ export default function CobrosPage() {
 
       {/* Lista */}
       {payments.length === 0 ? (
-        <EmptyState
-          icon={<Wallet className="w-7 h-7 text-[var(--color-blue)]" strokeWidth={1.6} />}
-          title="Sin pagos todavía"
-          description="Cuando crees una suscripción y generes cobros del mes, aparecerán aquí. También puedes registrar pagos manuales desde el detalle de cada contrato."
-          actionLabel="Generar cobros del mes"
-          actionIcon={<Plus className="w-4 h-4" />}
-          onAction={handleRoll}
-        />
+        <Card padding="lg" className="flex flex-col items-center py-12 text-center animate-fade-up">
+          <div className="w-16 h-16 rounded-[20px] bg-[var(--color-blue-subtle)] flex items-center justify-center mb-4 animate-float">
+            <Wallet className="w-7 h-7 text-[var(--color-blue)]" strokeWidth={1.6} />
+          </div>
+          <p className="text-[18px] font-semibold text-[var(--color-text)] tracking-tight">
+            Tus cobros aparecerán aquí
+          </p>
+          <p className="text-[14px] text-[var(--color-text-secondary)] mt-1.5 max-w-[440px] leading-relaxed">
+            Un cobro = cada cantidad que un cliente te tiene que pagar. Las suscripciones
+            generan cobros solas. Los proyectos cerrados los puedes crear a mano.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 mt-6">
+            <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={handleRoll}>
+              Generar cobros del mes
+            </Button>
+            <a
+              href="/ayuda?a=que-es-cobro"
+              className="text-[12.5px] font-semibold text-[var(--color-blue)] hover:underline"
+            >
+              ¿Cómo funcionan los cobros?
+            </a>
+          </div>
+        </Card>
       ) : filtered.length === 0 ? (
         <Card padding="lg" className="text-center py-10">
           <p className="text-[14px] text-[var(--color-text-secondary)]">
@@ -409,7 +424,14 @@ function PaymentRow({ payment, index, onMark, onOpen }: {
         {!isPaid ? (
           <Button variant="ghost" size="sm" onClick={onMark}>Cobrar</Button>
         ) : (
-          <ChevronRight className="w-4 h-4 text-[var(--color-text-tertiary)]" strokeWidth={2} />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onMark}
+            title="Ver historial de abonos"
+          >
+            Detalles
+          </Button>
         )}
       </div>
     </Card>

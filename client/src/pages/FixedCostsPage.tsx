@@ -463,8 +463,14 @@ function CostRow({ cost, index, onEdit, onDelete }: {
 }
 
 function EmptyCosts({ onNew }: { onNew: () => void }) {
+  const examples = [
+    { name: 'Alquiler de oficina', amount: 450, freq: 'mes' },
+    { name: 'Adobe Creative Cloud', amount: 60, freq: 'mes' },
+    { name: 'Gestoría',             amount: 90, freq: 'mes' },
+    { name: 'Seguro responsabilidad civil', amount: 250, freq: 'año' },
+  ];
   return (
-    <Card padding="lg" className="flex flex-col items-center py-12 text-center">
+    <Card padding="lg" className="flex flex-col items-center py-10 text-center">
       <div
         className="relative w-16 h-16 rounded-full flex items-center justify-center mb-4"
         style={{
@@ -474,13 +480,40 @@ function EmptyCosts({ onNew }: { onNew: () => void }) {
       >
         <Receipt className="w-7 h-7 text-[var(--color-orange)]" strokeWidth={1.6} />
       </div>
-      <p className="text-[16px] font-semibold text-[var(--color-text)]">Sin costes fijos</p>
-      <p className="text-[14px] text-[var(--color-text-secondary)] mt-1 max-w-[300px] mb-5">
-        Añade tus gastos recurrentes (software, alquiler, sueldos...) para calcular la rentabilidad real.
+      <p className="text-[18px] font-semibold text-[var(--color-text)] tracking-tight">
+        Empieza por aquí: tus costes fijos
       </p>
-      <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
-        Nuevo coste
-      </Button>
+      <p className="text-[14px] text-[var(--color-text-secondary)] mt-1.5 max-w-[420px] leading-relaxed">
+        Sin esto, el dashboard no puede calcular tu coste real por hora. No tiene
+        por qué ser exacto: una aproximación es 100 veces mejor que dejarlo vacío.
+      </p>
+
+      {/* Ejemplos clicables */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-6 max-w-[420px] w-full">
+        {examples.map((e) => (
+          <div
+            key={e.name}
+            className="flex items-center justify-between px-3 py-2 rounded-[10px] bg-[var(--color-surface-alt)] border border-[var(--color-border-subtle)]"
+          >
+            <span className="text-[12.5px] text-[var(--color-text-secondary)] truncate">{e.name}</span>
+            <span className="text-[12px] font-semibold text-[var(--color-text)] tabular-nums shrink-0 ml-2">
+              {e.amount}€/{e.freq}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center gap-2.5 mt-6">
+        <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
+          Añadir mi primer coste
+        </Button>
+        <a
+          href="/ayuda?a=primeros-pasos"
+          className="text-[12.5px] font-semibold text-[var(--color-blue)] hover:underline"
+        >
+          ¿Por dónde empiezo?
+        </a>
+      </div>
     </Card>
   );
 }

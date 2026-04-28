@@ -6,7 +6,9 @@ import { useEffect, useState, type FormEvent } from 'react';
 import {
   User, Lock, Building2,
   ChevronDown, ChevronUp, Gauge, FileText,
+  ExternalLink,
 } from 'lucide-react';
+import { Link as RouterLink } from 'react-router-dom';
 import { api }         from '@/lib/api';
 import { useAuth }     from '@/context/AuthContext';
 import { useToast }    from '@/components/ui/Toast';
@@ -14,6 +16,7 @@ import Card            from '@/components/ui/Card';
 import Input           from '@/components/ui/Input';
 import Button          from '@/components/ui/Button';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import HelpTooltip      from '@/components/ui/HelpTooltip';
 import type { CostingMode, TenantBillingProfile } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -324,33 +327,70 @@ function CapacitySection({
         <p className="text-[12.5px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
           Estos valores definen cómo se calcula tu tarifa mínima en el dashboard.
           La <b>capacidad</b> es cuántas horas reales puedes trabajar al mes; el
-          <b> margen objetivo</b> es lo que quieres ganar por encima del coste real.
+          <b> margen objetivo</b> es lo que quieres ganar por encima del coste real.{' '}
+          <RouterLink
+            to="/ayuda?a=como-funciona-tarifa"
+            className="text-[var(--color-blue)] hover:underline inline-flex items-center gap-0.5"
+          >
+            Saber más <ExternalLink className="w-3 h-3" strokeWidth={2} />
+          </RouterLink>
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
-              label="Capacidad planificada"
-              type="number"
-              value={capacity}
-              onChange={(e) => setCapacity(e.target.value)}
-              min="1" max="2000" step="1" suffix="h/mes"
-              hint="Ej: autónomo solo: 160 · equipo de 3: 480"
-            />
-            <Input
-              label="Margen objetivo"
-              type="number"
-              value={margin}
-              onChange={(e) => setMargin(e.target.value)}
-              min="0" max="500" step="1" suffix="%"
-              hint="30% por defecto. Súbelo si quieres más beneficio"
-            />
+            <div>
+              <div className="flex items-center gap-1.5 mb-1 ml-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                  Capacidad planificada
+                </span>
+                <HelpTooltip
+                  text="Número de horas que tú declaras que puedes trabajar al mes. Es el denominador para repartir tus costes fijos. Sé sincero: si pones 200h y luego trabajas 100, tu tarifa real saldrá baja en el papel y alta en la realidad."
+                />
+              </div>
+              <Input
+                label="Horas al mes"
+                type="number"
+                value={capacity}
+                onChange={(e) => setCapacity(e.target.value)}
+                min="1" max="2000" step="1" suffix="h/mes"
+                hint="Autónomo solo: 160 · equipo de 3: 480"
+              />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5 mb-1 ml-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                  Margen objetivo
+                </span>
+                <HelpTooltip
+                  text="Lo que quieres ganar por encima del coste real. Un 30% es lo recomendado para autónomos en España. Súbelo si quieres más colchón; bájalo si compites con precios bajos (no recomendado)."
+                />
+              </div>
+              <Input
+                label="% sobre coste real"
+                type="number"
+                value={margin}
+                onChange={(e) => setMargin(e.target.value)}
+                min="0" max="500" step="1" suffix="%"
+                hint="30% por defecto"
+              />
+            </div>
           </div>
 
           <div>
-            <label className="block text-[12px] font-semibold text-[var(--color-text-secondary)] mb-2">
-              Modo de cálculo
-            </label>
+            <div className="flex items-center gap-1.5 mb-2">
+              <label className="block text-[12px] font-semibold text-[var(--color-text-secondary)]">
+                Modo de cálculo
+              </label>
+              <HelpTooltip
+                text={
+                  <span>
+                    <strong>Absorción:</strong> reparte costes fijos entre proyectos según horas. Más conservador.<br /><br />
+                    <strong>Contribución:</strong> proyectos solo cargan costes directos. Útil si tienes 1 cliente grande + varios pequeños.
+                  </span>
+                }
+                maxWidth={300}
+              />
+            </div>
             <SegmentedControl<CostingMode>
               value={mode}
               onChange={setMode}
@@ -455,7 +495,13 @@ function BillingSection({
       >
         <p className="text-[12.5px] text-[var(--color-text-secondary)] leading-relaxed mb-4">
           Datos legales que aparecerán en el PDF de tus facturas. Sin esto el
-          documento es generado igual pero no es válido fiscalmente.
+          documento es generado igual pero no es válido fiscalmente.{' '}
+          <RouterLink
+            to="/ayuda?a=que-es-factura"
+            className="text-[var(--color-blue)] hover:underline inline-flex items-center gap-0.5"
+          >
+            Qué tiene que llevar una factura legal <ExternalLink className="w-3 h-3" strokeWidth={2} />
+          </RouterLink>
         </p>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

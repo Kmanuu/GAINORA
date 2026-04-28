@@ -41,12 +41,13 @@ export default function BottomNav() {
   const timerActive = useTimerActive();
   return (
     <nav
+      aria-label="Navegación principal"
       className={clsx(
         'lg:hidden',                             // Oculto en desktop
         'fixed bottom-0 left-0 right-0 z-40',
         'flex items-end justify-around',
-        'bg-[rgba(255,255,255,0.88)] backdrop-blur-[20px]',
-        'border-t border-[rgba(0,0,0,0.08)]',
+        'bg-[rgba(255,255,255,0.88)] dark:bg-[rgba(22,22,28,0.92)] backdrop-blur-[20px]',
+        'border-t border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.06)]',
         'px-2',
         // Safe area para iPhone X+
         'pb-[env(safe-area-inset-bottom)]',
@@ -57,11 +58,13 @@ export default function BottomNav() {
         <NavLink
           key={tab.path}
           to={tab.path}
+          aria-label={tab.label}
           className={({ isActive }) =>
             clsx(
               'flex flex-col items-center justify-center',
               'py-2 px-3 min-w-[52px]',
               'transition-all duration-150',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)] focus-visible:ring-offset-1 rounded-[8px]',
               isActive ? 'text-[#0A84FF]' : 'text-[#86868B]',
             )
           }

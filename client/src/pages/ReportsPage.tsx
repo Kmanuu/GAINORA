@@ -18,6 +18,7 @@ import Card             from '@/components/ui/Card';
 import Button           from '@/components/ui/Button';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { useToast }     from '@/components/ui/Toast';
+import TaxSummarySection from '@/components/reports/TaxSummarySection';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -374,6 +375,9 @@ export default function ReportsPage() {
           )}
         </div>
       </Card>
+
+      {/* Resumen fiscal del trimestre */}
+      <TaxSummarySection />
     </div>
   );
 }

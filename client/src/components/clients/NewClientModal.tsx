@@ -52,6 +52,7 @@ export default function NewClientModal({
       onClose={onClose}
       title="Nuevo cliente"
       subtitle="Datos básicos. Podrás completarlo desde la sección Clientes."
+      width="sm"
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>

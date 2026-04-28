@@ -21,6 +21,7 @@ import {
   Moon,
   PlayCircle,
   Sparkles,
+  BookOpen,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth }        from '@/context/AuthContext';
@@ -179,6 +180,7 @@ export default function Sidebar() {
       <div className="px-3 pb-4 space-y-0.5">
         <div className="mx-1 h-px bg-[var(--color-border)] mb-3" />
 
+        <NavItem label="Ayuda"   path="/ayuda"   icon={BookOpen} />
         <NavItem label="Ajustes" path="/ajustes" icon={Settings} />
 
         {/* Tutorial — siempre disponible */}
@@ -194,7 +196,7 @@ export default function Sidebar() {
             className="w-4 h-4 shrink-0 text-[var(--color-text-tertiary)]"
             strokeWidth={1.8}
           />
-          Cómo usar HorasPRO
+          Repetir tutorial
         </button>
 
         {/* User chip */}

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getMetrics, getProjection, getCollectionsHealth } from "../controllers/dashboard.controller.js";
+import { getMetrics, getProjection, getCollectionsHealth, getTaxSummary } from "../controllers/dashboard.controller.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
@@ -12,5 +12,7 @@ router.get("/",                    getMetrics);
 router.get("/projection",          getProjection);
 // GET /api/v1/dashboard/collections-health
 router.get("/collections-health",  getCollectionsHealth);
+// GET /api/v1/dashboard/tax-summary?year=YYYY&quarter=1|2|3|4
+router.get("/tax-summary",         getTaxSummary);
 
 export default router;

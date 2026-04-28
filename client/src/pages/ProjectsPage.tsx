@@ -701,22 +701,69 @@ function BillingModePicker({ value, onChange }: {
 void BILLING_MODE_LABEL;
 
 function EmptyProjects({ onNew, hasAny }: { onNew: () => void; hasAny: boolean }) {
+  if (hasAny) {
+    return (
+      <Card padding="lg" className="flex flex-col items-center py-12 text-center animate-fade-up">
+        <div className="w-14 h-14 rounded-[18px] bg-[var(--color-blue-subtle)] flex items-center justify-center mb-4">
+          <FolderKanban className="w-6 h-6 text-[var(--color-blue)]" strokeWidth={1.6} />
+        </div>
+        <p className="text-[16px] font-semibold text-[var(--color-text)] mb-1">
+          Ningún proyecto en este filtro
+        </p>
+        <p className="text-[13.5px] text-[var(--color-text-secondary)] max-w-[300px] mb-4 leading-relaxed">
+          Prueba con otro filtro o crea un proyecto nuevo.
+        </p>
+        <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
+          Nuevo proyecto
+        </Button>
+      </Card>
+    );
+  }
   return (
-    <Card padding="lg" className="flex flex-col items-center py-14 text-center animate-fade-up">
-      <div className="w-16 h-16 rounded-[20px] bg-[var(--color-blue-subtle)] flex items-center justify-center mb-5 animate-float">
+    <Card padding="lg" className="flex flex-col items-center py-12 text-center animate-fade-up">
+      <div className="w-16 h-16 rounded-[20px] bg-[var(--color-blue-subtle)] flex items-center justify-center mb-4 animate-float">
         <FolderKanban className="w-7 h-7 text-[var(--color-blue)]" strokeWidth={1.6} />
       </div>
-      <p className="text-[17px] font-semibold text-[var(--color-text)] tracking-tight mb-1">
-        {hasAny ? 'Ningún proyecto en este filtro' : 'Sin proyectos'}
+      <p className="text-[18px] font-semibold text-[var(--color-text)] tracking-tight">
+        Tu primer proyecto en 30 segundos
       </p>
-      <p className="text-[14px] text-[var(--color-text-secondary)] max-w-[280px] mb-5 leading-relaxed">
-        {hasAny
-          ? 'Prueba con otro filtro o crea un proyecto nuevo.'
-          : 'Crea tu primer proyecto para empezar a registrar horas y medir rentabilidad.'}
+      <p className="text-[14px] text-[var(--color-text-secondary)] mt-1.5 max-w-[440px] leading-relaxed">
+        Cada proyecto es un trabajo concreto para un cliente. Le dices cuánto te paga
+        y le metes las horas que dediques. HorasPRO calcula sola si te sale rentable.
       </p>
-      <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
-        Nuevo proyecto
-      </Button>
+
+      <div className="grid grid-cols-3 gap-2 max-w-[460px] w-full mt-6 text-left">
+        <div className="rounded-[10px] bg-[var(--color-surface-alt)] p-3">
+          <p className="text-[12px] font-semibold text-[var(--color-text)]">1. Cliente</p>
+          <p className="text-[11px] text-[var(--color-text-secondary)] mt-0.5 leading-relaxed">
+            Quién te paga
+          </p>
+        </div>
+        <div className="rounded-[10px] bg-[var(--color-surface-alt)] p-3">
+          <p className="text-[12px] font-semibold text-[var(--color-text)]">2. Modo de cobro</p>
+          <p className="text-[11px] text-[var(--color-text-secondary)] mt-0.5 leading-relaxed">
+            Cerrado, por horas o suscripción
+          </p>
+        </div>
+        <div className="rounded-[10px] bg-[var(--color-surface-alt)] p-3">
+          <p className="text-[12px] font-semibold text-[var(--color-text)]">3. Precio</p>
+          <p className="text-[11px] text-[var(--color-text-secondary)] mt-0.5 leading-relaxed">
+            Lo que has acordado
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center gap-2.5 mt-6">
+        <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
+          Crear primer proyecto
+        </Button>
+        <a
+          href="/ayuda?a=primeros-pasos"
+          className="text-[12.5px] font-semibold text-[var(--color-blue)] hover:underline"
+        >
+          Ver guía de primeros pasos
+        </a>
+      </div>
     </Card>
   );
 }

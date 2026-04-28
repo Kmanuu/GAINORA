@@ -898,14 +898,38 @@ function IconBtn({ onClick, title, icon, color }: {
 
 function EmptyEntries() {
   return (
-    <Card padding="lg" className="flex flex-col items-center py-14 text-center">
+    <Card padding="lg" className="flex flex-col items-center py-12 text-center">
       <div className="w-16 h-16 rounded-full bg-[var(--color-blue-subtle)] flex items-center justify-center mb-4 animate-float">
         <Clock className="w-7 h-7 text-[var(--color-blue)]" strokeWidth={1.6} />
       </div>
-      <p className="text-[17px] font-semibold text-[var(--color-text)] tracking-tight">Sin entradas</p>
-      <p className="text-[14px] text-[var(--color-text-secondary)] mt-1 max-w-[280px] leading-relaxed">
-        Inicia el timer o añade horas manualmente. Cada hora que fiches afinará tu tarifa mínima.
+      <p className="text-[18px] font-semibold text-[var(--color-text)] tracking-tight">
+        Aún no has fichado ninguna hora
       </p>
+      <p className="text-[14px] text-[var(--color-text-secondary)] mt-1.5 max-w-[420px] leading-relaxed">
+        Tienes dos formas de hacerlo. La que mejor te funcione es la correcta.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6 max-w-[460px] w-full">
+        <div className="rounded-[12px] border border-[var(--color-border)] p-3.5 text-left">
+          <p className="text-[13.5px] font-semibold text-[var(--color-text)]">⏱️ Modo timer</p>
+          <p className="text-[12px] text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+            Pulsa "Iniciar timer" arriba cuando empieces a trabajar. HorasPRO cuenta solo.
+          </p>
+        </div>
+        <div className="rounded-[12px] border border-[var(--color-border)] p-3.5 text-left">
+          <p className="text-[13.5px] font-semibold text-[var(--color-text)]">📝 Modo manual</p>
+          <p className="text-[12px] text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+            Pulsa "Añadir horas" si te has olvidado de fichar y prefieres anotar al final del día.
+          </p>
+        </div>
+      </div>
+
+      <a
+        href="/ayuda?a=fichar-horas"
+        className="text-[12.5px] font-semibold text-[var(--color-blue)] hover:underline mt-5"
+      >
+        Más sobre cómo fichar horas →
+      </a>
     </Card>
   );
 }

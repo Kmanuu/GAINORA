@@ -9,13 +9,14 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import type { Contract, ContractTier, ContractStatus, ExtendedBillingMode, MaintenanceMode } from '@/types';
-import Modal      from '@/components/ui/Modal';
-import Button     from '@/components/ui/Button';
-import Input      from '@/components/ui/Input';
-import Select     from '@/components/ui/Select';
-import Toggle     from '@/components/ui/Toggle';
-import Textarea   from '@/components/ui/Textarea';
-import DatePicker from '@/components/ui/DatePicker';
+import Modal       from '@/components/ui/Modal';
+import Button      from '@/components/ui/Button';
+import Input       from '@/components/ui/Input';
+import Select      from '@/components/ui/Select';
+import Toggle      from '@/components/ui/Toggle';
+import Textarea    from '@/components/ui/Textarea';
+import DatePicker  from '@/components/ui/DatePicker';
+import HelpTooltip from '@/components/ui/HelpTooltip';
 import { useToast } from '@/components/ui/Toast';
 import { TIER_LABEL, BILLING_LABEL, STATUS_LABEL } from './ContractsTab';
 
@@ -120,7 +121,7 @@ export default function ContractEditModal({
   }
 
   async function submit() {
-    if (!form) return;
+    if (!form || !contract) return;
     if (!form.price.trim() || parseFloat(form.price) < 0) {
       setErr('Indica un precio válido (no negativo)'); return;
     }
@@ -181,12 +182,29 @@ export default function ContractEditModal({
           <Select label="Estado" value={form.status} onChange={(e) => set('status', e.target.value as ContractStatus)} options={STATUS_OPTIONS} />
         </div>
 
-        <Select
-          label="Modo de cobro"
-          value={form.billingMode}
-          onChange={(e) => changeBillingMode(e.target.value as ExtendedBillingMode)}
-          options={BILLING_OPTIONS}
-        />
+        <div>
+          <div className="flex items-center gap-1.5 mb-1 ml-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+              Modo de cobro
+            </span>
+            <HelpTooltip
+              text={
+                <span>
+                  <strong>Cerrado:</strong> precio total único.<br />
+                  <strong>Por horas:</strong> facturas según horas dedicadas.<br />
+                  <strong>Mixto:</strong> presupuesto base + horas extras.<br />
+                  <strong>Suscripción:</strong> cuota recurrente cada periodo.
+                </span>
+              }
+            />
+          </div>
+          <Select
+            label="Selecciona modo"
+            value={form.billingMode}
+            onChange={(e) => changeBillingMode(e.target.value as ExtendedBillingMode)}
+            options={BILLING_OPTIONS}
+          />
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Input
@@ -207,13 +225,31 @@ export default function ContractEditModal({
           label="El precio ya incluye IVA"
         />
 
-        <Input
-          label="Retención IRPF"
-          type="number" suffix="%" min="0" max="100" step="0.5"
-          value={form.irpfRate}
-          onChange={(e) => set('irpfRate', e.target.value)}
-          hint="España: 15% profesionales, 7% nuevos autónomos primer año. Déjalo vacío si no aplica."
-        />
+        <div>
+          <div className="flex items-center gap-1.5 mb-1 ml-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+              Retención IRPF
+            </span>
+            <HelpTooltip
+              text={
+                <span>
+                  Si facturas a otra empresa, el cliente te retiene un % y se lo entrega
+                  directamente a Hacienda en tu nombre.<br /><br />
+                  <strong>15%</strong> profesionales en general.<br />
+                  <strong>7%</strong> nuevos autónomos (primeros 3 años).<br />
+                  <strong>Vacío</strong> si facturas a particulares (B2C).
+                </span>
+              }
+            />
+          </div>
+          <Input
+            label="% IRPF aplicable"
+            type="number" suffix="%" min="0" max="100" step="0.5"
+            value={form.irpfRate}
+            onChange={(e) => set('irpfRate', e.target.value)}
+            hint="Déjalo vacío si facturas a un particular"
+          />
+        </div>
 
         {(form.billingMode === 'FIXED' || form.billingMode === 'HYBRID' || form.billingMode === 'SUBSCRIPTION') && (
           <Input
@@ -239,18 +275,37 @@ export default function ContractEditModal({
         {form.billingMode === 'SUBSCRIPTION' && (
           <>
             <div className="grid grid-cols-2 gap-3">
-              <Select
-                label="Frecuencia"
-                value={form.billingFrequency}
-                onChange={(e) => set('billingFrequency', e.target.value as BillingFrequency)}
-                options={FREQ_OPTIONS}
-              />
-              <Input
-                label="Día de cobro" type="number" min="1" max="28"
-                value={form.billingDay}
-                onChange={(e) => set('billingDay', e.target.value)}
-                hint="1–28"
-              />
+              <div>
+                <div className="flex items-center gap-1.5 mb-1 ml-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                    Frecuencia
+                  </span>
+                  <HelpTooltip
+                    text="Cada cuánto se genera un cobro. Mensual = todos los meses; trimestral = cada 3 meses; anual = una vez al año."
+                  />
+                </div>
+                <Select
+                  label="Periodo"
+                  value={form.billingFrequency}
+                  onChange={(e) => set('billingFrequency', e.target.value as BillingFrequency)}
+                  options={FREQ_OPTIONS}
+                />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 mb-1 ml-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                    Día de cobro
+                  </span>
+                  <HelpTooltip
+                    text="Día del mes en que se genera el cobro (1 al 28). Si la suscripción empieza después del día indicado, el primer cobro se prorratea."
+                  />
+                </div>
+                <Input
+                  label="Día (1–28)" type="number" min="1" max="28"
+                  value={form.billingDay}
+                  onChange={(e) => set('billingDay', e.target.value)}
+                />
+              </div>
             </div>
             <Select
               label="Mantenimiento"
