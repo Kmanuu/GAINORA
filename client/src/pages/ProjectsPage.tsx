@@ -574,7 +574,12 @@ function ProjectCard({
     <Card
       hover
       padding="md"
-      className="animate-fade-up relative"
+      className={clsx(
+        'animate-fade-up relative',
+        // Sube la card por encima de las hermanas para que el dropdown del
+        // menú "..." no quede tapado por la sombra de la siguiente card.
+        menuOpen && 'z-30',
+      )}
       style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' } as React.CSSProperties}
       onClick={onClick}
     >
@@ -604,7 +609,7 @@ function ProjectCard({
             </button>
             {menuOpen && (
               <div
-                className="absolute right-0 top-8 z-20 w-40 bg-[var(--color-surface)] rounded-[12px] border border-[var(--color-border-medium)] py-1.5"
+                className="absolute right-0 top-8 z-50 w-40 bg-[var(--color-surface)] rounded-[12px] border border-[var(--color-border-medium)] py-1.5"
                 style={{ boxShadow: 'var(--shadow-floating)' }}
                 onClick={(e) => e.stopPropagation()}
               >

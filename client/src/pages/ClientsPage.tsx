@@ -370,6 +370,8 @@ function ClientCard({
       className={clsx(
         'animate-fade-up relative transition-colors',
         canWrite ? 'cursor-pointer hover:border-[var(--color-border-strong)]' : '',
+        // Eleva esta card sobre las hermanas para que el dropdown no quede tapado
+        menuOpen && 'z-30',
       )}
       style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' } as React.CSSProperties}
     >
@@ -414,7 +416,7 @@ function ClientCard({
             </button>
             {menuOpen && (
               <div
-                className="absolute right-0 top-8 z-20 w-40 bg-[var(--color-surface)] rounded-[12px] border border-[var(--color-border-medium)] py-1.5"
+                className="absolute right-0 top-8 z-50 w-40 bg-[var(--color-surface)] rounded-[12px] border border-[var(--color-border-medium)] py-1.5"
                 style={{ boxShadow: 'var(--shadow-floating)' }}
                 onClick={(e) => e.stopPropagation()}
               >

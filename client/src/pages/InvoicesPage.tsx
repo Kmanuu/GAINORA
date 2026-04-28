@@ -298,7 +298,13 @@ function InvoiceRow({
   return (
     <Card
       padding="md"
-      className="animate-fade-up flex items-center gap-3"
+      // Elevamos la fila al stacking context del menú abierto. Sin esto, las
+      // cards siguientes (que también crean stacking context por su sombra)
+      // tapan el dropdown a partir del segundo item.
+      className={clsx(
+        'animate-fade-up flex items-center gap-3',
+        menuOpen ? 'relative z-30' : 'relative',
+      )}
       style={{ animationDelay: `${Math.min(index * 30, 200)}ms`, animationFillMode: 'both' } as React.CSSProperties}
     >
       <div className="w-10 h-10 rounded-[12px] flex items-center justify-center shrink-0 bg-[var(--color-blue-subtle)] text-[var(--color-blue)]">
@@ -348,7 +354,7 @@ function InvoiceRow({
         )}
         {menuOpen && hasMenuActions && (
           <div
-            className="absolute right-0 top-9 z-20 w-44 bg-[var(--color-surface)] rounded-[12px] border border-[var(--color-border-medium)] py-1.5"
+            className="absolute right-0 top-9 z-50 w-44 bg-[var(--color-surface)] rounded-[12px] border border-[var(--color-border-medium)] py-1.5"
             style={{ boxShadow: 'var(--shadow-floating)' }}
             onClick={(e) => e.stopPropagation()}
           >
