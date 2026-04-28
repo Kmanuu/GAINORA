@@ -305,8 +305,8 @@ function InvoiceRow({
           {invoice.client?.taxId && <span className="text-[var(--color-text-tertiary)]"> · {invoice.client.taxId}</span>}
         </p>
         <p className="text-[11.5px] text-[var(--color-text-tertiary)] mt-0.5">
-          Emitida {fmtDate(invoice.issueDate)}
-          {invoice.dueDate && <> · vence {fmtDate(invoice.dueDate)}</>}
+          {isDraft ? 'Creada' : 'Emitida'} {fmtDate(invoice.issueDate)}
+          {invoice.dueDate && !isDraft && <> · vence {fmtDate(invoice.dueDate)}</>}
         </p>
       </div>
 
