@@ -701,6 +701,127 @@ const Section5 = ({ C }: { C: string }) => {
   );
 };
 
+// ── Comparison: HorasPRO vs competidores ─────────────────────────────────────
+const Comparison = ({ C }: { C: string }) => {
+  const [ref, vis] = useInView(0.15);
+
+  // Filas de la tabla. Cada celda: '✓' verdadero, '✗' falso, '~' parcial.
+  const rows: Array<{ feature: string; horaspro: string; holded: string; toggl: string; quaderno: string }> = [
+    { feature: 'Tarifa real /hora basada en tu capacidad y costes',           horaspro: '✓', holded: '✗', toggl: '~', quaderno: '✗' },
+    { feature: 'Modelo de costes absorción / contribución',                  horaspro: '✓', holded: '✗', toggl: '✗', quaderno: '✗' },
+    { feature: 'Rentabilidad por contrato (no sólo por proyecto)',           horaspro: '✓', holded: '~', toggl: '✗', quaderno: '✗' },
+    { feature: 'Modelo 303 (IVA) preformulario',                              horaspro: '✓', holded: '✓', toggl: '✗', quaderno: '✓' },
+    { feature: 'Modelo 130 (IRPF) acumulativo',                              horaspro: '✓', holded: '✓', toggl: '✗', quaderno: '✓' },
+    { feature: 'VeriFactu (RD 1007/2023) — hash chain + QR',                  horaspro: '✓', holded: '✓', toggl: '✗', quaderno: '✓' },
+    { feature: 'Recargo equivalencia + intracomunitario art. 25 LIVA',        horaspro: '✓', holded: '✓', toggl: '✗', quaderno: '✓' },
+    { feature: 'Suscripciones con prorrateo y caja vs devengo',               horaspro: '✓', holded: '✓', toggl: '✗', quaderno: '~' },
+    { feature: 'Timer de horas + ficha por proyecto',                         horaspro: '✓', holded: '~', toggl: '✓', quaderno: '✗' },
+    { feature: 'Diseñado para autónomo (no equipos de 50)',                   horaspro: '✓', holded: '✗', toggl: '~', quaderno: '✓' },
+  ];
+
+  const Cell = ({ v }: { v: string }) => {
+    const ok   = v === '✓';
+    const par  = v === '~';
+    const color = ok ? '#10B981' : par ? '#F59E0B' : '#9CA3AF';
+    const bg    = ok ? 'rgba(16,185,129,0.10)' : par ? 'rgba(245,158,11,0.10)' : 'rgba(156,163,175,0.08)';
+    return (
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 28, height: 28, borderRadius: 8, background: bg,
+        color, fontSize: 14, fontWeight: 700,
+      }}>
+        {v}
+      </span>
+    );
+  };
+
+  return (
+    <section
+      ref={ref}
+      style={{
+        padding: '120px 24px',
+        background: '#FAFAFA',
+        opacity: vis ? 1 : 0,
+        transform: vis ? 'translateY(0)' : 'translateY(20px)',
+        transition: 'opacity .8s ease, transform .8s ease',
+      }}
+    >
+      <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 56 }}>
+          <p style={{
+            fontSize: 13, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+            color: C, marginBottom: 16,
+          }}>
+            Comparativa honesta
+          </p>
+          <h2 style={{ fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 700, color: '#0F172A', lineHeight: 1.15, marginBottom: 14 }}>
+            Por qué un autónomo nos elige.
+          </h2>
+          <p style={{ fontSize: 16, color: '#6B7280', maxWidth: 560, margin: '0 auto', lineHeight: 1.6 }}>
+            Holded y Quaderno hacen facturas y modelos. Toggl te cuenta horas. Nosotros te decimos cuánto valen esas horas, factura legalmente y resume tu trimestre fiscal — todo en la misma app.
+          </p>
+        </div>
+
+        <div style={{
+          background: '#FFFFFF',
+          borderRadius: 20,
+          border: '1px solid rgba(0,0,0,0.06)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.04)',
+          overflow: 'hidden',
+        }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+              <thead>
+                <tr style={{ background: 'linear-gradient(180deg, rgba(0,212,255,0.06), transparent)' }}>
+                  <th style={{ padding: '20px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#6B7280', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                    Lo que importa
+                  </th>
+                  <th style={{ padding: '20px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: '#0F172A', borderBottom: '2px solid ' + C }}>
+                    HorasPRO
+                  </th>
+                  <th style={{ padding: '20px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#6B7280', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                    Holded
+                  </th>
+                  <th style={{ padding: '20px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#6B7280', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                    Toggl
+                  </th>
+                  <th style={{ padding: '20px 12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#6B7280', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                    Quaderno
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)' }}>
+                    <td style={{ padding: '14px 16px', fontSize: 14, color: '#374151', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+                      {r.feature}
+                    </td>
+                    <td style={{ padding: '14px 12px', textAlign: 'center', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+                      <Cell v={r.horaspro} />
+                    </td>
+                    <td style={{ padding: '14px 12px', textAlign: 'center', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+                      <Cell v={r.holded} />
+                    </td>
+                    <td style={{ padding: '14px 12px', textAlign: 'center', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+                      <Cell v={r.toggl} />
+                    </td>
+                    <td style={{ padding: '14px 12px', textAlign: 'center', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+                      <Cell v={r.quaderno} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p style={{ padding: '14px 20px', fontSize: 11.5, color: '#9CA3AF', borderTop: '1px solid rgba(0,0,0,0.04)', textAlign: 'center' }}>
+            ✓ cubierto · ~ parcial · ✗ no cubierto. Comparativa basada en planes equivalentes a 9,99€/mes (oct 2026). Quaderno y Holded pueden cubrir más en planes superiores.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 const FooterLink = ({ children, href }: { children: React.ReactNode; href: string }) => {
   const [h, setH] = useState(false);
   const scroll = (e: React.MouseEvent) => {
@@ -719,7 +840,7 @@ export default function LandingPage() {
   const C = '#00D4FF';
   const CM = '#0066FF';
   const price = '9,99€';
-  const heroHeadline = 'Descubre cuánto\nganas realmente.';
+  const heroHeadline = 'Cobra la hora\nque no te arruine.';
 
   useEffect(() => {
     document.body.classList.add('landing-active');
@@ -735,6 +856,7 @@ export default function LandingPage() {
       <Highlights C={C} />
       <Section2 C={C} />
       <Section3 C={C} />
+      <Comparison C={C} />
       <Section4 C={C} CM={CM} price={price} />
       <Section5 C={C} />
     </div>

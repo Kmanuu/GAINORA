@@ -424,7 +424,10 @@ function PaymentRow({ payment, index, onMark, onOpen }: {
         </div>
 
         {!isPaid ? (
-          <Button variant="ghost" size="sm" onClick={onMark}>Cobrar</Button>
+          <div className="flex gap-1">
+            <RemindButton payment={payment} />
+            <Button variant="ghost" size="sm" onClick={onMark}>Cobrar</Button>
+          </div>
         ) : (
           <Button
             variant="ghost"
@@ -437,5 +440,40 @@ function PaymentRow({ payment, index, onMark, onOpen }: {
         )}
       </div>
     </Card>
+  );
+}
+
+/** Botón "Recordar" que abre el cliente de correo del usuario con plantilla
+ *  precargada (asunto + cuerpo). No envía nada por su cuenta — sólo abre Mail.
+ *  Solo se muestra si el cliente tiene email registrado. */
+function RemindButton({ payment }: { payment: Payment }) {
+  const dueAmount = toNum(payment.amountDue) - toNum(payment.amountPaid);
+  const clientName = payment.contract?.client?.name ?? 'cliente';
+  const projectName = payment.contract?.project?.name ?? '';
+  const periodLabel = `${fmtDate(payment.periodStart)} → ${fmtDate(payment.periodEnd)}`;
+
+  const subject = `Recordatorio de cobro pendiente — ${projectName || clientName}`;
+  const body = [
+    `Hola ${clientName},`,
+    '',
+    `Te escribo para recordarte que tenemos pendiente el pago de ${fmtCurrency(dueAmount, 2)} correspondiente al periodo ${periodLabel}.`,
+    projectName ? `Servicio: ${projectName}.` : '',
+    '',
+    'Cuando puedas, agradezco que confirmes el pago o me indiques una fecha estimada.',
+    '',
+    'Gracias,',
+  ].filter(Boolean).join('\n');
+
+  const href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+  return (
+    <a
+      href={href}
+      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-[8px] text-[12px] font-medium text-[var(--color-text-secondary)] hover:bg-[rgba(0,0,0,0.04)] dark:hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--color-text)] transition-colors"
+      title="Abrir email con plantilla precargada"
+      onClick={(e) => e.stopPropagation()}
+    >
+      Recordar
+    </a>
   );
 }

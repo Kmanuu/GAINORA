@@ -57,6 +57,9 @@ export default function TaxSummarySection() {
   const [quarter, setQuarter] = useState<1 | 2 | 3 | 4>(CURRENT_QUARTER as 1 | 2 | 3 | 4);
   const [data,    setData]    = useState<TaxData | null>(null);
   const [loading, setLoading] = useState(false);
+  // Bumeamos refreshKey desde Previous130Override.onSaved para refetch sin
+  // hacer window.location.reload(): así el toast queda visible 3s.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -67,7 +70,7 @@ export default function TaxSummarySection() {
       .catch((e: Error) => toast('error', e.message))
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [year, quarter, toast]);
+  }, [year, quarter, toast, refreshKey]);
 
   function prev() {
     if (quarter === 1) { setQuarter(4); setYear((y) => y - 1); }
@@ -277,7 +280,7 @@ export default function TaxSummarySection() {
                       quarter={data.period.quarter}
                       computedPreviousPayments={data.model130.previousPayments ?? 0}
                       overridden={data.model130.previousPaymentsOverridden ?? false}
-                      onSaved={() => window.location.reload()}
+                      onSaved={() => setRefreshKey((k) => k + 1)}
                     />
                   )}
                 </>

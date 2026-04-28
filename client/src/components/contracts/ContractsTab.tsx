@@ -286,42 +286,22 @@ export default function ContractsTab({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label={form.billingMode === 'SUBSCRIPTION' ? 'Precio mensual *' : 'Precio *'}
-              type="number"
-              value={form.price}
-              onChange={(e) => { setForm((p) => ({ ...p, price: e.target.value })); setFormError(''); }}
-              min="0" step="0.01" prefix="€"
-            />
-            <Input
-              label="Cuota de alta"
-              type="number"
-              value={form.setupFee}
-              onChange={(e) => setForm((p) => ({ ...p, setupFee: e.target.value }))}
-              min="0" step="0.01" prefix="€"
-              hint="One-shot al iniciar"
-            />
-          </div>
+          <Input
+            label={form.billingMode === 'SUBSCRIPTION' ? 'Precio mensual *' : 'Precio *'}
+            type="number"
+            value={form.price}
+            onChange={(e) => { setForm((p) => ({ ...p, price: e.target.value })); setFormError(''); }}
+            min="0" step="0.01" prefix="€"
+          />
 
           {form.billingMode === 'SUBSCRIPTION' && (
-            <div className="grid grid-cols-2 gap-3">
-              <Select
-                label="Frecuencia de cobro"
-                value={form.billingFrequency}
-                onChange={(e) => setForm((p) => ({ ...p, billingFrequency: e.target.value as BillingFrequency }))}
-                options={FREQUENCY_OPTIONS}
-              />
-              <Input
-                label="Día de cobro"
-                type="number"
-                value={form.billingDay}
-                onChange={(e) => setForm((p) => ({ ...p, billingDay: e.target.value }))}
-                min="1"
-                max="28"
-                hint="Día del mes en que se emite la cuota (1–28)."
-              />
-            </div>
+            <Select
+              label="Frecuencia de cobro"
+              value={form.billingFrequency}
+              onChange={(e) => setForm((p) => ({ ...p, billingFrequency: e.target.value as BillingFrequency }))}
+              options={FREQUENCY_OPTIONS}
+              hint="Cada cuánto se genera el cobro automáticamente."
+            />
           )}
 
           <DatePicker
@@ -329,6 +309,36 @@ export default function ContractsTab({
             value={form.startedAt}
             onChange={(val) => setForm((p) => ({ ...p, startedAt: val }))}
           />
+
+          <details className="group rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface-alt)] open:bg-[var(--color-surface)] transition-colors">
+            <summary className="cursor-pointer list-none px-4 py-2.5 flex items-center justify-between text-[13px] font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-text)] select-none">
+              <span>Avanzado</span>
+              <span className="text-[11px] text-[var(--color-text-tertiary)] group-open:hidden">
+                cuota de alta, día de cobro…
+              </span>
+              <span className="text-[11px] text-[var(--color-text-tertiary)] hidden group-open:inline">▾</span>
+            </summary>
+            <div className="px-4 pb-4 space-y-3">
+              <Input
+                label="Cuota de alta (setup)"
+                type="number"
+                value={form.setupFee}
+                onChange={(e) => setForm((p) => ({ ...p, setupFee: e.target.value }))}
+                min="0" step="0.01" prefix="€"
+                hint="One-shot al iniciar el contrato. Opcional."
+              />
+              {form.billingMode === 'SUBSCRIPTION' && (
+                <Input
+                  label="Día de cobro (1–28)"
+                  type="number"
+                  value={form.billingDay}
+                  onChange={(e) => setForm((p) => ({ ...p, billingDay: e.target.value }))}
+                  min="1" max="28"
+                  hint="Día del mes en que se emite la cuota. Por defecto día 1."
+                />
+              )}
+            </div>
+          </details>
 
           {formError && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-[10px] bg-[var(--color-red-subtle)] border border-[rgba(255,69,58,0.20)]">

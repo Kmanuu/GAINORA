@@ -54,6 +54,33 @@ export async function updateFixedCost(req: Request, res: Response) {
   res.json(updated);
 }
 
+export async function importFixedCosts(req: Request, res: Response) {
+  const tenantId = req.user!.tenantId;
+  const { rows } = req.body as {
+    rows: Array<{
+      name: string;
+      amount: number;
+      frequency: "MONTHLY" | "QUARTERLY" | "YEARLY";
+      category?: string | null;
+      isInvestment?: boolean;
+    }>;
+  };
+
+  const result = await prisma.fixedCost.createMany({
+    data: rows.map((r) => ({
+      tenantId,
+      name:      r.name,
+      amount:    r.amount,
+      frequency: r.frequency,
+      category:  r.category ?? null,
+      isInvestment: r.isInvestment ?? false,
+    })),
+    skipDuplicates: false,
+  });
+
+  res.status(201).json({ created: result.count });
+}
+
 export async function deleteFixedCost(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
   const { id } = req.params;

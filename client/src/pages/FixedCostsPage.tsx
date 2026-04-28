@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Receipt, Trash2, Pencil, AlertCircle, RefreshCw, Download, Search } from 'lucide-react';
+import { Plus, Receipt, Trash2, Pencil, AlertCircle, RefreshCw, Download, Upload, Search } from 'lucide-react';
 import clsx from 'clsx';
 import { api }       from '@/lib/api';
 import { exportCsv } from '@/lib/csv';
@@ -66,6 +66,7 @@ export default function FixedCostsPage() {
   const [searchQ,  setSearchQ]  = useState('');
   const [showFilter, setShowFilter] = useState<Filter>('ALL');
   const [modalOpen, setModalOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<FixedCost | null>(null);
   const [form,     setForm]     = useState<FormState>(EMPTY_FORM);
   const [saving,   setSaving]   = useState(false);
@@ -239,11 +240,25 @@ export default function FixedCostsPage() {
               <span className="hidden sm:inline">Exportar</span>
             </Button>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<Upload className="w-4 h-4" strokeWidth={2} />}
+            onClick={() => setImportOpen(true)}
+          >
+            <span className="hidden sm:inline">Importar CSV</span>
+          </Button>
           <Button variant="primary" icon={<Plus className="w-4 h-4" strokeWidth={2.5} />} onClick={openCreate}>
             Nuevo coste
           </Button>
         </div>
       </header>
+
+      <ImportCsvModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={() => { setImportOpen(false); load(true); }}
+      />
 
       {/* Resumen mensual */}
       <div
@@ -536,5 +551,222 @@ function EmptyCosts({ onNew }: { onNew: () => void }) {
         </a>
       </div>
     </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ImportCsvModal — pegar CSV o subir archivo, previsualizar, confirmar.
+// ---------------------------------------------------------------------------
+
+interface CsvRow {
+  name:         string;
+  amount:       number;
+  frequency:    'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+  category:     string | null;
+  isInvestment: boolean;
+}
+
+interface CsvParseResult {
+  rows:    CsvRow[];
+  errors:  string[];
+}
+
+const FREQ_ALIASES: Record<string, 'MONTHLY' | 'QUARTERLY' | 'YEARLY'> = {
+  MONTHLY: 'MONTHLY',  MENSUAL: 'MONTHLY',  M: 'MONTHLY',
+  QUARTERLY: 'QUARTERLY', TRIMESTRAL: 'QUARTERLY', Q: 'QUARTERLY',
+  YEARLY: 'YEARLY',    ANUAL: 'YEARLY',     Y: 'YEARLY',  A: 'YEARLY',
+};
+
+function parseCsv(text: string): CsvParseResult {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return { rows: [], errors: ['Archivo vacío'] };
+
+  const header = lines[0]!.split(/[;,]/).map((c) => c.trim().toLowerCase());
+  const colName     = header.findIndex((c) => /^(name|nombre)$/i.test(c));
+  const colAmount   = header.findIndex((c) => /^(amount|importe|cantidad)$/i.test(c));
+  const colFreq     = header.findIndex((c) => /^(frequency|frecuencia)$/i.test(c));
+  const colCategory = header.findIndex((c) => /^(category|categor[ií]a)$/i.test(c));
+  const colInv      = header.findIndex((c) => /^(isinvestment|inversi[oó]n)$/i.test(c));
+
+  if (colName < 0 || colAmount < 0 || colFreq < 0) {
+    return {
+      rows: [],
+      errors: ['La cabecera debe incluir al menos las columnas: name, amount, frequency.'],
+    };
+  }
+
+  const rows: CsvRow[] = [];
+  const errors: string[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = lines[i]!.split(/[;,]/).map((c) => c.trim());
+    const name = cells[colName] ?? '';
+    const amountRaw = cells[colAmount] ?? '';
+    const freqRaw   = (cells[colFreq] ?? '').toUpperCase();
+    if (!name) { errors.push(`Línea ${i + 1}: nombre vacío`); continue; }
+    const amount = parseFloat(amountRaw.replace(',', '.'));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      errors.push(`Línea ${i + 1}: importe inválido "${amountRaw}"`);
+      continue;
+    }
+    const frequency = FREQ_ALIASES[freqRaw];
+    if (!frequency) {
+      errors.push(`Línea ${i + 1}: frecuencia inválida "${freqRaw}" (usa MONTHLY/QUARTERLY/YEARLY)`);
+      continue;
+    }
+    const category = colCategory >= 0 ? (cells[colCategory] ?? '').trim() || null : null;
+    const isInvestment = colInv >= 0
+      ? /^(true|sí|si|yes|1)$/i.test(cells[colInv] ?? '')
+      : false;
+    rows.push({ name, amount, frequency, category, isInvestment });
+  }
+  return { rows, errors };
+}
+
+function ImportCsvModal({
+  open, onClose, onImported,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onImported: () => void;
+}) {
+  const { toast } = useToast();
+  const [text,   setText]   = useState('');
+  const [busy,   setBusy]   = useState(false);
+  const parsed = useState<CsvParseResult>({ rows: [], errors: [] });
+  const [preview, setPreview] = parsed;
+
+  function onTextChange(v: string) {
+    setText(v);
+    setPreview(v.trim() ? parseCsv(v) : { rows: [], errors: [] });
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const t = await f.text();
+    onTextChange(t);
+  }
+
+  async function handleSubmit() {
+    if (preview.rows.length === 0) {
+      toast('error', 'No hay filas válidas que importar');
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await api.post<{ created: number }>('/v1/fixed-costs/import', { rows: preview.rows });
+      toast('success', `${res.created} costes fijos importados`);
+      setText('');
+      setPreview({ rows: [], errors: [] });
+      onImported();
+    } catch (e: unknown) {
+      toast('error', e instanceof Error ? e.message : 'Error al importar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const sample = `name,amount,frequency,category,isInvestment
+Alquiler oficina,400,MONTHLY,Estructura,false
+Gestoría,80,MONTHLY,Servicios,false
+Adobe Creative Cloud,60,MONTHLY,Software,false
+Ordenador (compra única),1500,YEARLY,Equipos,true`;
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Importar costes fijos desde CSV"
+      subtitle="Pega un CSV o sube un archivo. Una fila por coste."
+      width="lg"
+      footer={
+        <div className="flex justify-between items-center gap-2 flex-wrap">
+          <span className="text-[11.5px] text-[var(--color-text-tertiary)]">
+            {preview.rows.length > 0 && `${preview.rows.length} fila${preview.rows.length !== 1 ? 's' : ''} válida${preview.rows.length !== 1 ? 's' : ''}`}
+            {preview.errors.length > 0 && ` · ${preview.errors.length} error${preview.errors.length !== 1 ? 'es' : ''}`}
+          </span>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+            <Button
+              variant="primary"
+              loading={busy}
+              disabled={preview.rows.length === 0}
+              onClick={handleSubmit}
+            >
+              Importar {preview.rows.length > 0 && `(${preview.rows.length})`}
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2 items-center justify-between">
+          <label className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-[var(--color-blue)] cursor-pointer hover:underline">
+            <Upload className="w-3.5 h-3.5" strokeWidth={2.2} />
+            Subir archivo CSV
+            <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleFile} />
+          </label>
+          <button
+            onClick={() => onTextChange(sample)}
+            className="text-[12px] text-[var(--color-text-tertiary)] hover:underline"
+          >
+            Cargar ejemplo
+          </button>
+        </div>
+        <textarea
+          value={text}
+          onChange={(e) => onTextChange(e.target.value)}
+          rows={9}
+          placeholder="name,amount,frequency,category,isInvestment&#10;Alquiler,400,MONTHLY,Estructura,false&#10;…"
+          className="w-full font-mono text-[12px] text-[var(--color-text)] bg-[var(--color-surface-alt)] border border-[var(--color-border-medium)] rounded-[10px] p-3 resize-y focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"
+        />
+
+        {preview.errors.length > 0 && (
+          <div className="rounded-[10px] bg-[var(--color-orange-subtle)] border border-[rgba(255,159,10,0.18)] px-3 py-2 space-y-1">
+            <p className="text-[11.5px] font-semibold text-[var(--color-orange)]">
+              {preview.errors.length} fila{preview.errors.length !== 1 ? 's' : ''} con errores (se ignorarán):
+            </p>
+            <ul className="text-[11.5px] text-[var(--color-text-secondary)] list-disc list-inside max-h-[80px] overflow-y-auto">
+              {preview.errors.slice(0, 6).map((e, i) => <li key={i}>{e}</li>)}
+              {preview.errors.length > 6 && <li>…y {preview.errors.length - 6} más</li>}
+            </ul>
+          </div>
+        )}
+
+        {preview.rows.length > 0 && (
+          <div className="rounded-[10px] border border-[var(--color-border)] overflow-hidden">
+            <div className="max-h-[200px] overflow-y-auto">
+              <table className="w-full text-[12px]">
+                <thead className="sticky top-0 bg-[var(--color-surface-alt)]">
+                  <tr className="text-left text-[var(--color-text-tertiary)] uppercase tracking-wide text-[10px]">
+                    <th className="px-3 py-2 font-semibold">Nombre</th>
+                    <th className="px-3 py-2 font-semibold text-right">Importe</th>
+                    <th className="px-3 py-2 font-semibold">Frec.</th>
+                    <th className="px-3 py-2 font-semibold">Categoría</th>
+                    <th className="px-3 py-2 font-semibold text-right">Inv.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.rows.slice(0, 50).map((r, i) => (
+                    <tr key={i} className="border-t border-[var(--color-border)]">
+                      <td className="px-3 py-1.5 text-[var(--color-text)]">{r.name}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums">{r.amount.toFixed(2)} €</td>
+                      <td className="px-3 py-1.5">{r.frequency}</td>
+                      <td className="px-3 py-1.5 text-[var(--color-text-tertiary)]">{r.category ?? '—'}</td>
+                      <td className="px-3 py-1.5 text-right">{r.isInvestment ? '✓' : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {preview.rows.length > 50 && (
+              <p className="text-[11px] text-[var(--color-text-tertiary)] text-center py-1.5 border-t">
+                Mostrando 50 primeras de {preview.rows.length}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }

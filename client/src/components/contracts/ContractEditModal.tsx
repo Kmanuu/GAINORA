@@ -251,14 +251,6 @@ export default function ContractEditModal({
           />
         </div>
 
-        {(form.billingMode === 'FIXED' || form.billingMode === 'HYBRID' || form.billingMode === 'SUBSCRIPTION') && (
-          <Input
-            label="Cuota de alta (setup)" type="number" prefix="€" min="0"
-            value={form.setupFee}
-            onChange={(e) => set('setupFee', e.target.value)}
-            hint="One-shot al iniciar el contrato. Opcional."
-          />
-        )}
         {(form.billingMode === 'HOURLY' || form.billingMode === 'HYBRID') && (
           <Input
             label="Tarifa por hora" type="number" prefix="€" min="0" step="0.5"
@@ -266,60 +258,22 @@ export default function ContractEditModal({
             onChange={(e) => set('hourlyRate', e.target.value)}
           />
         )}
-        <Input
-          label="Margen sobre piezas" type="number" suffix="%" min="0"
-          value={form.partsMarkupPct}
-          onChange={(e) => set('partsMarkupPct', e.target.value)}
-        />
 
         {form.billingMode === 'SUBSCRIPTION' && (
           <>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="flex items-center gap-1.5 mb-1 ml-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
-                    Frecuencia
-                  </span>
-                  <HelpTooltip
-                    text="Cada cuánto se genera un cobro. Mensual = todos los meses; trimestral = cada 3 meses; anual = una vez al año."
-                  />
-                </div>
-                <Select
-                  label="Periodo"
-                  value={form.billingFrequency}
-                  onChange={(e) => set('billingFrequency', e.target.value as BillingFrequency)}
-                  options={FREQ_OPTIONS}
-                />
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5 mb-1 ml-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
-                    Día de cobro
-                  </span>
-                  <HelpTooltip
-                    text="Día del mes en que se genera el cobro (1 al 28). Si la suscripción empieza después del día indicado, el primer cobro se prorratea."
-                  />
-                </div>
-                <Input
-                  label="Día (1–28)" type="number" min="1" max="28"
-                  value={form.billingDay}
-                  onChange={(e) => set('billingDay', e.target.value)}
-                />
-              </div>
-            </div>
+            <Select
+              label="Frecuencia"
+              value={form.billingFrequency}
+              onChange={(e) => set('billingFrequency', e.target.value as BillingFrequency)}
+              options={FREQ_OPTIONS}
+              hint="Cada cuánto se genera un cobro automáticamente."
+            />
             <Select
               label="Mantenimiento"
               value={form.maintenanceMode}
               onChange={(e) => set('maintenanceMode', e.target.value as MaintenanceMode)}
               options={MAINT_OPTIONS}
             />
-            {form.maintenanceMode === 'SHARED' && (
-              <Input
-                label="Margen sobre coste compartido" type="number" suffix="%" min="0"
-                value={form.maintenanceExtraPct}
-                onChange={(e) => set('maintenanceExtraPct', e.target.value)}
-              />
-            )}
           </>
         )}
 
@@ -329,12 +283,57 @@ export default function ContractEditModal({
           onChange={(v) => set('endedAt', v)}
         />
 
-        <Textarea
-          label="Notas"
-          value={form.notes}
-          onChange={(e) => set('notes', e.target.value)}
-          placeholder="Anotaciones internas, condiciones especiales…"
-        />
+        {/* ── Avanzado: campos opcionales con defaults inteligentes ─────── */}
+        <details className="group rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface-alt)] open:bg-[var(--color-surface)] transition-colors">
+          <summary className="cursor-pointer list-none px-4 py-2.5 flex items-center justify-between text-[13px] font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-text)] select-none">
+            <span>Avanzado</span>
+            <span className="text-[11px] text-[var(--color-text-tertiary)] group-open:hidden">
+              setup, margen piezas, día cobro, notas…
+            </span>
+            <span className="text-[11px] text-[var(--color-text-tertiary)] hidden group-open:inline">
+              ▾
+            </span>
+          </summary>
+          <div className="px-4 pb-4 space-y-3">
+            {(form.billingMode === 'FIXED' || form.billingMode === 'HYBRID' || form.billingMode === 'SUBSCRIPTION') && (
+              <Input
+                label="Cuota de alta (setup)" type="number" prefix="€" min="0"
+                value={form.setupFee}
+                onChange={(e) => set('setupFee', e.target.value)}
+                hint="One-shot al iniciar el contrato. Opcional."
+              />
+            )}
+            <Input
+              label="Margen sobre piezas" type="number" suffix="%" min="0"
+              value={form.partsMarkupPct}
+              onChange={(e) => set('partsMarkupPct', e.target.value)}
+              hint="Si compras piezas para revender al cliente con margen propio."
+            />
+            {form.billingMode === 'SUBSCRIPTION' && (
+              <>
+                <Input
+                  label="Día de cobro (1–28)" type="number" min="1" max="28"
+                  value={form.billingDay}
+                  onChange={(e) => set('billingDay', e.target.value)}
+                  hint="Día del mes en que se genera el cobro. Por defecto día 1."
+                />
+                {form.maintenanceMode === 'SHARED' && (
+                  <Input
+                    label="Margen sobre coste compartido" type="number" suffix="%" min="0"
+                    value={form.maintenanceExtraPct}
+                    onChange={(e) => set('maintenanceExtraPct', e.target.value)}
+                  />
+                )}
+              </>
+            )}
+            <Textarea
+              label="Notas"
+              value={form.notes}
+              onChange={(e) => set('notes', e.target.value)}
+              placeholder="Anotaciones internas, condiciones especiales…"
+            />
+          </div>
+        </details>
 
         {err && (
           <div className="flex items-center gap-2 px-3 py-2.5 rounded-[10px] bg-[var(--color-red-subtle)] border border-[rgba(255,69,58,0.20)]">

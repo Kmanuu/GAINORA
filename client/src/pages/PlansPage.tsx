@@ -639,17 +639,6 @@ function PlanFormModal({
             label="El precio ya incluye IVA"
           />
 
-          {(form.billingMode === 'FIXED' || form.billingMode === 'HYBRID' || form.billingMode === 'SUBSCRIPTION') && (
-            <Input
-              label="Cuota de alta (setup)"
-              type="number"
-              value={form.setupFee}
-              onChange={(e) => set('setupFee', e.target.value)}
-              prefix="€"
-              min="0"
-              hint="Opcional. Cobrado una sola vez al iniciar el contrato."
-            />
-          )}
           {(form.billingMode === 'HOURLY' || form.billingMode === 'HYBRID') && (
             <Input
               label="Tarifa por hora"
@@ -661,15 +650,6 @@ function PlanFormModal({
               step="0.5"
             />
           )}
-          <Input
-            label="Margen sobre piezas/materiales"
-            type="number"
-            value={form.partsMarkupPct}
-            onChange={(e) => set('partsMarkupPct', e.target.value)}
-            suffix="%"
-            min="0"
-            hint="Markup que añadirás al cliente sobre el coste real de las piezas."
-          />
         </FormSection>
 
         {/* Sección 3: Mantenimiento (solo si SUBSCRIPTION) */}
@@ -681,17 +661,6 @@ function PlanFormModal({
               onChange={(e) => set('maintenanceMode', e.target.value as MaintenanceMode)}
               options={MAINT_OPTIONS}
             />
-            {form.maintenanceMode === 'SHARED' && (
-              <Input
-                label="Margen sobre el coste compartido"
-                type="number"
-                value={form.maintenanceExtraPct}
-                onChange={(e) => set('maintenanceExtraPct', e.target.value)}
-                suffix="%"
-                min="0"
-                hint="Se aplica encima del coste real del producto repartido entre contratos activos."
-              />
-            )}
           </FormSection>
         )}
 
@@ -713,8 +682,39 @@ function PlanFormModal({
           Avanzado
         </button>
         {advancedOpen && (
-          <div className="rounded-[12px] bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.03)] border border-[var(--color-border-subtle)] p-3 space-y-2">
-            <p className="text-[11.5px] text-[var(--color-text-tertiary)] leading-relaxed">
+          <div className="rounded-[12px] bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.03)] border border-[var(--color-border-subtle)] p-3 space-y-3">
+            {(form.billingMode === 'FIXED' || form.billingMode === 'HYBRID' || form.billingMode === 'SUBSCRIPTION') && (
+              <Input
+                label="Cuota de alta (setup)"
+                type="number"
+                value={form.setupFee}
+                onChange={(e) => set('setupFee', e.target.value)}
+                prefix="€"
+                min="0"
+                hint="Cobrado una sola vez al iniciar el contrato."
+              />
+            )}
+            <Input
+              label="Margen sobre piezas/materiales"
+              type="number"
+              value={form.partsMarkupPct}
+              onChange={(e) => set('partsMarkupPct', e.target.value)}
+              suffix="%"
+              min="0"
+              hint="Markup que añadirás al cliente sobre el coste real de las piezas."
+            />
+            {form.billingMode === 'SUBSCRIPTION' && form.maintenanceMode === 'SHARED' && (
+              <Input
+                label="Margen sobre coste compartido"
+                type="number"
+                value={form.maintenanceExtraPct}
+                onChange={(e) => set('maintenanceExtraPct', e.target.value)}
+                suffix="%"
+                min="0"
+                hint="Encima del coste del producto repartido entre contratos activos."
+              />
+            )}
+            <p className="text-[11.5px] text-[var(--color-text-tertiary)] leading-relaxed pt-2 border-t border-[var(--color-border-subtle)]">
               Límites del plan en formato JSON. Se usan para validar reglas a nivel de contrato. Ejemplo: <code className="px-1 py-0.5 rounded bg-[var(--color-border)] text-[10.5px]">{'{ "max_contracts": 5 }'}</code>
             </p>
             <Textarea
