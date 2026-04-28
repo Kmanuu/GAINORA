@@ -126,17 +126,21 @@ export interface VarCost {
 
 // --- Clientes ---------------------------------------------------------------
 
+export type TaxRegime = 'NATIONAL' | 'EU_INTRA' | 'NON_EU';
+
 export interface Client {
-  id:        string;
-  tenantId:  string;
-  name:      string;
-  taxId:     string | null;
-  email:     string | null;
-  phone:     string | null;
-  notes:     string | null;
-  isDemo?:   boolean;
-  createdAt: string;
-  updatedAt: string;
+  id:           string;
+  tenantId:     string;
+  name:         string;
+  taxId:        string | null;
+  email:        string | null;
+  phone:        string | null;
+  notes:        string | null;
+  taxRegime?:   TaxRegime;
+  hasSurcharge?: boolean;
+  isDemo?:      boolean;
+  createdAt:    string;
+  updatedAt:    string;
   _count?: {
     contracts: number;
   };

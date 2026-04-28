@@ -93,6 +93,14 @@ model Client {
   email     String?
   phone     String?
   notes     String?
+  /// Régimen fiscal del cliente. Determina IVA aplicable y notas legales en factura:
+  ///   NATIONAL  — España (default). IVA estándar.
+  ///   EU_INTRA  — UE (no España). IVA 0%, art. 25 LIVA.
+  ///   NON_EU    — Tercer país. IVA 0%, exportación de servicios.
+  taxRegime TaxRegime  @default(NATIONAL) @map("tax_regime")
+  /// Si true, se aplica recargo de equivalencia en sus facturas
+  /// (5,2% sobre 21%, 1,4% sobre 10%, 0,5% sobre 4%).
+  hasSurcharge Boolean @default(false) @map("has_surcharge")
   isDemo    Boolean    @default(false) @map("is_demo")
   createdAt DateTime   @default(now()) @map("created_at")
   updatedAt DateTime   @updatedAt @map("updated_at")
@@ -285,8 +293,16 @@ model Invoice {
   subtotalNet         Decimal       @default(0) @map("subtotal_net") @db.Decimal(12, 2)
   totalVat            Decimal       @default(0) @map("total_vat") @db.Decimal(12, 2)
   totalIrpf           Decimal       @default(0) @map("total_irpf") @db.Decimal(12, 2)
+  totalSurcharge      Decimal       @default(0) @map("total_surcharge") @db.Decimal(12, 2)
   totalGross          Decimal       @default(0) @map("total_gross") @db.Decimal(12, 2)
   notes               String?
+  /// Cadena VeriFactu (RD 1007/2023). Se calculan en issueInvoice
+  /// (status: DRAFT → ISSUED). La cadena encadena por serie:
+  /// previousHash = currentHash de la última invoice ISSUED/PAID/VOIDED de la serie.
+  previousHash        String?       @map("previous_hash") @db.VarChar(64)
+  currentHash         String?       @map("current_hash") @db.VarChar(64)
+  /// URL/payload codificado en el QR impreso en el PDF.
+  qrPayload           String?       @map("qr_payload")
   createdAt           DateTime      @default(now()) @map("created_at")
   updatedAt           DateTime      @updatedAt @map("updated_at")
 
@@ -299,6 +315,8 @@ model Invoice {
   rectifiedBy         Invoice[]     @relation("InvoiceRectifies")
   lines               InvoiceLine[]
 
+  auditLogs           InvoiceAuditLog[]
+
   @@unique([tenantId, seriesId, number])
   @@index([tenantId, status])
   @@index([clientId])
@@ -307,19 +325,43 @@ model Invoice {
   @@map("invoices")
 }
 
+/// Log inmutable (insert-only) de eventos sobre una factura. Se usa para
+/// auditoría VeriFactu: cada emisión y anulación deja un registro con el
+/// snapshot de los datos relevantes y el hash. Ningún update/delete debería
+/// tocar estas filas en producción (se respeta a nivel de aplicación).
+model InvoiceAuditLog {
+  id         String              @id @default(uuid()) @db.Uuid
+  tenantId   String              @map("tenant_id") @db.Uuid
+  invoiceId  String              @map("invoice_id") @db.Uuid
+  userId     String?             @map("user_id") @db.Uuid
+  action     InvoiceAuditAction
+  payload    Json
+  hash       String              @db.VarChar(64)
+  createdAt  DateTime            @default(now()) @map("created_at")
+
+  invoice    Invoice             @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([tenantId, createdAt])
+  @@map("invoice_audit_logs")
+}
+
 model InvoiceLine {
-  id          String   @id @default(uuid()) @db.Uuid
-  invoiceId   String   @map("invoice_id") @db.Uuid
-  description String
-  quantity    Decimal  @default(1) @db.Decimal(12, 4)
-  unitPrice   Decimal  @map("unit_price") @db.Decimal(12, 4)
-  vatRate     Decimal  @default(21) @map("vat_rate") @db.Decimal(5, 2)
-  irpfRate    Decimal  @default(0) @map("irpf_rate") @db.Decimal(5, 2)
-  discount    Decimal  @default(0) @db.Decimal(5, 2)
+  id            String   @id @default(uuid()) @db.Uuid
+  invoiceId     String   @map("invoice_id") @db.Uuid
+  description   String
+  quantity      Decimal  @default(1) @db.Decimal(12, 4)
+  unitPrice     Decimal  @map("unit_price") @db.Decimal(12, 4)
+  vatRate       Decimal  @default(21) @map("vat_rate") @db.Decimal(5, 2)
+  irpfRate      Decimal  @default(0) @map("irpf_rate") @db.Decimal(5, 2)
+  /// Recargo equivalencia. 5,2% si vatRate=21, 1,4% si 10, 0,5% si 4. 0 default.
+  surchargeRate Decimal  @default(0) @map("surcharge_rate") @db.Decimal(5, 2)
+  discount      Decimal  @default(0) @db.Decimal(5, 2)
   /// Calculados al guardar (no confiar en el cliente).
-  lineNet     Decimal  @map("line_net")   @db.Decimal(12, 2)
-  lineGross   Decimal  @map("line_gross") @db.Decimal(12, 2)
-  position    Int      @default(0)
+  lineNet       Decimal  @map("line_net")   @db.Decimal(12, 2)
+  lineSurcharge Decimal  @default(0) @map("line_surcharge") @db.Decimal(12, 2)
+  lineGross     Decimal  @map("line_gross") @db.Decimal(12, 2)
+  position      Int      @default(0)
 
   invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
@@ -466,6 +508,12 @@ enum InvoiceStatus {
   VOIDED
 }
 
+enum InvoiceAuditAction {
+  ISSUE
+  VOID
+  RECTIFY
+}
+
 enum CostingMode {
   ABSORPTION
   CONTRIBUTION
@@ -474,4 +522,10 @@ enum CostingMode {
 enum TaxCriterion {
   ACCRUAL
   CASH
+}
+
+enum TaxRegime {
+  NATIONAL
+  EU_INTRA
+  NON_EU
 }

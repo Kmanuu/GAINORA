@@ -7,6 +7,7 @@
 // ============================================================================
 
 import PDFDocument from "pdfkit";
+import QRCode from "qrcode";
 
 interface BillingProfile {
   fullName?:   string | null;
@@ -26,21 +27,26 @@ interface InvoiceForPdf {
   issueDate:   Date;
   dueDate:     Date | null;
   series:      { code: string; name: string };
-  client:      { name: string; taxId: string | null };
+  client:      { name: string; taxId: string | null; taxRegime?: 'NATIONAL' | 'EU_INTRA' | 'NON_EU' };
   notes:       string | null;
   subtotalNet: number;
   totalVat:    number;
   totalIrpf:   number;
+  totalSurcharge?: number;
   totalGross:  number;
+  /** VeriFactu — payload del QR (URL pseudocompliant) y currentHash si están. */
+  qrPayload?:  string | null;
+  currentHash?: string | null;
   lines: Array<{
-    description: string;
-    quantity:    number;
-    unitPrice:   number;
-    vatRate:     number;
-    irpfRate:    number;
-    discount:    number;
-    lineNet:     number;
-    lineGross:   number;
+    description:    string;
+    quantity:       number;
+    unitPrice:      number;
+    vatRate:        number;
+    irpfRate:       number;
+    surchargeRate?: number;
+    discount:       number;
+    lineNet:        number;
+    lineGross:      number;
   }>;
   rectifies?: { number: number | null; series: { code: string } } | null;
 }
@@ -58,10 +64,16 @@ const COLOR_BORDER    = "#d2d2d7";
 const COLOR_ACCENT    = "#0a84ff";
 const COLOR_DANGER    = "#ff453a";
 
-export function generateInvoicePdf(
+export async function generateInvoicePdf(
   invoice: InvoiceForPdf,
   emitter: BillingProfile & { tenantName: string },
 ): Promise<Buffer> {
+  // Pre-generamos el QR fuera del flujo síncrono de pdfkit. Sólo lo
+  // pintamos si la factura está emitida y tiene payload (DRAFT no lleva).
+  const qrBuffer = invoice.qrPayload
+    ? await generateQrBuffer(invoice.qrPayload)
+    : null;
+
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: "A4",
@@ -206,26 +218,27 @@ export function generateInvoicePdf(
     const totW = 85;
 
     doc.font("Helvetica").fontSize(10).fillColor(COLOR_SECONDARY);
-    doc.text("Base imponible", totLabelX, totY,        { width: 100, align: "right" });
-    doc.text("IVA",             totLabelX, totY + 16,  { width: 100, align: "right" });
-    if (invoice.totalIrpf !== 0) {
-      doc.text("Retención IRPF", totLabelX, totY + 32, { width: 100, align: "right" });
+    let rowOff = 0;
+    doc.text("Base imponible", totLabelX, totY + rowOff, { width: 100, align: "right" });
+    doc.fillColor(COLOR_TEXT).text(EUR(invoice.subtotalNet), totValueX, totY + rowOff, { width: totW, align: "right" });
+    rowOff += 16;
+    doc.fillColor(COLOR_SECONDARY).text("IVA", totLabelX, totY + rowOff, { width: 100, align: "right" });
+    doc.fillColor(COLOR_TEXT).text(EUR(invoice.totalVat), totValueX, totY + rowOff, { width: totW, align: "right" });
+    rowOff += 16;
+    if ((invoice.totalSurcharge ?? 0) > 0) {
+      doc.fillColor(COLOR_SECONDARY).text("Recargo equivalencia", totLabelX, totY + rowOff, { width: 100, align: "right" });
+      doc.fillColor(COLOR_TEXT).text(EUR(invoice.totalSurcharge ?? 0), totValueX, totY + rowOff, { width: totW, align: "right" });
+      rowOff += 16;
     }
-    doc.fillColor(COLOR_TEXT).font("Helvetica");
-    doc.text(EUR(invoice.subtotalNet),  totValueX, totY,        { width: totW, align: "right" });
-    doc.text(EUR(invoice.totalVat),     totValueX, totY + 16,   { width: totW, align: "right" });
     if (invoice.totalIrpf !== 0) {
-      // En facturas normales se imprime con signo - delante del valor positivo.
-      // En rectificativas el totalIrpf llega ya negativo (-150) y al prefijar
-      // lo dejábamos como "--150 €". Detectar el signo y escribir el formato
-      // correcto en cada caso.
+      doc.fillColor(COLOR_SECONDARY).text("Retención IRPF", totLabelX, totY + rowOff, { width: 100, align: "right" });
       const irpfAbs   = Math.abs(invoice.totalIrpf);
       const irpfLabel = invoice.totalIrpf > 0 ? `-${EUR(irpfAbs)}` : `+${EUR(irpfAbs)}`;
-      doc.fillColor(COLOR_DANGER)
-         .text(irpfLabel, totValueX, totY + 32, { width: totW, align: "right" });
+      doc.fillColor(COLOR_DANGER).text(irpfLabel, totValueX, totY + rowOff, { width: totW, align: "right" });
+      rowOff += 16;
     }
 
-    const finalY = invoice.totalIrpf !== 0 ? totY + 56 : totY + 40;
+    const finalY = totY + rowOff + 8;
     doc.strokeColor(COLOR_TEXT).lineWidth(1).moveTo(totLabelX, finalY).lineTo(545, finalY).stroke();
 
     doc.font("Helvetica-Bold").fontSize(13).fillColor(COLOR_TEXT)
@@ -233,8 +246,23 @@ export function generateInvoicePdf(
     doc.fontSize(15)
        .text(EUR(invoice.totalGross),   totValueX, finalY + 6,  { width: totW, align: "right" });
 
-    // ─── Notas + IBAN al pie ──────────────────────────────────────────────
+    // ─── Aviso legal según régimen fiscal del receptor ────────────────────
     let footY = finalY + 50;
+    const regime = invoice.client.taxRegime ?? "NATIONAL";
+    if (regime !== "NATIONAL") {
+      const noteText = regime === "EU_INTRA"
+        ? "Operación intracomunitaria exenta del IVA conforme al art. 25 de la Ley 37/1992 del IVA. El destinatario es un sujeto pasivo del IVA en otro Estado miembro de la UE."
+        : "Operación de exportación de servicios fuera del territorio de aplicación del IVA español (art. 22 Ley 37/1992 del IVA).";
+      doc.roundedRect(50, footY, 495, 30, 6).fill("#fff8e6");
+      doc.fillColor("#8a6d00").font("Helvetica-Bold").fontSize(9)
+         .text(regime === "EU_INTRA" ? "Aviso legal — Operación intracomunitaria" : "Aviso legal — Exportación de servicios",
+               58, footY + 5, { width: 480 });
+      doc.font("Helvetica").fontSize(8.5)
+         .text(noteText, 58, footY + 16, { width: 480 });
+      footY += 40;
+    }
+
+    // ─── Notas + IBAN al pie ──────────────────────────────────────────────
     if (invoice.notes) {
       doc.font("Helvetica").fontSize(9).fillColor(COLOR_SECONDARY)
          .text("Notas:", 50, footY);
@@ -247,6 +275,28 @@ export function generateInvoicePdf(
          .text("Forma de pago: transferencia", 50, footY);
       doc.font("Helvetica").fillColor(COLOR_SECONDARY)
          .text(`IBAN: ${emitter.iban}`, 50, footY + 12);
+    }
+
+    // ─── Bloque VeriFactu: QR + hash + leyenda ────────────────────────────
+    // Sólo se pinta si la factura está emitida (qrBuffer presente).
+    if (qrBuffer) {
+      const qrSize = 70;
+      const qrX = 50;
+      const qrY = 720;
+      doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
+      doc.fillColor(COLOR_TEXT).font("Helvetica-Bold").fontSize(8)
+         .text("VERI*FACTU", qrX + qrSize + 10, qrY + 4);
+      doc.fillColor(COLOR_SECONDARY).font("Helvetica").fontSize(7)
+         .text("Sistema de facturación electrónica verificable.", qrX + qrSize + 10, qrY + 16, { width: 350 });
+      if (invoice.currentHash) {
+        doc.fillColor(COLOR_SECONDARY).font("Courier").fontSize(7)
+           .text(`Hash: ${invoice.currentHash.slice(0, 32)}…`, qrX + qrSize + 10, qrY + 30, { width: 350 });
+      }
+      doc.fillColor(COLOR_SECONDARY).font("Helvetica").fontSize(7)
+         .text(
+           "Escanea el QR para verificar la integridad de la factura. La cadena de hashes garantiza que no se ha modificado.",
+           qrX + qrSize + 10, qrY + 44, { width: 350, lineBreak: true },
+         );
     }
 
     // Pie. y=792 es el último pixel útil con bottom margin 50 sobre A4 (842).
@@ -278,6 +328,16 @@ export function generateInvoicePdf(
     }
 
     doc.end();
+  });
+}
+
+async function generateQrBuffer(payload: string): Promise<Buffer> {
+  // PNG buffer directo — más eficiente que dataURL + base64-decode.
+  return QRCode.toBuffer(payload, {
+    errorCorrectionLevel: "M",
+    type:   "png",
+    margin: 0,
+    width:  280, // 4× tamaño visual para mantener nitidez al imprimir
   });
 }
 

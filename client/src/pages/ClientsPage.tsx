@@ -16,6 +16,8 @@ import Modal       from '@/components/ui/Modal';
 import Input       from '@/components/ui/Input';
 import Textarea    from '@/components/ui/Textarea';
 import EmptyState  from '@/components/ui/EmptyState';
+import Select      from '@/components/ui/Select';
+import Toggle      from '@/components/ui/Toggle';
 import DemoBadge   from '@/components/ui/DemoBadge';
 import { useToast }    from '@/components/ui/Toast';
 import { useConfirm }  from '@/components/ui/ConfirmDialog';
@@ -25,24 +27,29 @@ import { useConfirm }  from '@/components/ui/ConfirmDialog';
 // ---------------------------------------------------------------------------
 
 interface ClientFormState {
-  name:  string;
-  taxId: string;
-  email: string;
-  phone: string;
-  notes: string;
+  name:         string;
+  taxId:        string;
+  email:        string;
+  phone:        string;
+  notes:        string;
+  taxRegime:    'NATIONAL' | 'EU_INTRA' | 'NON_EU';
+  hasSurcharge: boolean;
 }
 
 const EMPTY_FORM: ClientFormState = {
   name: '', taxId: '', email: '', phone: '', notes: '',
+  taxRegime: 'NATIONAL', hasSurcharge: false,
 };
 
 function clientToForm(c: Client): ClientFormState {
   return {
-    name:  c.name,
-    taxId: c.taxId ?? '',
-    email: c.email ?? '',
-    phone: c.phone ?? '',
-    notes: c.notes ?? '',
+    name:         c.name,
+    taxId:        c.taxId ?? '',
+    email:        c.email ?? '',
+    phone:        c.phone ?? '',
+    notes:        c.notes ?? '',
+    taxRegime:    c.taxRegime ?? 'NATIONAL',
+    hasSurcharge: c.hasSurcharge ?? false,
   };
 }
 
@@ -112,11 +119,13 @@ export default function ClientsPage() {
     setFormError('');
     try {
       const payload = {
-        name:  form.name.trim(),
-        taxId: form.taxId.trim() || null,
-        email: form.email.trim() || null,
-        phone: form.phone.trim() || null,
-        notes: form.notes.trim() || null,
+        name:         form.name.trim(),
+        taxId:        form.taxId.trim() || null,
+        email:        form.email.trim() || null,
+        phone:        form.phone.trim() || null,
+        notes:        form.notes.trim() || null,
+        taxRegime:    form.taxRegime,
+        hasSurcharge: form.taxRegime === 'NATIONAL' ? form.hasSurcharge : false,
       };
       if (editTarget) {
         await api.patch<Client>(`/v1/clients/${editTarget.id}`, payload);
@@ -276,6 +285,39 @@ export default function ClientsPage() {
           </div>
           <Textarea label="Notas" value={form.notes} onChange={handleField('notes')} placeholder="Información adicional..." />
 
+          <Select
+            label="Régimen fiscal"
+            value={form.taxRegime}
+            onChange={(e) => setForm((p) => ({ ...p, taxRegime: e.target.value as ClientFormState['taxRegime'] }))}
+            options={[
+              { value: 'NATIONAL', label: 'Nacional (España) — IVA estándar' },
+              { value: 'EU_INTRA', label: 'Intracomunitario (UE) — IVA 0% art. 25 LIVA' },
+              { value: 'NON_EU',   label: 'Tercer país — Exportación de servicios' },
+            ]}
+            hint={
+              form.taxRegime === 'NATIONAL'
+                ? 'Aplicará el IVA según el tipo de cada línea (21%, 10%, 4%, 0%).'
+                : form.taxRegime === 'EU_INTRA'
+                ? 'Sus facturas saldrán con IVA 0% y nota legal "Operación intracomunitaria exenta art. 25 LIVA".'
+                : 'Sus facturas saldrán con IVA 0% y nota legal de exportación de servicios.'
+            }
+          />
+
+          {form.taxRegime === 'NATIONAL' && (
+            <div className="flex items-start gap-3 px-1 pt-1">
+              <Toggle
+                checked={form.hasSurcharge}
+                onChange={(v) => setForm((p) => ({ ...p, hasSurcharge: v }))}
+              />
+              <div>
+                <p className="text-[13.5px] text-[var(--color-text)]">Recargo de equivalencia</p>
+                <p className="text-[11.5px] text-[var(--color-text-tertiary)] leading-snug">
+                  Cliente comerciante minorista. Sus facturas llevarán recargo: 5,2% sobre IVA 21%, 1,4% sobre 10%, 0,5% sobre 4%.
+                </p>
+              </div>
+            </div>
+          )}
+
           {formError && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-[10px] bg-[var(--color-red-subtle)] border border-[rgba(255,69,58,0.20)]">
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-red)] shrink-0" />
@@ -319,9 +361,18 @@ function ClientCard({
             {client.name[0]?.toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-[15.5px] font-semibold text-[var(--color-text)] leading-tight tracking-tight truncate flex items-center gap-1.5">
+            <h3 className="text-[15.5px] font-semibold text-[var(--color-text)] leading-tight tracking-tight truncate flex items-center gap-1.5 flex-wrap">
               <span className="truncate">{client.name}</span>
               <DemoBadge show={client.isDemo} />
+              {client.taxRegime === 'EU_INTRA' && (
+                <span className="px-1.5 py-[1px] rounded-full text-[10px] font-semibold uppercase tracking-[0.04em] bg-[var(--color-blue-subtle)] text-[var(--color-blue)]">UE</span>
+              )}
+              {client.taxRegime === 'NON_EU' && (
+                <span className="px-1.5 py-[1px] rounded-full text-[10px] font-semibold uppercase tracking-[0.04em] bg-[var(--color-orange-subtle)] text-[var(--color-orange)]">Export</span>
+              )}
+              {client.hasSurcharge && (
+                <span className="px-1.5 py-[1px] rounded-full text-[10px] font-semibold uppercase tracking-[0.04em] bg-[rgba(0,0,0,0.06)] text-[var(--color-text-secondary)]">RE</span>
+              )}
             </h3>
             {client.taxId && (
               <p className="text-[11.5px] text-[var(--color-text-tertiary)] mt-0.5 flex items-center gap-1 tabular-nums">

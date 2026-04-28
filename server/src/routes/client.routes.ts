@@ -20,6 +20,8 @@ const createClientSchema = z.object({
   email: z.string().email().nullish(),
   phone: z.string().nullish(),
   notes: z.string().nullish(),
+  taxRegime:    z.enum(["NATIONAL", "EU_INTRA", "NON_EU"]).optional(),
+  hasSurcharge: z.boolean().optional(),
 });
 
 const updateClientSchema = z.object({
@@ -28,6 +30,8 @@ const updateClientSchema = z.object({
   email: z.string().email().nullish(),
   phone: z.string().nullish(),
   notes: z.string().nullish(),
+  taxRegime:    z.enum(["NATIONAL", "EU_INTRA", "NON_EU"]).optional(),
+  hasSurcharge: z.boolean().optional(),
 });
 
 router.get("/", listClients);

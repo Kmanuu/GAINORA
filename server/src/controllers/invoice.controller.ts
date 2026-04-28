@@ -12,54 +12,74 @@
 // ============================================================================
 
 import { Request, Response } from "express";
+import type { Prisma } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { round2 } from "../services/paymentMath.js";
 import { generateInvoicePdf } from "../services/invoicePdf.js";
+import {
+  computeInvoiceHash, buildQrPayload, auditPayload, GENESIS_HASH,
+} from "../services/invoiceHash.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 interface LineInput {
-  description: string;
-  quantity?:   number;
-  unitPrice:   number;
-  vatRate?:    number;
-  irpfRate?:   number;
-  discount?:   number;
+  description:    string;
+  quantity?:      number;
+  unitPrice:      number;
+  vatRate?:       number;
+  irpfRate?:      number;
+  surchargeRate?: number;
+  discount?:      number;
 }
 
 interface ComputedLine {
-  description: string;
-  quantity:    number;
-  unitPrice:   number;
-  vatRate:     number;
-  irpfRate:    number;
-  discount:    number;
-  lineNet:     number;
-  lineGross:   number;
-  position:    number;
+  description:   string;
+  quantity:      number;
+  unitPrice:     number;
+  vatRate:       number;
+  irpfRate:      number;
+  surchargeRate: number;
+  discount:      number;
+  lineNet:       number;
+  lineSurcharge: number;
+  lineGross:     number;
+  position:      number;
 }
 
 interface InvoiceTotals {
-  subtotalNet: number;
-  totalVat:    number;
-  totalIrpf:   number;
-  totalGross:  number;
+  subtotalNet:    number;
+  totalVat:       number;
+  totalIrpf:      number;
+  totalSurcharge: number;
+  totalGross:     number;
+}
+
+/** Recargo de equivalencia oficial según tipo de IVA. */
+function defaultSurchargeFor(vatRate: number): number {
+  if (vatRate === 21) return 5.2;
+  if (vatRate === 10) return 1.4;
+  if (vatRate === 4)  return 0.5;
+  return 0;
 }
 
 function computeLine(line: LineInput, position: number): ComputedLine {
-  const quantity  = line.quantity ?? 1;
-  const unitPrice = line.unitPrice;
-  const vatRate   = line.vatRate  ?? 21;
-  const irpfRate  = line.irpfRate ?? 0;
-  const discount  = line.discount ?? 0;
+  const quantity      = line.quantity      ?? 1;
+  const unitPrice     = line.unitPrice;
+  const vatRate       = line.vatRate       ?? 21;
+  const irpfRate      = line.irpfRate      ?? 0;
+  const surchargeRate = line.surchargeRate ?? 0;
+  const discount      = line.discount      ?? 0;
 
   // Base imponible = qty * price * (1 - discount/100). IRPF se descuenta del
   // total a recibir pero no afecta a la base; se calcula en totales.
-  const lineNet   = round2(quantity * unitPrice * (1 - discount / 100));
-  const lineGross = round2(lineNet * (1 + vatRate / 100));
+  const lineNet       = round2(quantity * unitPrice * (1 - discount / 100));
+  const lineSurcharge = round2(lineNet * surchargeRate / 100);
+  // El recargo de equivalencia se SUMA al gross junto con el IVA, ya que
+  // el cliente minorista lo paga al proveedor (que luego lo declara).
+  const lineGross     = round2(lineNet * (1 + vatRate / 100) + lineSurcharge);
 
   return {
     description: line.description,
@@ -67,32 +87,48 @@ function computeLine(line: LineInput, position: number): ComputedLine {
     unitPrice:   round2(unitPrice),
     vatRate:     round2(vatRate),
     irpfRate:    round2(irpfRate),
+    surchargeRate: round2(surchargeRate),
     discount:    round2(discount),
     lineNet,
+    lineSurcharge,
     lineGross,
     position,
   };
 }
 
 function computeTotals(lines: ComputedLine[]): InvoiceTotals {
-  let subtotalNet = 0;
-  let totalVat    = 0;
-  let totalIrpf   = 0;
-  let totalGross  = 0;
+  let subtotalNet    = 0;
+  let totalVat       = 0;
+  let totalIrpf      = 0;
+  let totalSurcharge = 0;
+  let totalGross     = 0;
   for (const l of lines) {
-    subtotalNet += l.lineNet;
-    totalVat    += l.lineGross - l.lineNet;
-    totalIrpf   += l.lineNet * (l.irpfRate / 100);
-    totalGross  += l.lineGross;
+    subtotalNet    += l.lineNet;
+    totalVat       += l.lineGross - l.lineNet - l.lineSurcharge;
+    totalIrpf      += l.lineNet * (l.irpfRate / 100);
+    totalSurcharge += l.lineSurcharge;
+    totalGross     += l.lineGross;
   }
   totalIrpf  = round2(totalIrpf);
   totalGross = round2(totalGross - totalIrpf); // total a recibir = gross - IRPF
   return {
-    subtotalNet: round2(subtotalNet),
-    totalVat:    round2(totalVat),
+    subtotalNet:    round2(subtotalNet),
+    totalVat:       round2(totalVat),
     totalIrpf,
+    totalSurcharge: round2(totalSurcharge),
     totalGross,
   };
+}
+
+/** Aplica recargo de equivalencia a las líneas si el cliente lo tiene marcado.
+ *  Sólo para clientes nacionales (NATIONAL): los EU_INTRA y NON_EU van con
+ *  IVA 0% y ningún recargo. */
+function applySurcharge(lines: LineInput[], hasSurcharge: boolean): LineInput[] {
+  if (!hasSurcharge) return lines;
+  return lines.map((l) => ({
+    ...l,
+    surchargeRate: l.surchargeRate ?? defaultSurchargeFor(l.vatRate ?? 21),
+  }));
 }
 
 async function getDefaultSeriesId(tenantId: string): Promise<string> {
@@ -105,6 +141,112 @@ async function getDefaultSeriesId(tenantId: string): Promise<string> {
     throw new AppError(409, "No tienes ninguna serie de facturación. Crea una en Ajustes → Facturación antes de emitir facturas.");
   }
   return series.id;
+}
+
+/**
+ * Encadena la factura recién emitida con la última de la misma serie y
+ * persiste previousHash, currentHash y qrPayload. Crea InvoiceAuditLog
+ * con la acción indicada. Debe llamarse DENTRO de la misma transacción
+ * que asignó el número de la factura.
+ */
+async function applyHashChain(
+  tx: Prisma.TransactionClient,
+  invoiceId: string,
+  options: {
+    seriesId: string;
+    seriesCode: string;
+    number: number;
+    issueDate: Date;
+    subtotalNet: number;
+    totalVat: number;
+    totalGross: number;
+    emitterTaxId: string | null;
+    receiverTaxId: string | null;
+    tenantId: string;
+    userId: string | null;
+    action: "ISSUE" | "VOID" | "RECTIFY";
+    clientId: string;
+    status: string;
+  },
+) {
+  // Buscamos la última factura de la serie con currentHash. Excluimos la
+  // factura actual para que reseed/regenerate no se enlace consigo misma.
+  const last = await tx.invoice.findFirst({
+    where: {
+      seriesId: options.seriesId,
+      currentHash: { not: null },
+      id: { not: invoiceId },
+    },
+    orderBy: { number: "desc" },
+    select: { currentHash: true },
+  });
+  const previousHash = last?.currentHash ?? GENESIS_HASH;
+  const issueDateStr = options.issueDate.toISOString().slice(0, 10);
+  const currentHash = computeInvoiceHash({
+    emitterTaxId:  options.emitterTaxId,
+    receiverTaxId: options.receiverTaxId,
+    seriesCode:    options.seriesCode,
+    number:        options.number,
+    issueDate:     issueDateStr,
+    subtotalNet:   options.subtotalNet,
+    totalVat:      options.totalVat,
+    totalGross:    options.totalGross,
+    previousHash,
+  });
+  const qrPayload = buildQrPayload({
+    emitterTaxId: options.emitterTaxId,
+    seriesCode:   options.seriesCode,
+    number:       options.number,
+    issueDate:    issueDateStr,
+    totalGross:   options.totalGross,
+    hash:         currentHash,
+  });
+
+  await tx.invoice.update({
+    where: { id: invoiceId },
+    data:  { previousHash, currentHash, qrPayload },
+  });
+
+  await tx.invoiceAuditLog.create({
+    data: {
+      tenantId:  options.tenantId,
+      invoiceId,
+      userId:    options.userId,
+      action:    options.action,
+      payload:   auditPayload({
+        id: invoiceId,
+        number: options.number,
+        status: options.status,
+        issueDate: options.issueDate,
+        subtotalNet: options.subtotalNet,
+        totalVat: options.totalVat,
+        totalGross: options.totalGross,
+        clientId: options.clientId,
+      }, { previousHash }),
+      hash:      currentHash,
+    },
+  });
+
+  return { previousHash, currentHash, qrPayload };
+}
+
+/** Si el cliente es UE intracomunitario o tercer país, fuerza vatRate=0
+ *  en todas las líneas. Para clientes nacionales devuelve las líneas tal cual. */
+function applyTaxRegime(lines: LineInput[], taxRegime: "NATIONAL" | "EU_INTRA" | "NON_EU"): LineInput[] {
+  if (taxRegime === "NATIONAL") return lines;
+  return lines.map((l) => ({ ...l, vatRate: 0 }));
+}
+
+/** Recupera taxId del emisor (tenant) y del receptor (cliente) en una query. */
+async function getHashContext(tenantId: string, clientId: string) {
+  const [tenant, client] = await Promise.all([
+    prisma.tenant.findUnique({ where: { id: tenantId }, select: { taxId: true } }),
+    prisma.client.findUnique({ where: { id: clientId }, select: { taxId: true } }),
+  ]);
+  return {
+    emitterTaxId:  tenant?.taxId  ?? null,
+    receiverTaxId: client?.taxId  ?? null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -169,7 +311,10 @@ export async function createInvoice(req: Request, res: Response) {
   }
 
   // Validar pertenencia al tenant
-  const client = await prisma.client.findFirst({ where: { id: clientId, tenantId }, select: { id: true } });
+  const client = await prisma.client.findFirst({
+    where:  { id: clientId, tenantId },
+    select: { id: true, taxRegime: true, hasSurcharge: true },
+  });
   if (!client) throw new AppError(422, "Cliente no encontrado o no pertenece a tu cuenta.");
 
   const series = seriesId
@@ -177,7 +322,12 @@ export async function createInvoice(req: Request, res: Response) {
     : null;
   const finalSeriesId = series?.id ?? await getDefaultSeriesId(tenantId);
 
-  const computed = lines.map((l: LineInput, i: number) => computeLine(l, i));
+  // Régimen fiscal del cliente: si es EU_INTRA o NON_EU, las líneas van con
+  // IVA 0% (operación exenta art. 25 LIVA o exportación de servicios).
+  // Recargo de equivalencia sólo se aplica a clientes NACIONALES con flag.
+  let processed = applyTaxRegime(lines as LineInput[], client.taxRegime);
+  processed = applySurcharge(processed, client.taxRegime === "NATIONAL" && client.hasSurcharge);
+  const computed = processed.map((l, i) => computeLine(l, i));
   const totals   = computeTotals(computed);
 
   const invoice = await prisma.invoice.create({
@@ -235,6 +385,13 @@ export async function createInvoiceFromPayment(req: Request, res: Response) {
   }
 
   const seriesId = await getDefaultSeriesId(tenantId);
+  const { emitterTaxId, receiverTaxId } = await getHashContext(tenantId, payment.contract.clientId);
+  const clientForRegime = await prisma.client.findUnique({
+    where:  { id: payment.contract.clientId },
+    select: { taxRegime: true, hasSurcharge: true },
+  });
+  const taxRegime    = clientForRegime?.taxRegime    ?? "NATIONAL";
+  const hasSurcharge = clientForRegime?.hasSurcharge ?? false;
 
   const description = payment.contract.billingMode === "SUBSCRIPTION"
     ? `${payment.contract.project.name} — Cuota ${payment.periodStart.toISOString().slice(0,10)} a ${payment.periodEnd.toISOString().slice(0,10)}`
@@ -256,31 +413,53 @@ export async function createInvoiceFromPayment(req: Request, res: Response) {
     irpfRate,
     discount:  0,
   }];
-  const computed = lines.map((l, i) => computeLine(l, i));
+  let processed = applyTaxRegime(lines, taxRegime);
+  processed = applySurcharge(processed, taxRegime === "NATIONAL" && hasSurcharge);
+  const computed = processed.map((l, i) => computeLine(l, i));
   const totals   = computeTotals(computed);
 
   // Emisión atómica: reservar número primero (UPDATE ... RETURNING bloquea
   // la fila bajo concurrencia), luego crear la factura ya con ese número.
+  // Tras crearla, encadenamos su hash con la última de la serie (VeriFactu).
   const invoice = await prisma.$transaction(async (tx) => {
     const reserved = await tx.invoiceSeries.update({
       where:  { id: seriesId },
       data:   { nextNumber: { increment: 1 } },
-      select: { nextNumber: true },
+      select: { nextNumber: true, code: true },
     });
     const number = reserved.nextNumber - 1;
-    return tx.invoice.create({
+    const issueDate = new Date();
+    const created = await tx.invoice.create({
       data: {
         tenantId,
         seriesId,
         clientId:   payment.contract.clientId,
         contractId: payment.contract.id,
         paymentId:  payment.id,
-        issueDate:  new Date(),
+        issueDate,
         status:     "ISSUED",
         number,
         ...totals,
         lines: { create: computed },
       },
+      include: {
+        series: { select: { code: true, name: true } },
+        lines:  { orderBy: { position: "asc" } },
+      },
+    });
+    await applyHashChain(tx, created.id, {
+      seriesId,        seriesCode: reserved.code,
+      number,          issueDate,
+      subtotalNet: totals.subtotalNet,
+      totalVat:    totals.totalVat,
+      totalGross:  totals.totalGross,
+      emitterTaxId, receiverTaxId,
+      tenantId,        userId: req.user!.userId ?? null,
+      action: "ISSUE", clientId: payment.contract.clientId,
+      status: "ISSUED",
+    });
+    return tx.invoice.findUnique({
+      where:   { id: created.id },
       include: {
         series: { select: { code: true, name: true } },
         lines:  { orderBy: { position: "asc" } },
@@ -315,7 +494,15 @@ export async function updateInvoice(req: Request, res: Response) {
   let computed: ComputedLine[] | null = null;
   if (Array.isArray(lines)) {
     if (lines.length === 0) throw new AppError(422, "La factura debe tener al menos una línea.");
-    computed = lines.map((l, i) => computeLine(l, i));
+    const effectiveClientId = (clientId as string | undefined) ?? existing.clientId;
+    const cli = await prisma.client.findUnique({
+      where:  { id: effectiveClientId },
+      select: { taxRegime: true, hasSurcharge: true },
+    });
+    const tr = cli?.taxRegime ?? "NATIONAL";
+    let processed = applyTaxRegime(lines as LineInput[], tr);
+    processed = applySurcharge(processed, tr === "NATIONAL" && (cli?.hasSurcharge ?? false));
+    computed = processed.map((l, i) => computeLine(l, i));
     totals   = computeTotals(computed);
   }
 
@@ -354,23 +541,43 @@ export async function issueInvoice(req: Request, res: Response) {
 
   const existing = await prisma.invoice.findUnique({
     where:  { id: id as string, tenantId },
-    select: { id: true, status: true, seriesId: true, lines: { select: { id: true } } },
+    select: {
+      id: true, status: true, seriesId: true, clientId: true,
+      subtotalNet: true, totalVat: true, totalGross: true,
+      lines: { select: { id: true } },
+    },
   });
   if (!existing) throw new AppError(404, "Factura no encontrada");
   if (existing.status !== "DRAFT") throw new AppError(409, "La factura ya está emitida.");
   if (existing.lines.length === 0) throw new AppError(422, "La factura no tiene líneas.");
 
+  const { emitterTaxId, receiverTaxId } = await getHashContext(tenantId, existing.clientId);
+
   const issued = await prisma.$transaction(async (tx) => {
-    // Reservar número atómicamente (UPDATE bloquea la fila bajo concurrencia).
     const reserved = await tx.invoiceSeries.update({
       where:  { id: existing.seriesId },
       data:   { nextNumber: { increment: 1 } },
-      select: { nextNumber: true },
+      select: { nextNumber: true, code: true },
     });
     const number = reserved.nextNumber - 1;
-    return tx.invoice.update({
+    const issueDate = new Date();
+    await tx.invoice.update({
       where: { id: id as string },
-      data:  { number, status: "ISSUED", issueDate: new Date() },
+      data:  { number, status: "ISSUED", issueDate },
+    });
+    await applyHashChain(tx, id as string, {
+      seriesId: existing.seriesId, seriesCode: reserved.code,
+      number, issueDate,
+      subtotalNet: Number(existing.subtotalNet),
+      totalVat:    Number(existing.totalVat),
+      totalGross:  Number(existing.totalGross),
+      emitterTaxId, receiverTaxId,
+      tenantId, userId: req.user!.userId ?? null,
+      action: "ISSUE", clientId: existing.clientId,
+      status: "ISSUED",
+    });
+    return tx.invoice.findUnique({
+      where:   { id: id as string },
       include: {
         series: { select: { code: true, name: true } },
         lines:  { orderBy: { position: "asc" } },
@@ -417,34 +624,75 @@ export async function voidInvoice(req: Request, res: Response) {
   };
   totals.totalGross = round2(totals.subtotalNet + totals.totalVat - totals.totalIrpf);
 
+  const { emitterTaxId, receiverTaxId } = await getHashContext(tenantId, existing.clientId);
+
   const result = await prisma.$transaction(async (tx) => {
-    // Marcar la original como VOIDED
+    // Marcar la original como VOIDED y dejar AuditLog action VOID
     await tx.invoice.update({
       where: { id: existing.id },
       data:  { status: "VOIDED" },
+    });
+    await tx.invoiceAuditLog.create({
+      data: {
+        tenantId,
+        invoiceId: existing.id,
+        userId:    req.user!.userId ?? null,
+        action:    "VOID",
+        payload:   auditPayload({
+          id: existing.id,
+          number: existing.number,
+          status: "VOIDED",
+          issueDate: existing.issueDate,
+          subtotalNet: Number(existing.subtotalNet),
+          totalVat:    Number(existing.totalVat),
+          totalGross:  Number(existing.totalGross),
+          clientId: existing.clientId,
+        }, { reason: "voided" }),
+        // Reusamos el hash existente — no se reescribe, sólo se anota el evento.
+        hash: existing.currentHash ?? GENESIS_HASH,
+      },
     });
 
     // Reservar número atómicamente para la rectificativa
     const reserved = await tx.invoiceSeries.update({
       where:  { id: existing.seriesId },
       data:   { nextNumber: { increment: 1 } },
-      select: { nextNumber: true },
+      select: { nextNumber: true, code: true },
     });
     const number = reserved.nextNumber - 1;
+    const issueDate = new Date();
 
-    return tx.invoice.create({
+    const created = await tx.invoice.create({
       data: {
         tenantId,
         seriesId:           existing.seriesId,
         number,
         status:             "ISSUED",
-        issueDate:          new Date(),
+        issueDate,
         clientId:           existing.clientId,
         contractId:         existing.contractId,
         rectifiesInvoiceId: existing.id,
         ...totals,
         lines: { create: negLines },
       },
+      include: {
+        series: { select: { code: true, name: true } },
+        lines:  { orderBy: { position: "asc" } },
+      },
+    });
+    await applyHashChain(tx, created.id, {
+      seriesId: existing.seriesId, seriesCode: reserved.code,
+      number, issueDate,
+      subtotalNet: totals.subtotalNet,
+      totalVat:    totals.totalVat,
+      totalGross:  totals.totalGross,
+      emitterTaxId, receiverTaxId,
+      tenantId, userId: req.user!.userId ?? null,
+      action: "RECTIFY", clientId: existing.clientId,
+      status: "ISSUED",
+    });
+    return tx.invoice.findUnique({
+      where:   { id: created.id },
       include: {
         series: { select: { code: true, name: true } },
         lines:  { orderBy: { position: "asc" } },
@@ -484,7 +732,7 @@ export async function getInvoicePdf(req: Request, res: Response) {
     where: { id: id as string, tenantId },
     include: {
       series:    { select: { code: true, name: true } },
-      client:    { select: { name: true, taxId: true } },
+      client:    { select: { name: true, taxId: true, taxRegime: true } },
       rectifies: { select: { number: true, series: { select: { code: true } } } },
       lines:     { orderBy: { position: "asc" } },
     },
@@ -510,7 +758,10 @@ export async function getInvoicePdf(req: Request, res: Response) {
       subtotalNet: Number(invoice.subtotalNet),
       totalVat:    Number(invoice.totalVat),
       totalIrpf:   Number(invoice.totalIrpf),
-      totalGross:  Number(invoice.totalGross),
+      totalGross:    Number(invoice.totalGross),
+      totalSurcharge: Number(invoice.totalSurcharge),
+      qrPayload:   invoice.qrPayload,
+      currentHash: invoice.currentHash,
       lines:       invoice.lines.map((l) => ({
         description: l.description,
         quantity:    Number(l.quantity),

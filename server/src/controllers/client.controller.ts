@@ -41,10 +41,14 @@ export async function getClient(req: Request, res: Response) {
 
 export async function createClient(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
-  const { name, taxId, email, phone, notes } = req.body;
+  const { name, taxId, email, phone, notes, taxRegime, hasSurcharge } = req.body;
 
   const client = await prisma.client.create({
-    data: { tenantId, name, taxId, email, phone, notes },
+    data: {
+      tenantId, name, taxId, email, phone, notes,
+      ...(taxRegime    !== undefined && { taxRegime }),
+      ...(hasSurcharge !== undefined && { hasSurcharge }),
+    },
   });
 
   res.status(201).json(client);
