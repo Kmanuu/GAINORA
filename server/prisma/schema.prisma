@@ -351,15 +351,18 @@ model TimeEntry {
 }
 
 model FixedCost {
-  id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String   @map("tenant_id") @db.Uuid
-  name      String
-  amount    Decimal  @db.Decimal(12, 2)
-  frequency Freq     @default(MONTHLY)
-  category  String?
-  isActive  Boolean  @default(true) @map("is_active")
-  isDemo    Boolean  @default(false) @map("is_demo")
-  createdAt DateTime @default(now()) @map("created_at")
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  name         String
+  amount       Decimal  @db.Decimal(12, 2)
+  frequency    Freq     @default(MONTHLY)
+  category     String?
+  /// Si es bien de inversión (ordenador, mobiliario…), su IVA va a las
+  /// casillas 30/31 del modelo 303 en lugar de 28/29. Default: false.
+  isInvestment Boolean  @default(false) @map("is_investment")
+  isActive     Boolean  @default(true) @map("is_active")
+  isDemo       Boolean  @default(false) @map("is_demo")
+  createdAt    DateTime @default(now()) @map("created_at")
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("fixed_costs")
@@ -379,6 +382,8 @@ model VariableCost {
   markupPct        Decimal?  @map("markup_pct") @db.Decimal(5, 2)
   date             DateTime  @db.Date
   category         String?
+  /// Si es bien de inversión, su IVA va a casillas 30/31 (no 28/29) del 303.
+  isInvestment     Boolean   @default(false) @map("is_investment")
   createdAt        DateTime  @default(now()) @map("created_at")
   contract         Contract? @relation(fields: [contractId], references: [id], onDelete: Cascade)
   issue            Issue?    @relation(fields: [issueId], references: [id], onDelete: Cascade)

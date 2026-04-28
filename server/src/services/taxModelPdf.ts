@@ -137,16 +137,18 @@ export function generateModel303Pdf(
     y = drawTableHeader(doc, y, W, ["Casilla", "Concepto", "Base imp.", "Cuota"]);
     y = drawRow(doc, y, W, [
       "28/29",
-      "Operaciones interiores corrientes — gastos fijos",
-      EUR(data.deductibleExpenses.fixedNet),
-      EUR(data.deductibleExpenses.fixedVat),
+      "Operaciones interiores corrientes",
+      EUR(data.deductibleExpenses.currentNet),
+      EUR(data.deductibleExpenses.currentVat),
     ]);
-    y = drawRow(doc, y, W, [
-      "28/29",
-      "Operaciones interiores corrientes — gastos del trimestre",
-      EUR(data.deductibleExpenses.varNet),
-      EUR(data.deductibleExpenses.varVat),
-    ]);
+    if (data.deductibleExpenses.investmentNet > 0 || data.deductibleExpenses.investmentVat > 0) {
+      y = drawRow(doc, y, W, [
+        "30/31",
+        "Bienes de inversión",
+        EUR(data.deductibleExpenses.investmentNet),
+        EUR(data.deductibleExpenses.investmentVat),
+      ]);
+    }
     y = drawSummaryRow(doc, y, W, "45", "Total a deducir", EUR(data.deductibleExpenses.totalVat));
     y += 10;
 
@@ -254,31 +256,38 @@ export function generateModel130Pdf(
     y += 8;
 
     // Tabla casillas 01-08 modelo 130 (actividades empresariales/profesionales)
+    // Mostramos DOS COLUMNAS: trimestre (informativo) y acumulado YTD
+    // (que es lo que de verdad va al modelo).
     y = drawSectionTitle(doc, "Pago fraccionado — Actividades económicas", y, W);
     y += 4;
-    y = drawTableHeader(doc, y, W, ["Casilla", "Concepto", "", "Importe"]);
+    y = drawTableHeader130(doc, y, W, ["Casilla", "Concepto", "Trimestre", "Acumulado año"]);
 
-    const ingresos = data.invoices.totalNet;
-    const gastos   = data.deductibleExpenses.totalNet;
-    const beneficio = data.model130.grossProfit;
-    const veintePc  = beneficio * 0.20;
-    const retencion = data.model130.irpfRetenido;
-    const aIngresar = data.model130.estimate;
+    const ingresosQ  = data.invoices.totalNet;
+    const gastosQ    = data.deductibleExpenses.totalNet;
+    const beneficioQ = data.model130.grossProfit;
+    const irpfQ      = data.model130.irpfRetenido;
+    const ytdNet     = data.model130.ytdNet;
+    const ytdGastos  = data.model130.ytdDeductibleNet;
+    const ytdProfit  = data.model130.ytdProfit;
+    const ytdVeinte  = ytdProfit * 0.20;
+    const ytdIrpf    = data.model130.ytdIrpfRetenido;
+    const prevPaid   = data.model130.previousPayments;
+    const aIngresar  = data.model130.estimate;
 
-    y = drawRow(doc, y, W, ["01", "Ingresos del trimestre",                        "", EUR(ingresos)]);
-    y = drawRow(doc, y, W, ["02", "Gastos deducibles del trimestre",               "", EUR(gastos)]);
-    y = drawRow(doc, y, W, ["03", "Rendimiento neto (01 - 02)",                    "", EUR(beneficio)]);
-    y = drawRow(doc, y, W, ["04", "20% sobre rendimiento neto",                    "", EUR(veintePc)]);
-    y = drawRow(doc, y, W, ["06", "Retenciones IRPF soportadas",                   "", EUR(retencion)]);
-    y = drawRow(doc, y, W, ["07", "Pagos fraccionados anteriores (manual)",        "", "—"]);
-    y = drawSummaryRow(doc, y, W, "08", "Resultado a ingresar (estimado)",          EUR(aIngresar));
+    y = drawRow130(doc, y, W, ["01", "Ingresos",                            EUR(ingresosQ),         EUR(ytdNet)]);
+    y = drawRow130(doc, y, W, ["02", "Gastos deducibles",                   EUR(gastosQ),           EUR(ytdGastos)]);
+    y = drawRow130(doc, y, W, ["03", "Rendimiento neto (01 - 02)",          EUR(beneficioQ),        EUR(ytdProfit)]);
+    y = drawRow130(doc, y, W, ["04", "20% sobre rendimiento neto",          EUR(beneficioQ * 0.20), EUR(ytdVeinte)]);
+    y = drawRow130(doc, y, W, ["06", "Retenciones IRPF soportadas",         EUR(irpfQ),             EUR(ytdIrpf)]);
+    y = drawRow130(doc, y, W, ["07", "Pagos fraccionados trim. anteriores", "—",                    EUR(prevPaid)]);
+    y = drawSummaryRow(doc, y, W, "08", "Resultado a ingresar (04 - 06 - 07)", EUR(aIngresar));
     y += 8;
 
     // Resultado destacado
     doc.roundedRect(50, y, W, 36, 8).fill(aIngresar > 0 ? "#fef2f2" : "#ecfdf5");
     doc.fillColor(aIngresar > 0 ? "#b91c1c" : "#047857")
        .font("Helvetica-Bold").fontSize(12)
-       .text(aIngresar > 0 ? "Resultado: A INGRESAR (estimado)" : "Sin importe a ingresar este trimestre", 60, y + 9);
+       .text(aIngresar > 0 ? "Resultado: A INGRESAR" : "Sin importe a ingresar este trimestre", 60, y + 9);
     if (aIngresar > 0) {
       doc.fontSize(15)
          .text(EUR(aIngresar), 60, y + 9, { width: W - 20, align: "right" });
@@ -287,8 +296,9 @@ export function generateModel130Pdf(
 
     doc.fillColor(COLOR_SECONDARY).font("Helvetica").fontSize(8.5)
        .text(
-         "Generado por HorasPRO. El cálculo oficial del modelo 130 es acumulativo desde el 1 de enero, descontando los pagos fraccionados ya realizados en trimestres anteriores. " +
-         "Esta hoja muestra los números del trimestre como referencia rápida; tu gestor o la sede AEAT harán el cálculo acumulado correcto.",
+         "Generado por HorasPRO. El modelo 130 es ACUMULATIVO desde el 1 de enero. La columna 'Acumulado año' contiene los importes que van al formulario AEAT; la columna 'Trimestre' es informativa. " +
+         "La casilla 07 se calcula sumando los pagos fraccionados estimados de los trimestres anteriores del mismo ejercicio. " +
+         "Verifica con tu gestor antes de presentar.",
          50, y + 8, { width: W, align: "left" },
        );
 
@@ -326,6 +336,30 @@ function drawRow(doc: InstanceType<typeof PDFDocument>, y: number, W: number, ce
   doc.text(cells[1] ?? "", 116, y + 4, { width: W - 60 - 90 - 90 - 12 });
   doc.text(cells[2] ?? "", 50 + W - 180, y + 4, { width: 80, align: "right" });
   doc.text(cells[3] ?? "", 50 + W - 90,  y + 4, { width: 84, align: "right" });
+  doc.moveTo(50, y + h).lineTo(50 + W, y + h).strokeColor(COLOR_BORDER).lineWidth(0.3).stroke();
+  return y + h;
+}
+
+// Variantes de tabla para el modelo 130, que tiene 4 columnas con dos importes
+// (trimestre + acumulado año) en lugar del 303 (base + cuota).
+function drawTableHeader130(doc: InstanceType<typeof PDFDocument>, y: number, W: number, cols: string[]) {
+  const cellY = y;
+  doc.rect(50, cellY, W, 20).fill(COLOR_SOFT);
+  doc.fillColor(COLOR_SECONDARY).font("Helvetica-Bold").fontSize(9);
+  doc.text(cols[0] ?? "", 56,  cellY + 6, { width: 60 });
+  doc.text(cols[1] ?? "", 116, cellY + 6, { width: W - 60 - 100 - 110 - 12 });
+  doc.text(cols[2] ?? "", 50 + W - 200, cellY + 6, { width: 95, align: "right" });
+  doc.text(cols[3] ?? "", 50 + W - 100, cellY + 6, { width: 95, align: "right" });
+  return y + 22;
+}
+
+function drawRow130(doc: InstanceType<typeof PDFDocument>, y: number, W: number, cells: string[]) {
+  const h = 18;
+  doc.fillColor(COLOR_TEXT).font("Helvetica").fontSize(9.5);
+  doc.text(cells[0] ?? "", 56,  y + 4, { width: 60 });
+  doc.text(cells[1] ?? "", 116, y + 4, { width: W - 60 - 100 - 110 - 12 });
+  doc.text(cells[2] ?? "", 50 + W - 200, y + 4, { width: 95, align: "right" });
+  doc.text(cells[3] ?? "", 50 + W - 100, y + 4, { width: 95, align: "right" });
   doc.moveTo(50, y + h).lineTo(50 + W, y + h).strokeColor(COLOR_BORDER).lineWidth(0.3).stroke();
   return y + h;
 }

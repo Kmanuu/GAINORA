@@ -17,6 +17,7 @@ import Input           from '@/components/ui/Input';
 import Button          from '@/components/ui/Button';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import HelpTooltip      from '@/components/ui/HelpTooltip';
+import { useConfirm }   from '@/components/ui/ConfirmDialog';
 import type { CostingMode, TenantBillingProfile } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -799,24 +800,39 @@ interface DemoStatus {
 
 function DemoDataSection() {
   const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [status, setStatus] = useState<DemoStatus | null>(null);
   const [busy,   setBusy]   = useState(false);
+  const [hasReal, setHasReal] = useState<boolean>(false);
 
   useEffect(() => {
-    api.get<DemoStatus>('/v1/demo/status').then(setStatus).catch(() => setStatus(null));
+    api.get<DemoStatus & { hasRealData?: boolean }>('/v1/demo/status').then((r) => {
+      setStatus(r);
+      setHasReal(!!r.hasRealData);
+    }).catch(() => setStatus(null));
   }, []);
 
   async function refresh() {
     try {
-      const next = await api.get<DemoStatus>('/v1/demo/status');
+      const next = await api.get<DemoStatus & { hasRealData?: boolean }>('/v1/demo/status');
       setStatus(next);
+      setHasReal(!!next.hasRealData);
     } catch { /* noop */ }
   }
 
   async function handleSeed() {
+    if (hasReal) {
+      const ok = await confirm({
+        title: 'Tu cuenta ya tiene datos reales',
+        message: 'Si añades los datos demo se mezclarán con tus clientes y proyectos reales en el dashboard y los informes. Podrás borrar sólo los demo más tarde con un click. ¿Continuar?',
+        confirmText: 'Cargar demo igualmente',
+        variant: 'primary',
+      });
+      if (!ok) return;
+    }
     setBusy(true);
     try {
-      await api.post('/v1/demo/seed', {});
+      await api.post('/v1/demo/seed?force=1', {});
       toast('success', 'Datos demo cargados. Echa un vistazo al dashboard.');
       await refresh();
     } catch (e: unknown) {
@@ -827,7 +843,14 @@ function DemoDataSection() {
   }
 
   async function handleWipe() {
-    if (!confirm('Esto borra todos los clientes, proyectos, horas y costes marcados como demo. Tus datos reales se quedan intactos. ¿Continuar?')) return;
+    if (!status) return;
+    const ok = await confirm({
+      title: '¿Borrar los datos demo?',
+      message: `Vas a borrar ${status.clients} clientes, ${status.projects} proyectos, ${status.contracts} contratos y ${status.fixedCosts} costes fijos marcados como demo, junto con sus horas, gastos, pagos y facturas asociadas.\n\nTus datos reales se quedan intactos.`,
+      confirmText: 'Borrar demo',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       const r = await api.delete<{ removed: number }>('/v1/demo/wipe');

@@ -38,14 +38,18 @@ const FREQ_OPTIONS = Object.entries(FREQ_LABEL).map(([value, label]) => ({ value
 type Filter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 
 interface FormState {
-  name:      string;
-  amount:    string;
-  frequency: CostFrequency;
-  category:  string;
-  isActive:  boolean;
+  name:         string;
+  amount:       string;
+  frequency:    CostFrequency;
+  category:     string;
+  isActive:     boolean;
+  isInvestment: boolean;
 }
 
-const EMPTY_FORM: FormState = { name: '', amount: '', frequency: 'MONTHLY', category: '', isActive: true };
+const EMPTY_FORM: FormState = {
+  name: '', amount: '', frequency: 'MONTHLY', category: '',
+  isActive: true, isInvestment: false,
+};
 
 // ---------------------------------------------------------------------------
 // Componente principal
@@ -113,11 +117,12 @@ export default function FixedCostsPage() {
   function openEdit(c: FixedCost) {
     setEditTarget(c);
     setForm({
-      name:      c.name,
-      amount:    c.amount,
-      frequency: c.frequency,
-      category:  c.category ?? '',
-      isActive:  c.isActive,
+      name:         c.name,
+      amount:       c.amount,
+      frequency:    c.frequency,
+      category:     c.category ?? '',
+      isActive:     c.isActive,
+      isInvestment: c.isInvestment ?? false,
     });
     setFormError('');
     setModalOpen(true);
@@ -136,11 +141,12 @@ export default function FixedCostsPage() {
     setFormError('');
     try {
       const payload = {
-        name:      form.name.trim(),
-        amount:    parseFloat(form.amount),
-        frequency: form.frequency,
-        category:  form.category.trim() || null,
-        isActive:  form.isActive,
+        name:         form.name.trim(),
+        amount:       parseFloat(form.amount),
+        frequency:    form.frequency,
+        category:     form.category.trim() || null,
+        isActive:     form.isActive,
+        isInvestment: form.isInvestment,
       };
       if (editTarget) {
         await api.patch(`/v1/fixed-costs/${editTarget.id}`, payload);
@@ -385,6 +391,18 @@ export default function FixedCostsPage() {
               onChange={(v) => setForm((prev) => ({ ...prev, isActive: v }))}
             />
             <span className="text-[13.5px] text-[var(--color-text)]">Activo (incluido en el cálculo)</span>
+          </div>
+          <div className="flex items-start gap-3 px-1">
+            <Toggle
+              checked={form.isInvestment}
+              onChange={(v) => setForm((prev) => ({ ...prev, isInvestment: v }))}
+            />
+            <div>
+              <p className="text-[13.5px] text-[var(--color-text)]">Bien de inversión</p>
+              <p className="text-[11.5px] text-[var(--color-text-tertiary)] leading-snug">
+                Ordenador, mobiliario, vehículo… Su IVA va a las casillas 30/31 del modelo 303.
+              </p>
+            </div>
           </div>
           {formError && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-[10px] bg-[var(--color-red-subtle)] border border-[rgba(255,69,58,0.18)]">

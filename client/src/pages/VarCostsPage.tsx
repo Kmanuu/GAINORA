@@ -39,6 +39,7 @@ interface FormState {
   markupPct:        string;
   date:             string;
   category:         string;
+  isInvestment:     boolean;
 }
 
 const EMPTY_FORM: FormState = {
@@ -53,6 +54,7 @@ const EMPTY_FORM: FormState = {
   markupPct:        '',
   date:             new Date().toISOString().slice(0, 10),
   category:         '',
+  isInvestment:     false,
 };
 
 // ---------------------------------------------------------------------------
@@ -146,6 +148,7 @@ export default function VarCostsPage() {
       markupPct:        cost.markupPct != null ? String(cost.markupPct) : '',
       date:             cost.date.slice(0, 10),
       category:         cost.category ?? '',
+      isInvestment:     cost.isInvestment ?? false,
     });
     setFormError('');
     setModalOpen(true);
@@ -171,6 +174,7 @@ export default function VarCostsPage() {
         markupPct:        form.markupPct ? parseFloat(form.markupPct) : null,
         date:             form.date,
         category:         form.category.trim() || null,
+        isInvestment:     form.isInvestment,
       };
       if (editTarget) {
         await api.patch(`/v1/variable-costs/${editTarget.id}`, payload);
@@ -482,6 +486,19 @@ export default function VarCostsPage() {
             onChange={handleField('category')}
             placeholder="Ej: Piezas, Consumibles, Subcontratación..."
           />
+
+          <div className="flex items-start gap-3 px-1 pt-1">
+            <Toggle
+              checked={form.isInvestment}
+              onChange={(v) => setForm((p) => ({ ...p, isInvestment: v }))}
+            />
+            <div>
+              <p className="text-[13.5px] text-[var(--color-text)]">Bien de inversión</p>
+              <p className="text-[11.5px] text-[var(--color-text-tertiary)] leading-snug">
+                Equipos, mobiliario, vehículos… Su IVA va a las casillas 30/31 del modelo 303.
+              </p>
+            </div>
+          </div>
 
           {/* ═══ Desglose en tiempo real ═══ */}
           {form.amount && (

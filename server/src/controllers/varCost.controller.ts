@@ -24,7 +24,7 @@ export async function createVarCost(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
   const {
     projectId, contractId, issueId, name, amount, quantity,
-    priceIncludesVat, vatRate, markupPct, date, category,
+    priceIncludesVat, vatRate, markupPct, date, category, isInvestment,
   } = req.body;
 
   if (projectId) {
@@ -66,6 +66,7 @@ export async function createVarCost(req: Request, res: Response) {
       markupPct:        markupPct        ?? null,
       date:             new Date(date),
       category,
+      ...(isInvestment !== undefined && { isInvestment }),
     },
     include: {
       project: { select: { id: true, name: true } },

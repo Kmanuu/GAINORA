@@ -576,16 +576,197 @@ export interface TaxSummaryData {
     fixedNet: number; fixedVat: number;
     varNet:   number; varVat:   number;
     totalNet: number; totalVat: number;
+    /** Operaciones interiores corrientes (casillas 28/29 del 303) */
+    currentNet: number; currentVat: number;
+    /** Bienes de inversión (casillas 30/31 del 303) */
+    investmentNet: number; investmentVat: number;
   };
   model303: {
     vatRepercutido: number; vatSoportado: number;
     result: number; status: "TO_PAY" | "TO_COMPENSATE";
   };
   model130: {
-    grossProfit: number; irpfRetenido: number;
-    estimate: number; mayBeExempt: boolean;
+    /** Beneficio del trimestre concreto (informativo) */
+    grossProfit: number;
+    /** IRPF retenido en el trimestre concreto (informativo) */
+    irpfRetenido: number;
+    /** Ingresos netos acumulados desde 1 enero hasta fin del trimestre */
+    ytdNet: number;
+    /** Gastos deducibles acumulados YTD */
+    ytdDeductibleNet: number;
+    /** Beneficio acumulado YTD = ytdNet - ytdDeductibleNet */
+    ytdProfit: number;
+    /** IRPF retenido acumulado YTD */
+    ytdIrpfRetenido: number;
+    /** Suma de los pagos fraccionados estimados de los trimestres anteriores */
+    previousPayments: number;
+    /** Resultado a ingresar de este trimestre (acumulado YTD - retenciones - pagos previos) */
+    estimate: number;
+    /** Heurística: si >70% del facturado lleva retención, podría no aplicar el 130 */
+    mayBeExempt: boolean;
   };
   monthsBreakdown: { month: number; label: string; net: number; vat: number }[];
+}
+
+// ---------------------------------------------------------------------------
+// Helpers internos del cálculo fiscal
+// ---------------------------------------------------------------------------
+
+interface PeriodIncome {
+  count: number;
+  net:   number;
+  vat:   number;
+  irpf:  number;
+  byVatRate: Map<string, { base: number; vat: number }>;
+}
+
+interface PeriodDeductibles {
+  fixedCurrNet: number; fixedCurrVat: number;
+  fixedInvNet:  number; fixedInvVat:  number;
+  varCurrNet:   number; varCurrVat:   number;
+  varInvNet:    number; varInvVat:    number;
+}
+
+function monthsInRangeUtc(from: Date, to: Date): number {
+  return (to.getUTCFullYear() - from.getUTCFullYear()) * 12 +
+         (to.getUTCMonth()    - from.getUTCMonth());
+}
+
+/** Ingresos del periodo según criterio fiscal.
+ *  ACCRUAL: filtra por issueDate (devengo).
+ *  CASH:    prorratea cada invoice por la fracción cobrada (transactions con
+ *           paidAt en el rango). Funciona también para invoices ISSUED con
+ *           cobros parciales — se contabilizan a medida que entra el dinero. */
+async function computeIncome(
+  tenantId: string,
+  criterion: "ACCRUAL" | "CASH",
+  from: Date,
+  to: Date,
+): Promise<PeriodIncome> {
+  const out: PeriodIncome = {
+    count: 0, net: 0, vat: 0, irpf: 0, byVatRate: new Map(),
+  };
+
+  if (criterion === "CASH") {
+    const invoices = await prisma.invoice.findMany({
+      where: { tenantId, status: { not: "VOIDED" } },
+      include: { lines: true, payment: { include: { transactions: true } } },
+    });
+    for (const inv of invoices) {
+      const totalGross = Number(inv.totalGross);
+      if (totalGross === 0) continue;
+      const transactions = inv.payment?.transactions ?? [];
+      const paidInPeriod = transactions
+        .filter((t) => {
+          const d = new Date(t.paidAt);
+          return d >= from && d < to;
+        })
+        .reduce((s, t) => s + Number(t.amount), 0);
+      if (paidInPeriod === 0) continue;
+      const fraction = paidInPeriod / totalGross;
+      out.count += 1;
+      out.net   += Number(inv.subtotalNet) * fraction;
+      out.vat   += Number(inv.totalVat)    * fraction;
+      out.irpf  += Number(inv.totalIrpf)   * fraction;
+      for (const line of inv.lines) {
+        const k = String(Number(line.vatRate));
+        const cur = out.byVatRate.get(k) ?? { base: 0, vat: 0 };
+        const lineNet = Number(line.lineNet) * fraction;
+        cur.base += lineNet;
+        cur.vat  += lineNet * (Number(line.vatRate) / 100);
+        out.byVatRate.set(k, cur);
+      }
+    }
+  } else {
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        tenantId,
+        status: { in: ["ISSUED", "PAID"] },
+        issueDate: { gte: from, lt: to },
+      },
+      include: { lines: true },
+    });
+    out.count = invoices.length;
+    for (const inv of invoices) {
+      out.net  += Number(inv.subtotalNet);
+      out.vat  += Number(inv.totalVat);
+      out.irpf += Number(inv.totalIrpf);
+      for (const line of inv.lines) {
+        const k = String(Number(line.vatRate));
+        const cur = out.byVatRate.get(k) ?? { base: 0, vat: 0 };
+        cur.base += Number(line.lineNet);
+        cur.vat  += Number(line.lineNet) * (Number(line.vatRate) / 100);
+        out.byVatRate.set(k, cur);
+      }
+    }
+  }
+  return out;
+}
+
+/** Gastos deducibles del periodo, separados en corriente vs inversión.
+ *  FixedCost se prorratea por el número de meses cubiertos en [from, to). */
+async function computeDeductibles(
+  tenantId: string,
+  from: Date,
+  to: Date,
+): Promise<PeriodDeductibles> {
+  const months = Math.max(0, monthsInRangeUtc(from, to));
+  const out: PeriodDeductibles = {
+    fixedCurrNet: 0, fixedCurrVat: 0, fixedInvNet:  0, fixedInvVat:  0,
+    varCurrNet:   0, varCurrVat:   0, varInvNet:    0, varInvVat:    0,
+  };
+
+  const fixedCosts = await prisma.fixedCost.findMany({
+    where: { tenantId, isActive: true },
+  });
+  const FIXED_VAT_ASSUMED = 21;
+  for (const fc of fixedCosts) {
+    const amountWithVat = Number(fc.amount);
+    const factor = 1 + FIXED_VAT_ASSUMED / 100;
+    const netOcc = amountWithVat / factor;
+    const vatOcc = amountWithVat - netOcc;
+    let mult = 0;
+    if      (fc.frequency === "MONTHLY")   mult = months;
+    else if (fc.frequency === "QUARTERLY") mult = months / 3;
+    else if (fc.frequency === "YEARLY")    mult = months / 12;
+    const n = netOcc * mult;
+    const v = vatOcc * mult;
+    if (fc.isInvestment) { out.fixedInvNet  += n; out.fixedInvVat  += v; }
+    else                 { out.fixedCurrNet += n; out.fixedCurrVat += v; }
+  }
+
+  const varCosts = await prisma.variableCost.findMany({
+    where: { tenantId, date: { gte: from, lt: to } },
+  });
+  for (const vc of varCosts) {
+    const total = Number(vc.amount) * Number(vc.quantity ?? 1);
+    const vatRate = Number(vc.vatRate ?? 0);
+    const factor = 1 + vatRate / 100;
+    const net = vc.priceIncludesVat ? total / factor : total;
+    const vat = vc.priceIncludesVat ? total - net    : total * vatRate / 100;
+    if (vc.isInvestment) { out.varInvNet  += net; out.varInvVat  += vat; }
+    else                 { out.varCurrNet += net; out.varCurrVat += vat; }
+  }
+  return out;
+}
+
+/** Ingresos por mes del trimestre. Para CASH prorratea por fracción cobrada
+ *  en cada mes. Para ACCRUAL filtra por issueDate.month. */
+async function computeMonthsBreakdown(
+  tenantId: string,
+  criterion: "ACCRUAL" | "CASH",
+  year: number,
+  quarter: number,
+): Promise<{ month: number; label: string; net: number; vat: number }[]> {
+  const months = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const out: { month: number; label: string; net: number; vat: number }[] = [];
+  for (let m = (quarter - 1) * 3; m < quarter * 3; m++) {
+    const mStart = new Date(Date.UTC(year, m, 1));
+    const mEnd   = new Date(Date.UTC(year, m + 1, 1));
+    const inc = await computeIncome(tenantId, criterion, mStart, mEnd);
+    out.push({ month: m + 1, label: months[m] ?? String(m + 1), net: round2(inc.net), vat: round2(inc.vat) });
+  }
+  return out;
 }
 
 export async function computeTaxSummary(
@@ -593,9 +774,9 @@ export async function computeTaxSummary(
   year: number,
   quarter: number,
 ): Promise<TaxSummaryData> {
-    // Rango UTC del trimestre [from, to)
-    const from = new Date(Date.UTC(year, (quarter - 1) * 3, 1));
-    const to   = new Date(Date.UTC(year, quarter * 3, 1));
+    const yearStart = new Date(Date.UTC(year, 0, 1));
+    const from      = new Date(Date.UTC(year, (quarter - 1) * 3, 1));
+    const to        = new Date(Date.UTC(year, quarter * 3, 1));
 
     // Criterio fiscal del tenant (devengo por defecto)
     const tenant = await prisma.tenant.findUnique({
@@ -604,153 +785,57 @@ export async function computeTaxSummary(
     });
     const criterion: "ACCRUAL" | "CASH" = tenant?.taxCriterion ?? "ACCRUAL";
 
-    /** Devuelve la fecha efectiva de "cobro" de una factura para el modo CASH:
-     *  el paidAt de la última PaymentTransaction asociada, o el paidAt del
-     *  Payment, o como fallback la propia issueDate. */
-    type InvWithPayment = Awaited<ReturnType<typeof prisma.invoice.findFirst>> & {
-      lines:   { vatRate: unknown; lineNet: unknown }[];
-      client:  { name: string; taxId: string | null } | null;
-      payment: { paidAt: Date | null; transactions: { paidAt: Date }[] } | null;
-    };
-    function effectivePaidDate(inv: InvWithPayment): Date {
-      const txDates = (inv.payment?.transactions ?? []).map((t) => new Date(t.paidAt).getTime());
-      if (txDates.length > 0) return new Date(Math.max(...txDates));
-      if (inv.payment?.paidAt) return new Date(inv.payment.paidAt);
-      return new Date(inv.issueDate);
-    }
+    // ── Trimestre actual: ingresos + gastos + breakdown mensual ────────────
+    const incQ  = await computeIncome(tenantId, criterion, from, to);
+    const dedQ  = await computeDeductibles(tenantId, from, to);
+    const monthsBreakdown = await computeMonthsBreakdown(tenantId, criterion, year, quarter);
 
-    // ── Facturas del periodo según criterio fiscal ────────────────────────
-    let invoices: InvWithPayment[];
-    if (criterion === "CASH") {
-      // Caja: sólo cuenta lo cobrado dentro del trimestre.
-      const allPaid = await prisma.invoice.findMany({
-        where:   { tenantId, status: "PAID" },
-        include: {
-          lines:   true,
-          client:  { select: { name: true, taxId: true } },
-          payment: { include: { transactions: true } },
-        },
-      }) as InvWithPayment[];
-      invoices = allPaid.filter((inv) => {
-        const d = effectivePaidDate(inv);
-        return d >= from && d < to;
-      });
-    } else {
-      // Devengo: contamos por fecha de emisión.
-      invoices = await prisma.invoice.findMany({
-        where: {
-          tenantId,
-          status:    { in: ["ISSUED", "PAID"] },
-          issueDate: { gte: from, lt: to },
-        },
-        include: {
-          lines:   true,
-          client:  { select: { name: true, taxId: true } },
-          payment: { include: { transactions: true } },
-        },
-      }) as InvWithPayment[];
-    }
+    const totalNet     = incQ.net;
+    const totalVatRep  = incQ.vat;
+    const totalIrpf    = incQ.irpf;
+    const invoicesCount = incQ.count;
+    const vatByRate    = incQ.byVatRate;
 
-    // Agrupa IVA repercutido por tipo (21, 10, 4, 0…)
-    const vatByRate = new Map<string, { base: number; vat: number }>();
-    let totalNet      = 0;
-    let totalVatRep   = 0;
-    let totalIrpf     = 0;
-    let invoicesCount = 0;
-
-    for (const inv of invoices) {
-      // Las rectificativas tienen totales negativos: se restan automáticamente
-      invoicesCount++;
-      totalNet    += Number(inv.subtotalNet);
-      totalVatRep += Number(inv.totalVat);
-      totalIrpf   += Number(inv.totalIrpf);
-      for (const line of inv.lines) {
-        const k = String(Number(line.vatRate));
-        const cur = vatByRate.get(k) ?? { base: 0, vat: 0 };
-        cur.base += Number(line.lineNet);
-        const vat = Number(line.lineNet) * (Number(line.vatRate) / 100);
-        cur.vat  += vat;
-        vatByRate.set(k, cur);
-      }
-    }
-
-    // ── IVA soportado deducible: gastos fijos del trimestre + variables ────
-    // Los FixedCosts se "anualizan/mensualizan" según frequency. Para el
-    // trimestre tomamos 3 meses de un MONTHLY, 1 de un QUARTERLY, 1/4 de un
-    // YEARLY. Solo cuenta si está activo y marcado deducible (asumimos sí
-    // por defecto si no existe campo deductible).
-    const fixedCosts = await prisma.fixedCost.findMany({
-      where: { tenantId, isActive: true },
-    });
-    let fixedNetInQuarter = 0;
-    let fixedVatDeductible = 0;
-    // FixedCost no tiene vatRate en schema: asumimos 21% (IVA general
-    // español, lo más común para servicios/software). El usuario verá el
-    // dato como aproximación y puede corregir manualmente en su declaración.
-    const FIXED_VAT_ASSUMED = 21;
-    for (const fc of fixedCosts) {
-      const amountWithVat = Number(fc.amount);
-      const factor  = 1 + FIXED_VAT_ASSUMED / 100;
-      const net = amountWithVat / factor;
-      const vat = amountWithVat - net;
-      let multiplier = 0;
-      if (fc.frequency === "MONTHLY")   multiplier = 3;
-      else if (fc.frequency === "QUARTERLY") multiplier = 1;
-      else if (fc.frequency === "YEARLY")    multiplier = 0.25;
-      fixedNetInQuarter += net * multiplier;
-      fixedVatDeductible += vat * multiplier;
-    }
-
-    const varCosts = await prisma.variableCost.findMany({
-      where: {
-        tenantId,
-        date: { gte: from, lt: to },
-      },
-    });
-    let varNetInQuarter = 0;
-    let varVatDeductible = 0;
-    for (const vc of varCosts) {
-      const amount = Number(vc.amount);
-      const qty    = Number(vc.quantity ?? 1);
-      const total  = amount * qty;
-      const vatRate = Number(vc.vatRate ?? 0);
-      const factor  = 1 + vatRate / 100;
-      // VariableCost.priceIncludesVat marca si el amount es bruto o neto
-      const net = vc.priceIncludesVat ? total / factor : total;
-      const vat = vc.priceIncludesVat ? total - net    : total * vatRate / 100;
-      varNetInQuarter += net;
-      varVatDeductible += vat;
-    }
-
-    const totalVatSupported = fixedVatDeductible + varVatDeductible;
-    const totalDeductibleNet = fixedNetInQuarter + varNetInQuarter;
+    const currentNet = dedQ.fixedCurrNet + dedQ.varCurrNet;
+    const currentVat = dedQ.fixedCurrVat + dedQ.varCurrVat;
+    const investNet  = dedQ.fixedInvNet  + dedQ.varInvNet;
+    const investVat  = dedQ.fixedInvVat  + dedQ.varInvVat;
+    const totalVatSupported  = currentVat + investVat;
+    const totalDeductibleNet = currentNet + investNet;
+    // Compat: campos planos antiguos para no romper UI antigua.
+    const fixedNetInQuarter  = dedQ.fixedCurrNet + dedQ.fixedInvNet;
+    const fixedVatDeductible = dedQ.fixedCurrVat + dedQ.fixedInvVat;
+    const varNetInQuarter    = dedQ.varCurrNet   + dedQ.varInvNet;
+    const varVatDeductible   = dedQ.varCurrVat   + dedQ.varInvVat;
 
     // Resultado modelo 303
     const vatToPay303 = totalVatRep - totalVatSupported;
 
-    // ── Modelo 130 (pago fraccionado IRPF) ─────────────────────────────────
-    // Estimación: 20% sobre (ingresos − gastos) acumulado del año hasta fin
-    // de trimestre, MENOS retenciones soportadas, MENOS pagos fraccionados
-    // anteriores. Aquí calculamos sólo el trimestre concreto para mostrar
-    // un orden de magnitud — el cálculo oficial es acumulativo.
-    const grossProfitQuarter = totalNet - totalDeductibleNet;
-    const irpf130Estimate    = Math.max(0, grossProfitQuarter * 0.20 - totalIrpf);
+    // ── Modelo 130: cálculo acumulativo desde 1 enero ─────────────────────
+    // El 130 oficial es ACUMULATIVO. Para el trimestre Q:
+    //   estimate(Q) = max(0, ytdProfit*20% - ytdIrpfRetenido - sum(estimate(Q-1..Q1)))
+    // Calculamos primero los YTD del propio trimestre, y luego iteramos
+    // los anteriores para sumar los pagos fraccionados ya hechos.
+    const incYtd = await computeIncome(tenantId, criterion, yearStart, to);
+    const dedYtd = await computeDeductibles(tenantId, yearStart, to);
+    const ytdNet = incYtd.net;
+    const ytdDeductibleNet = dedYtd.fixedCurrNet + dedYtd.fixedInvNet + dedYtd.varCurrNet + dedYtd.varInvNet;
+    const ytdProfit = ytdNet - ytdDeductibleNet;
+    const ytdIrpf = incYtd.irpf;
 
-    // ── Detalle por mes del trimestre (para una mini barra de timeline) ───
-    // En modo CASH usamos la fecha de cobro; en ACCRUAL la de emisión.
-    const monthsBreakdown: { month: number; label: string; net: number; vat: number }[] = [];
-    for (let m = (quarter - 1) * 3; m < quarter * 3; m++) {
-      const mStart = new Date(Date.UTC(year, m, 1));
-      const mEnd   = new Date(Date.UTC(year, m + 1, 1));
-      const monthInvs = invoices.filter((i) => {
-        const d = criterion === "CASH" ? effectivePaidDate(i) : new Date(i.issueDate);
-        return d >= mStart && d < mEnd;
-      });
-      const mNet = monthInvs.reduce((s, i) => s + Number(i.subtotalNet), 0);
-      const mVat = monthInvs.reduce((s, i) => s + Number(i.totalVat), 0);
-      const monthName = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][m];
-      monthsBreakdown.push({ month: m + 1, label: monthName, net: round2(mNet), vat: round2(mVat) });
+    let previousPayments130 = 0;
+    for (let q = 1; q < quarter; q++) {
+      const qTo = new Date(Date.UTC(year, q * 3, 1));
+      const incPrev = await computeIncome(tenantId, criterion, yearStart, qTo);
+      const dedPrev = await computeDeductibles(tenantId, yearStart, qTo);
+      const profitPrev = incPrev.net - (
+        dedPrev.fixedCurrNet + dedPrev.fixedInvNet + dedPrev.varCurrNet + dedPrev.varInvNet
+      );
+      const estPrev = Math.max(0, profitPrev * 0.20 - incPrev.irpf - previousPayments130);
+      previousPayments130 += estPrev;
     }
+    const grossProfitQuarter = totalNet - totalDeductibleNet;
+    const irpf130Estimate = Math.max(0, ytdProfit * 0.20 - ytdIrpf - previousPayments130);
 
     return {
       period: {
@@ -771,12 +856,16 @@ export async function computeTaxSummary(
                           .sort((a, b) => b.rate - a.rate),
       },
       deductibleExpenses: {
-        fixedNet: round2(fixedNetInQuarter),
-        fixedVat: round2(fixedVatDeductible),
-        varNet:   round2(varNetInQuarter),
-        varVat:   round2(varVatDeductible),
-        totalNet: round2(totalDeductibleNet),
-        totalVat: round2(totalVatSupported),
+        fixedNet:      round2(fixedNetInQuarter),
+        fixedVat:      round2(fixedVatDeductible),
+        varNet:        round2(varNetInQuarter),
+        varVat:        round2(varVatDeductible),
+        totalNet:      round2(totalDeductibleNet),
+        totalVat:      round2(totalVatSupported),
+        currentNet:    round2(currentNet),
+        currentVat:    round2(currentVat),
+        investmentNet: round2(investNet),
+        investmentVat: round2(investVat),
       },
       model303: {
         vatRepercutido: round2(totalVatRep),
@@ -785,10 +874,15 @@ export async function computeTaxSummary(
         status: vatToPay303 >= 0 ? "TO_PAY" : "TO_COMPENSATE",
       },
       model130: {
-        grossProfit:  round2(grossProfitQuarter),
-        irpfRetenido: round2(totalIrpf),
-        estimate:     round2(irpf130Estimate),
-        mayBeExempt:  totalNet > 0 && (totalIrpf / (totalNet * 0.15)) > 0.70,
+        grossProfit:        round2(grossProfitQuarter),
+        irpfRetenido:       round2(totalIrpf),
+        ytdNet:             round2(ytdNet),
+        ytdDeductibleNet:   round2(ytdDeductibleNet),
+        ytdProfit:          round2(ytdProfit),
+        ytdIrpfRetenido:    round2(ytdIrpf),
+        previousPayments:   round2(previousPayments130),
+        estimate:           round2(irpf130Estimate),
+        mayBeExempt:        totalNet > 0 && (totalIrpf / (totalNet * 0.15)) > 0.70,
       },
       monthsBreakdown,
     };

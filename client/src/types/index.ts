@@ -90,15 +90,17 @@ export interface TimeEntry {
 export type CostFrequency = 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
 
 export interface FixedCost {
-  id:        string;
-  tenantId:  string;
-  name:      string;
-  amount:    string;
-  frequency: CostFrequency;
-  category:  string | null;
-  isActive:  boolean;
-  createdAt: string;
-  updatedAt: string;
+  id:           string;
+  tenantId:     string;
+  name:         string;
+  amount:       string;
+  frequency:    CostFrequency;
+  category:     string | null;
+  isActive:     boolean;
+  isInvestment?: boolean;
+  isDemo?:       boolean;
+  createdAt:    string;
+  updatedAt:    string;
 }
 
 // --- Costes Variables -------------------------------------------------------
@@ -117,6 +119,7 @@ export interface VarCost {
   markupPct:        string | null;
   date:             string;
   category:         string | null;
+  isInvestment?:    boolean;
   project?:         { id: string; name: string } | null;
 }
 

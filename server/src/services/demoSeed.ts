@@ -11,7 +11,7 @@
 import prisma from "../lib/prisma.js";
 import {
   Status, BillingMode, ContractTier, ContractStatus, MaintenanceMode,
-  PaymentStatus, PaymentMethod, Freq,
+  PaymentStatus, PaymentMethod, Freq, InvoiceStatus,
 } from "@prisma/client";
 import { breakdownFromContractPrice } from "./paymentMath.js";
 
@@ -28,6 +28,7 @@ interface SeedResult {
   varCosts:   number;
   timeHours:  number;
   payments:   number;
+  invoices:   number;
 }
 
 const DAY = 86_400_000;
@@ -266,6 +267,96 @@ export async function seedDemo({ tenantId, userId }: SeedArgs): Promise<SeedResu
       status: PaymentStatus.PENDING,
     }});
 
+    // 8. Facturas en una serie DEMO específica para que el resumen fiscal
+    //    y la página de Facturas tengan datos visibles sin tocar la serie
+    //    real del usuario (que conserva números correlativos legales).
+    const demoSeries = await tx.invoiceSeries.upsert({
+      where:  { tenantId_code: { tenantId, code: "DEMO" } },
+      update: { nextNumber: 1 },
+      create: {
+        tenantId, code: "DEMO", name: "Serie demo (sin valor fiscal)",
+        nextNumber: 1, isDefault: false,
+      },
+    });
+
+    // inv1: PAID — corresponde al pago del mes -2 (Café del Mercado, mantenimiento web)
+    const inv1Net   = Number(amountNet);     // 66.12
+    const inv1Vat   = Number(amountGross) - inv1Net;
+    const inv1Gross = Number(amountGross);   // 80
+    await tx.invoice.create({ data: {
+      tenantId,
+      seriesId:    demoSeries.id,
+      number:      1,
+      status:      InvoiceStatus.PAID,
+      issueDate:   p2End,
+      dueDate:     new Date(p2End.getTime() + 30 * DAY),
+      contractId:  contractMant.id,
+      clientId:    clientCafe.id,
+      paymentId:   pay2.id,
+      subtotalNet: inv1Net,
+      totalVat:    inv1Vat,
+      totalIrpf:   0,
+      totalGross:  inv1Gross,
+      lines: { create: [{
+        description: "Mantenimiento web mensual — periodo facturado",
+        quantity: 1, unitPrice: inv1Net, vatRate: 21, irpfRate: 0, discount: 0,
+        lineNet: inv1Net, lineGross: inv1Gross, position: 0,
+      }] },
+    }});
+
+    // inv2: ISSUED — corresponde al pago parcial del mes -1
+    await tx.invoice.create({ data: {
+      tenantId,
+      seriesId:    demoSeries.id,
+      number:      2,
+      status:      InvoiceStatus.ISSUED,
+      issueDate:   p1End,
+      dueDate:     new Date(p1End.getTime() + 30 * DAY),
+      contractId:  contractMant.id,
+      clientId:    clientCafe.id,
+      paymentId:   pay1.id,
+      subtotalNet: inv1Net,
+      totalVat:    inv1Vat,
+      totalIrpf:   0,
+      totalGross:  inv1Gross,
+      lines: { create: [{
+        description: "Mantenimiento web mensual — periodo facturado",
+        quantity: 1, unitPrice: inv1Net, vatRate: 21, irpfRate: 0, discount: 0,
+        lineNet: inv1Net, lineGross: inv1Gross, position: 0,
+      }] },
+    }});
+
+    // inv3: ISSUED — primer hito de la reforma (Carpintería López), con IRPF 15%
+    const refNet   = 1500;
+    const refVat   = 1500 * 0.21;
+    const refIrpf  = 1500 * 0.15;
+    const refGross = 1500 + refVat;
+    await tx.invoice.create({ data: {
+      tenantId,
+      seriesId:    demoSeries.id,
+      number:      3,
+      status:      InvoiceStatus.ISSUED,
+      issueDate:   dateOnly(daysAgo(20)),
+      dueDate:     dateOnly(daysAgo(-10)),
+      contractId:  contractReforma.id,
+      clientId:    clientCarp.id,
+      subtotalNet: refNet,
+      totalVat:    refVat,
+      totalIrpf:   refIrpf,
+      totalGross:  refGross,
+      lines: { create: [{
+        description: "Reforma local Calle Mayor — anticipo materiales y mano de obra",
+        quantity: 1, unitPrice: refNet, vatRate: 21, irpfRate: 15, discount: 0,
+        lineNet: refNet, lineGross: refGross, position: 0,
+      }] },
+    }});
+
+    // dejamos nextNumber preparado para 4 por si el usuario quiere añadir más.
+    await tx.invoiceSeries.update({
+      where: { id: demoSeries.id },
+      data:  { nextNumber: 4 },
+    });
+
     return {
       clients:    5,
       projects:   3,
@@ -274,6 +365,7 @@ export async function seedDemo({ tenantId, userId }: SeedArgs): Promise<SeedResu
       varCosts:   varCount.count,
       timeHours:  Math.round(timeMin / 6) / 10, // 1 decimal
       payments:   3,
+      invoices:   3,
     };
   }, { timeout: 20_000 });
 }
@@ -305,17 +397,37 @@ export async function wipeDemo(tenantId: string): Promise<{ removed: number }> {
     const cli = await tx.client.deleteMany({ where: { tenantId, isDemo: true } });
     removed += cli.count;
 
+    // Si la serie DEMO existe y ya no tiene facturas, la borramos para no
+    // dejar series huérfanas en la lista del usuario.
+    const demoSeries = await tx.invoiceSeries.findUnique({
+      where: { tenantId_code: { tenantId, code: "DEMO" } },
+      include: { _count: { select: { invoices: true } } },
+    });
+    if (demoSeries && demoSeries._count.invoices === 0) {
+      await tx.invoiceSeries.delete({ where: { id: demoSeries.id } });
+      removed += 1;
+    }
+
     return { removed };
   }, { timeout: 20_000 });
 }
 
 export async function countDemoArtifacts(tenantId: string) {
-  const [clients, projects, contracts, fixedCosts] = await Promise.all([
+  const [
+    clients, projects, contracts, fixedCosts,
+    realClients, realProjects, realFixedCosts,
+  ] = await Promise.all([
     prisma.client.count({    where: { tenantId, isDemo: true } }),
     prisma.project.count({   where: { tenantId, isDemo: true } }),
     prisma.contract.count({  where: { tenantId, isDemo: true } }),
     prisma.fixedCost.count({ where: { tenantId, isDemo: true } }),
+    prisma.client.count({    where: { tenantId, isDemo: false } }),
+    prisma.project.count({   where: { tenantId, isDemo: false } }),
+    prisma.fixedCost.count({ where: { tenantId, isDemo: false } }),
   ]);
-  return { clients, projects, contracts, fixedCosts,
-           hasDemo: clients + projects + contracts + fixedCosts > 0 };
+  return {
+    clients, projects, contracts, fixedCosts,
+    hasDemo:     clients + projects + contracts + fixedCosts > 0,
+    hasRealData: realClients + realProjects + realFixedCosts > 0,
+  };
 }

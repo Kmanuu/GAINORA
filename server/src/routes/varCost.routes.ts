@@ -20,6 +20,7 @@ const createVarCostSchema = z.object({
   markupPct:        z.number().min(-100).max(1000).nullish(),
   date:             z.string(),
   category:         z.string().nullish(),
+  isInvestment:     z.boolean().optional(),
 });
 
 const updateVarCostSchema = z.object({
@@ -34,6 +35,7 @@ const updateVarCostSchema = z.object({
   markupPct:        z.number().min(-100).max(1000).nullish(),
   date:             z.string().optional(),
   category:         z.string().nullish(),
+  isInvestment:     z.boolean().optional(),
 });
 
 router.get("/", listVarCosts);

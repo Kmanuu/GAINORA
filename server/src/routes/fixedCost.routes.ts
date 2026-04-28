@@ -20,6 +20,7 @@ const createFixedCostSchema = z.object({
   frequency: z.enum(["MONTHLY", "QUARTERLY", "YEARLY"]),
   category: z.string().nullish(),
   isActive: z.boolean().optional(),
+  isInvestment: z.boolean().optional(),
 });
 
 const updateFixedCostSchema = z.object({
@@ -28,6 +29,7 @@ const updateFixedCostSchema = z.object({
   frequency: z.enum(["MONTHLY", "QUARTERLY", "YEARLY"]).optional(),
   category: z.string().nullish(),
   isActive: z.boolean().optional(),
+  isInvestment: z.boolean().optional(),
 });
 
 router.get("/", listFixedCosts);

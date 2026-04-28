@@ -33,9 +33,17 @@ interface TaxData {
     fixedNet: number; fixedVat: number;
     varNet: number; varVat: number;
     totalNet: number; totalVat: number;
+    currentNet?: number; currentVat?: number;
+    investmentNet?: number; investmentVat?: number;
   };
   model303: { vatRepercutido: number; vatSoportado: number; result: number; status: 'TO_PAY' | 'TO_COMPENSATE' };
-  model130: { grossProfit: number; irpfRetenido: number; estimate: number; mayBeExempt: boolean };
+  model130: {
+    grossProfit: number; irpfRetenido: number;
+    ytdNet?: number; ytdDeductibleNet?: number;
+    ytdProfit?: number; ytdIrpfRetenido?: number;
+    previousPayments?: number;
+    estimate: number; mayBeExempt: boolean;
+  };
   monthsBreakdown: { month: number; label: string; net: number; vat: number }[];
 }
 
@@ -254,10 +262,27 @@ export default function TaxSummarySection() {
                 value={`-${fmtCurrency(data.model130.irpfRetenido, 2)}`}
                 tone="positive"
               />
+              {data.model130.ytdProfit !== undefined && (
+                <>
+                  <div className="border-t border-[var(--color-border)] pt-2 mt-2" />
+                  <Row
+                    label="Beneficio acumulado año (1 ene → fin trimestre)"
+                    value={fmtCurrency(data.model130.ytdProfit, 2)}
+                    bold
+                  />
+                  {(data.model130.previousPayments ?? 0) > 0 && (
+                    <Row
+                      label="130 ya pagado en trimestres anteriores"
+                      value={`-${fmtCurrency(data.model130.previousPayments ?? 0, 2)}`}
+                      tone="positive"
+                    />
+                  )}
+                </>
+              )}
               <div className="border-t border-[var(--color-border)] pt-2.5 mt-2.5">
                 <div className="flex items-baseline justify-between">
                   <span className="text-[13px] font-semibold text-[var(--color-text)]">
-                    {data.model130.mayBeExempt ? 'Posiblemente exento' : 'Estimación a ingresar'}
+                    {data.model130.mayBeExempt ? 'Posiblemente exento' : 'A ingresar este trimestre'}
                   </span>
                   <span
                     className={clsx(

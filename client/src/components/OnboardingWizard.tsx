@@ -79,6 +79,7 @@ export default function OnboardingWizard() {
   const [submitting, setSubmitting] = useState(false);
   const [seeding,    setSeeding]    = useState(false);
   const [demoSeeded, setDemoSeeded] = useState(false);
+  const [seedError,  setSeedError]  = useState<string | null>(null);
 
   if (activeFlow !== 'main') return null;
 
@@ -88,20 +89,48 @@ export default function OnboardingWizard() {
     catch { /* silencioso: si falla, ajustes desde Settings */ }
 
     if (p.id === 'trying') {
-      // Cargar datos demo realistas en background. Si falla (409 si ya
-      // existen, o cualquier otro error), seguimos al paso 2 igualmente.
+      // Cargar datos demo realistas en background. Si ya existían (409),
+      // tratamos como éxito (el usuario los tiene cargados igualmente).
+      // Cualquier otro error queda visible en el paso 2 con CTA para reintentar.
       setSeeding(true);
+      setSeedError(null);
       try {
-        await api.post('/v1/demo/seed', {});
+        // force=1 porque el usuario eligió explícitamente el modo "trying"
+        // y queremos cargar la demo aunque la cuenta tenga datos previos.
+        await api.post('/v1/demo/seed?force=1', {});
         setDemoSeeded(true);
-      } catch {
-        setDemoSeeded(false);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Error desconocido';
+        if (/datos demo cargados/i.test(msg)) {
+          // Ya estaban cargados de una sesión previa: lo tratamos como éxito.
+          setDemoSeeded(true);
+        } else {
+          setDemoSeeded(false);
+          setSeedError(msg);
+          toast('error', `No se pudieron cargar los datos demo: ${msg}`);
+        }
       } finally {
         setSeeding(false);
       }
       goTo(2);
     } else {
       next(4);
+    }
+  }
+
+  async function retrySeed() {
+    setSeeding(true);
+    setSeedError(null);
+    try {
+      await api.post('/v1/demo/seed?force=1', {});
+      setDemoSeeded(true);
+      toast('success', 'Datos demo cargados');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error desconocido';
+      setSeedError(msg);
+      toast('error', `Reintento fallido: ${msg}`);
+    } finally {
+      setSeeding(false);
     }
   }
 
@@ -193,7 +222,7 @@ export default function OnboardingWizard() {
               submitting={submitting}
             />
           )}
-          {currentStep === 2 && <StepReady persona={persona} demoSeeded={demoSeeded} seeding={seeding} onContinue={() => next(4)} />}
+          {currentStep === 2 && <StepReady persona={persona} demoSeeded={demoSeeded} seeding={seeding} seedError={seedError} onRetry={retrySeed} onContinue={() => next(4)} />}
           {currentStep === 3 && <StepFinish onGoDashboard={goToDashboard} persona={persona} demoSeeded={demoSeeded} />}
         </div>
       </div>
@@ -356,29 +385,61 @@ function ModeCard({
 // ---------------------------------------------------------------------------
 
 function StepReady({
-  persona, demoSeeded, seeding, onContinue,
-}: { persona: Persona | null; demoSeeded: boolean; seeding: boolean; onContinue: () => void }) {
+  persona, demoSeeded, seeding, seedError, onRetry, onContinue,
+}: {
+  persona: Persona | null;
+  demoSeeded: boolean;
+  seeding: boolean;
+  seedError: string | null;
+  onRetry: () => void;
+  onContinue: () => void;
+}) {
   const isDemo = persona === 'trying';
+  const hasFailed = isDemo && !!seedError && !demoSeeded;
+
+  const titleClass = hasFailed
+    ? 'bg-[var(--color-orange-subtle)]'
+    : 'bg-[var(--color-green-subtle)]';
+  const iconClass = hasFailed
+    ? 'text-[var(--color-orange)]'
+    : 'text-[var(--color-green)]';
+
   return (
     <div className="text-center py-2">
-      <div className="inline-flex w-14 h-14 rounded-[16px] bg-[var(--color-green-subtle)] items-center justify-center mb-4">
-        <Check className="w-6 h-6 text-[var(--color-green)]" strokeWidth={2.4} />
+      <div className={clsx('inline-flex w-14 h-14 rounded-[16px] items-center justify-center mb-4', titleClass)}>
+        <Check className={clsx('w-6 h-6', iconClass)} strokeWidth={2.4} />
       </div>
       <h2 className="text-[22px] font-semibold text-[var(--color-text)] tracking-tight">
-        {isDemo
-          ? (seeding ? 'Cargando datos de ejemplo…' : demoSeeded ? 'Listo para explorar' : 'Configurado para explorar')
-          : 'Configurado'}
+        {hasFailed
+          ? 'No pudimos cargar los datos de ejemplo'
+          : isDemo
+            ? (seeding ? 'Cargando datos de ejemplo…' : demoSeeded ? 'Listo para explorar' : 'Configurado para explorar')
+            : 'Configurado'}
       </h2>
       <p className="text-[14px] text-[var(--color-text-secondary)] mt-2 max-w-[420px] mx-auto leading-relaxed">
-        {isDemo && demoSeeded
-          ? 'Te hemos cargado 5 clientes, 3 proyectos, costes, horas trabajadas y un par de pagos cobrados. Pasea por el dashboard, mira los cobros, abre las facturas — todo está vivo. Cuando quieras empezar de cero, tienes un botón "Borrar datos demo" en Ajustes.'
-          : isDemo
-          ? 'Hemos puesto valores razonables para que pruebes la app sin clientes. Cuando tengas uno real, créalo desde la sección Clientes y verás los números cobrar sentido.'
-          : 'Tu modelo de costes y tu primer proyecto ya están en su sitio. Lo siguiente es fichar tu primera hora — verás tu rentabilidad en tiempo real.'}
+        {hasFailed
+          ? 'Tu configuración se guardó, pero hubo un fallo cargando los datos demo. Puedes reintentarlo o continuar y crear tu primer cliente desde la sección Clientes.'
+          : isDemo && demoSeeded
+            ? 'Te hemos cargado 5 clientes, 3 proyectos, costes, horas trabajadas, facturas y un par de pagos cobrados. Pasea por el dashboard, mira los cobros, abre las facturas — todo está vivo. Cuando quieras empezar de cero, tienes un botón "Borrar datos demo" en Ajustes.'
+            : isDemo
+              ? 'Hemos puesto valores razonables para que pruebes la app sin clientes. Cuando tengas uno real, créalo desde la sección Clientes y verás los números cobrar sentido.'
+              : 'Tu modelo de costes y tu primer proyecto ya están en su sitio. Lo siguiente es fichar tu primera hora — verás tu rentabilidad en tiempo real.'}
       </p>
-      <Button variant="primary" onClick={onContinue} loading={seeding} className="mt-6">
-        Continuar
-      </Button>
+      {hasFailed && (
+        <p className="text-[12px] text-[var(--color-text-tertiary)] mt-2 max-w-[400px] mx-auto">
+          Detalle: {seedError}
+        </p>
+      )}
+      <div className="mt-6 flex items-center justify-center gap-2">
+        {hasFailed && (
+          <Button variant="secondary" onClick={onRetry} loading={seeding}>
+            Reintentar
+          </Button>
+        )}
+        <Button variant="primary" onClick={onContinue} loading={seeding}>
+          Continuar
+        </Button>
+      </div>
     </div>
   );
 }
