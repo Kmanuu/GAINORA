@@ -77,6 +77,8 @@ export default function OnboardingWizard() {
   const [mode,       setMode]       = useState<BillingMode>('FIXED');
   const [amount,     setAmount]     = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [seeding,    setSeeding]    = useState(false);
+  const [demoSeeded, setDemoSeeded] = useState(false);
 
   if (activeFlow !== 'main') return null;
 
@@ -84,8 +86,23 @@ export default function OnboardingWizard() {
     setPersona(p.id);
     try { await api.patch('/v1/me/tenant', p.config); }
     catch { /* silencioso: si falla, ajustes desde Settings */ }
-    if (p.id === 'trying') goTo(2);
-    else                   next(4);
+
+    if (p.id === 'trying') {
+      // Cargar datos demo realistas en background. Si falla (409 si ya
+      // existen, o cualquier otro error), seguimos al paso 2 igualmente.
+      setSeeding(true);
+      try {
+        await api.post('/v1/demo/seed', {});
+        setDemoSeeded(true);
+      } catch {
+        setDemoSeeded(false);
+      } finally {
+        setSeeding(false);
+      }
+      goTo(2);
+    } else {
+      next(4);
+    }
   }
 
   async function createFirstProject() {
@@ -176,8 +193,8 @@ export default function OnboardingWizard() {
               submitting={submitting}
             />
           )}
-          {currentStep === 2 && <StepReady persona={persona} onContinue={() => next(4)} />}
-          {currentStep === 3 && <StepFinish onGoDashboard={goToDashboard} persona={persona} />}
+          {currentStep === 2 && <StepReady persona={persona} demoSeeded={demoSeeded} seeding={seeding} onContinue={() => next(4)} />}
+          {currentStep === 3 && <StepFinish onGoDashboard={goToDashboard} persona={persona} demoSeeded={demoSeeded} />}
         </div>
       </div>
     </div>
@@ -339,8 +356,8 @@ function ModeCard({
 // ---------------------------------------------------------------------------
 
 function StepReady({
-  persona, onContinue,
-}: { persona: Persona | null; onContinue: () => void }) {
+  persona, demoSeeded, seeding, onContinue,
+}: { persona: Persona | null; demoSeeded: boolean; seeding: boolean; onContinue: () => void }) {
   const isDemo = persona === 'trying';
   return (
     <div className="text-center py-2">
@@ -348,14 +365,18 @@ function StepReady({
         <Check className="w-6 h-6 text-[var(--color-green)]" strokeWidth={2.4} />
       </div>
       <h2 className="text-[22px] font-semibold text-[var(--color-text)] tracking-tight">
-        {isDemo ? 'Configurado para explorar' : 'Configurado'}
-      </h2>
-      <p className="text-[14px] text-[var(--color-text-secondary)] mt-2 max-w-[400px] mx-auto leading-relaxed">
         {isDemo
+          ? (seeding ? 'Cargando datos de ejemplo…' : demoSeeded ? 'Listo para explorar' : 'Configurado para explorar')
+          : 'Configurado'}
+      </h2>
+      <p className="text-[14px] text-[var(--color-text-secondary)] mt-2 max-w-[420px] mx-auto leading-relaxed">
+        {isDemo && demoSeeded
+          ? 'Te hemos cargado 5 clientes, 3 proyectos, costes, horas trabajadas y un par de pagos cobrados. Pasea por el dashboard, mira los cobros, abre las facturas — todo está vivo. Cuando quieras empezar de cero, tienes un botón "Borrar datos demo" en Ajustes.'
+          : isDemo
           ? 'Hemos puesto valores razonables para que pruebes la app sin clientes. Cuando tengas uno real, créalo desde la sección Clientes y verás los números cobrar sentido.'
           : 'Tu modelo de costes y tu primer proyecto ya están en su sitio. Lo siguiente es fichar tu primera hora — verás tu rentabilidad en tiempo real.'}
       </p>
-      <Button variant="primary" onClick={onContinue} className="mt-6">
+      <Button variant="primary" onClick={onContinue} loading={seeding} className="mt-6">
         Continuar
       </Button>
     </div>
@@ -367,8 +388,8 @@ function StepReady({
 // ---------------------------------------------------------------------------
 
 function StepFinish({
-  onGoDashboard, persona,
-}: { onGoDashboard: () => void; persona: Persona | null }) {
+  onGoDashboard, persona, demoSeeded,
+}: { onGoDashboard: () => void; persona: Persona | null; demoSeeded: boolean }) {
   return (
     <div className="text-center py-2">
       <div className="inline-flex w-14 h-14 rounded-[16px] bg-[var(--color-blue-subtle)] items-center justify-center mb-4">
@@ -378,17 +399,27 @@ function StepFinish({
         Todo tuyo
       </h2>
       <p className="text-[14px] text-[var(--color-text-secondary)] mt-2 max-w-[420px] mx-auto leading-relaxed">
-        En el dashboard verás tu tarifa real por hora, qué proyectos te dan margen y dónde estás perdiendo dinero. Vuelve a este tutorial cuando quieras desde el botón <strong>“Cómo usar HorasPRO”</strong> de la barra lateral.
+        En el dashboard verás tu tarifa real por hora, qué proyectos te dan margen y dónde estás perdiendo dinero. Vuelve a este tutorial cuando quieras desde el botón <strong>“Repetir tutorial”</strong> de la barra lateral.
       </p>
       <p className="text-[12.5px] text-[var(--color-text-tertiary)] mt-4">
-        Lo primero que conviene hacer:
+        {demoSeeded ? 'Para empezar a explorar:' : 'Lo primero que conviene hacer:'}
       </p>
       <ul className="text-[12.5px] text-[var(--color-text-secondary)] mt-1.5 space-y-1 inline-block text-left">
-        {persona !== 'trying' && (
-          <li>• Registrar tus costes fijos en la sección <em>Costes fijos</em>.</li>
+        {demoSeeded ? (
+          <>
+            <li>• Mirar el <em>Dashboard</em> — verás tu tarifa real, márgenes y morosidad.</li>
+            <li>• Pasar por <em>Cobros</em> — hay un pago parcial y otro pendiente.</li>
+            <li>• Cuando quieras tu propio espacio, en <em>Ajustes</em> tienes “Borrar datos demo”.</li>
+          </>
+        ) : (
+          <>
+            {persona !== 'trying' && (
+              <li>• Registrar tus costes fijos en la sección <em>Costes fijos</em>.</li>
+            )}
+            <li>• Fichar tu primera hora con el botón timer en <em>Horas</em>.</li>
+            <li>• Configurar tus datos de facturación en <em>Ajustes</em> antes de emitir tu primera factura.</li>
+          </>
         )}
-        <li>• Fichar tu primera hora con el botón timer en <em>Horas</em>.</li>
-        <li>• Configurar tus datos de facturación en <em>Ajustes</em> antes de emitir tu primera factura.</li>
       </ul>
       <div className="mt-6">
         <Button variant="primary" onClick={onGoDashboard} fullWidth>

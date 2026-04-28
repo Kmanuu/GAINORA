@@ -6,7 +6,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import {
   User, Lock, Building2,
   ChevronDown, ChevronUp, Gauge, FileText,
-  ExternalLink,
+  ExternalLink, FlaskConical, Trash2,
 } from 'lucide-react';
 import { Link as RouterLink } from 'react-router-dom';
 import { api }         from '@/lib/api';
@@ -36,6 +36,7 @@ interface MeResponse {
     targetMarginPct:      string | number;
     costingMode:          CostingMode;
     reliabilityMinHours:  number;
+    taxCriterion?:        'ACCRUAL' | 'CASH';
   };
 }
 
@@ -431,10 +432,11 @@ function CapacitySection({
 // ---------------------------------------------------------------------------
 
 function BillingSection({
-  initialTaxId, initialBilling,
+  initialTaxId, initialBilling, initialCriterion,
 }: {
-  initialTaxId:   string;
-  initialBilling: TenantBillingProfile;
+  initialTaxId:     string;
+  initialBilling:   TenantBillingProfile;
+  initialCriterion: 'ACCRUAL' | 'CASH';
 }) {
   const { toast } = useToast();
   const [taxId,      setTaxId]      = useState(initialTaxId ?? '');
@@ -446,9 +448,11 @@ function BillingSection({
   const [email,      setEmail]      = useState(initialBilling.email      ?? '');
   const [phone,      setPhone]      = useState(initialBilling.phone      ?? '');
   const [iban,       setIban]       = useState(initialBilling.iban       ?? '');
+  const [criterion,  setCriterion]  = useState<'ACCRUAL' | 'CASH'>(initialCriterion);
   const [saving,     setSaving]     = useState(false);
 
   useEffect(() => { setTaxId(initialTaxId ?? ''); }, [initialTaxId]);
+  useEffect(() => { setCriterion(initialCriterion); }, [initialCriterion]);
   useEffect(() => {
     setFullName(initialBilling.fullName     ?? '');
     setAddress(initialBilling.address       ?? '');
@@ -466,6 +470,7 @@ function BillingSection({
     try {
       await api.patch('/v1/me/tenant', {
         taxId: taxId.trim() || null,
+        taxCriterion: criterion,
         billing: {
           fullName:   fullName.trim()   || null,
           address:    address.trim()    || null,
@@ -570,6 +575,38 @@ function BillingSection({
             placeholder="ES12 3456 7890 1234 5678 9012"
             hint="Aparecerá al pie del PDF si lo rellenas."
           />
+
+          <div className="pt-3 border-t border-[var(--color-border)]">
+            <label className="flex items-center gap-1.5 text-[12px] font-semibold text-[var(--color-text-secondary)] mb-2">
+              Criterio fiscal
+              <HelpTooltip
+                maxWidth={320}
+                text={
+                  <>
+                    <strong>Devengo</strong> (default): cuentas la factura cuando
+                    la emites, pagues o no luego. <strong>Caja</strong>: sólo
+                    cuando el dinero entra realmente. Afecta al modelo 303 y 130
+                    que ves en Informes. Si tienes dudas, deja Devengo y
+                    consulta a tu gestor.
+                  </>
+                }
+              />
+            </label>
+            <SegmentedControl
+              options={[
+                { value: 'ACCRUAL', label: 'Devengo' },
+                { value: 'CASH',    label: 'Caja' },
+              ]}
+              value={criterion}
+              onChange={(v) => setCriterion(v as 'ACCRUAL' | 'CASH')}
+            />
+            <p className="text-[11.5px] text-[var(--color-text-tertiary)] mt-1.5 leading-relaxed">
+              {criterion === 'CASH'
+                ? 'Resumen fiscal contará las facturas sólo cuando estén cobradas.'
+                : 'Resumen fiscal contará las facturas en el trimestre en que las emitiste.'}
+            </p>
+          </div>
+
           <div className="flex justify-end pt-2">
             <Button type="submit" variant="primary" loading={saving}>Guardar</Button>
           </div>
@@ -749,6 +786,99 @@ function PasswordSection() {
 }
 
 // ---------------------------------------------------------------------------
+// Sección — Datos demo
+// ---------------------------------------------------------------------------
+
+interface DemoStatus {
+  clients:    number;
+  projects:   number;
+  contracts:  number;
+  fixedCosts: number;
+  hasDemo:    boolean;
+}
+
+function DemoDataSection() {
+  const { toast } = useToast();
+  const [status, setStatus] = useState<DemoStatus | null>(null);
+  const [busy,   setBusy]   = useState(false);
+
+  useEffect(() => {
+    api.get<DemoStatus>('/v1/demo/status').then(setStatus).catch(() => setStatus(null));
+  }, []);
+
+  async function refresh() {
+    try {
+      const next = await api.get<DemoStatus>('/v1/demo/status');
+      setStatus(next);
+    } catch { /* noop */ }
+  }
+
+  async function handleSeed() {
+    setBusy(true);
+    try {
+      await api.post('/v1/demo/seed', {});
+      toast('success', 'Datos demo cargados. Echa un vistazo al dashboard.');
+      await refresh();
+    } catch (e: unknown) {
+      toast('error', e instanceof Error ? e.message : 'No se pudo cargar la demo');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleWipe() {
+    if (!confirm('Esto borra todos los clientes, proyectos, horas y costes marcados como demo. Tus datos reales se quedan intactos. ¿Continuar?')) return;
+    setBusy(true);
+    try {
+      const r = await api.delete<{ removed: number }>('/v1/demo/wipe');
+      toast('success', `Datos demo borrados (${r.removed} registros).`);
+      await refresh();
+    } catch (e: unknown) {
+      toast('error', e instanceof Error ? e.message : 'No se pudo borrar la demo');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <SectionCard
+      icon={<FlaskConical className="w-4 h-4" />}
+      title="Datos demo"
+      accentColor="#AF52DE"
+      accentBg="rgba(175,82,222,0.08)"
+    >
+      {status?.hasDemo ? (
+        <div className="space-y-3">
+          <p className="text-[13px] text-[var(--color-text-secondary)] leading-relaxed">
+            Tienes datos de ejemplo cargados:{' '}
+            <strong>{status.clients}</strong> clientes,{' '}
+            <strong>{status.projects}</strong> proyectos,{' '}
+            <strong>{status.contracts}</strong> contratos y{' '}
+            <strong>{status.fixedCosts}</strong> costes fijos. Puedes seguir explorando o borrarlos para empezar de cero. Tus registros reales no se tocan.
+          </p>
+          <div className="flex justify-end">
+            <Button variant="danger" size="sm" loading={busy} onClick={handleWipe}>
+              <Trash2 className="w-4 h-4 mr-1.5" /> Borrar datos demo
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-[13px] text-[var(--color-text-secondary)] leading-relaxed">
+            Carga 5 clientes, 3 proyectos (precio cerrado, por horas y suscripción), gastos, horas trabajadas y un par de cobros para ver la app llena. Útil para probar antes de meter tus datos reales.
+          </p>
+          <div className="flex justify-end">
+            <Button variant="secondary" size="sm" loading={busy} onClick={handleSeed}>
+              <FlaskConical className="w-4 h-4 mr-1.5" /> Cargar datos demo
+            </Button>
+          </div>
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Componente principal
 // ---------------------------------------------------------------------------
 
@@ -834,6 +964,7 @@ export default function SettingsPage() {
         <BillingSection
           initialTaxId={meData?.tenant.taxId ?? ''}
           initialBilling={meData?.tenant.settings?.billing ?? {}}
+          initialCriterion={meData?.tenant.taxCriterion ?? 'ACCRUAL'}
         />
 
         {/* Perfil */}
@@ -848,6 +979,9 @@ export default function SettingsPage() {
 
         {/* Guía de uso */}
         <GuideSection />
+
+        {/* Datos demo */}
+        <DemoDataSection />
 
         {/* Sesión */}
         <SectionCard

@@ -38,6 +38,7 @@ const updateTenantSchema = z.object({
   targetMarginPct:      z.number().min(0).max(500).optional(),
   costingMode:          z.enum(["ABSORPTION", "CONTRIBUTION"]).optional(),
   reliabilityMinHours:  z.number().int().min(0).max(1000).optional(),
+  taxCriterion:         z.enum(["ACCRUAL", "CASH"]).optional(),
   billing:              billingProfileSchema.optional(),
 });
 

@@ -42,6 +42,7 @@ export async function getMe(req: Request, res: Response) {
       targetMarginPct:      true,
       costingMode:          true,
       reliabilityMinHours:  true,
+      taxCriterion:         true,
     },
   });
 
@@ -59,6 +60,7 @@ export async function updateTenant(req: Request, res: Response) {
     targetMarginPct,
     costingMode,
     reliabilityMinHours,
+    taxCriterion,
     name,
     taxId,
     billing,
@@ -83,6 +85,7 @@ export async function updateTenant(req: Request, res: Response) {
       ...(targetMarginPct      !== undefined && { targetMarginPct }),
       ...(costingMode          !== undefined && { costingMode }),
       ...(reliabilityMinHours  !== undefined && { reliabilityMinHours }),
+      ...(taxCriterion         !== undefined && { taxCriterion }),
       ...(mergedSettings       !== undefined && { settings: mergedSettings }),
     },
     select: {
@@ -96,6 +99,7 @@ export async function updateTenant(req: Request, res: Response) {
       targetMarginPct:      true,
       costingMode:          true,
       reliabilityMinHours:  true,
+      taxCriterion:         true,
     },
   });
 

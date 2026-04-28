@@ -187,8 +187,8 @@ export const api = {
   put: <T = unknown>(path: string, body: unknown) =>
     apiFetch<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
 
-  delete: (path: string) =>
-    apiFetch(path, { method: 'DELETE' }),
+  delete: <T = unknown>(path: string) =>
+    apiFetch<T>(path, { method: 'DELETE' }),
 
   /** Descarga un blob (p.ej. PDF) con auth. Devuelve Blob. */
   async blob(path: string): Promise<Blob> {

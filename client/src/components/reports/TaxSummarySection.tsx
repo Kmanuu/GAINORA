@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Calculator, ChevronLeft, ChevronRight,
-  ExternalLink, FileText, Info, Sparkles, TrendingUp,
+  ExternalLink, FileText, Info, Sparkles, TrendingUp, Download,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { api } from '@/lib/api';
@@ -23,6 +23,7 @@ import { useToast } from '@/components/ui/Toast';
 
 interface TaxData {
   period: { year: number; quarter: number; from: string; to: string; label: string };
+  criterion: 'ACCRUAL' | 'CASH';
   invoices: {
     count: number;
     totalNet: number; totalVat: number; totalIrpf: number; totalGross: number;
@@ -68,6 +69,22 @@ export default function TaxSummarySection() {
     else setQuarter((q) => (q + 1) as 1 | 2 | 3 | 4);
   }
 
+  async function downloadModelPdf(model: '303' | '130') {
+    try {
+      const blob = await api.blob(`/v1/dashboard/tax-summary/${model}/pdf?year=${year}&quarter=${quarter}`);
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = `modelo-${model}-Q${quarter}-${year}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      toast('error', e instanceof Error ? e.message : 'No se pudo descargar el PDF');
+    }
+  }
+
   const isCurrent = year === CURRENT_YEAR && quarter === CURRENT_QUARTER;
 
   return (
@@ -88,6 +105,11 @@ export default function TaxSummarySection() {
             </h2>
             <p className="text-[12px] text-[var(--color-text-tertiary)]">
               Modelo 303 y 130 — números listos para tu gestor
+              {data?.criterion && (
+                <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-purple-subtle)] text-[var(--color-purple)]">
+                  {data.criterion === 'CASH' ? 'Caja' : 'Devengo'}
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -202,6 +224,13 @@ export default function TaxSummarySection() {
                 </div>
               </div>
             )}
+            <button
+              onClick={() => downloadModelPdf('303')}
+              className="mt-4 w-full flex items-center justify-center gap-1.5 text-[12.5px] font-semibold text-[var(--color-purple)] hover:bg-[var(--color-purple-subtle)] py-2 rounded-[10px] border border-[rgba(175,82,222,0.25)] transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" strokeWidth={2.2} />
+              Descargar preformulario 303
+            </button>
           </Card>
 
           {/* MODELO 130 — IRPF */}
@@ -248,6 +277,13 @@ export default function TaxSummarySection() {
                 )}
               </div>
             </div>
+            <button
+              onClick={() => downloadModelPdf('130')}
+              className="mt-4 w-full flex items-center justify-center gap-1.5 text-[12.5px] font-semibold text-[var(--color-blue)] hover:bg-[var(--color-blue-subtle)] py-2 rounded-[10px] border border-[rgba(10,132,255,0.25)] transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" strokeWidth={2.2} />
+              Descargar preformulario 130
+            </button>
           </Card>
 
           {/* DETALLE FACTURAS */}

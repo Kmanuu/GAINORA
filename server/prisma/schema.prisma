@@ -17,6 +17,12 @@ model Tenant {
   targetMarginPct       Decimal     @default(30) @map("target_margin_pct") @db.Decimal(5, 2)
   costingMode           CostingMode @default(ABSORPTION) @map("costing_mode")
   reliabilityMinHours   Int         @default(5) @map("reliability_min_hours")
+  /// Criterio fiscal:
+  ///   ACCRUAL (devengo, valor por defecto en autónomos en factura) →
+  ///     contabiliza ingresos/gastos por fecha de emisión.
+  ///   CASH (caja) → cuenta sólo cuando el dinero entra/sale realmente.
+  ///   Aplica al cálculo de los modelos 303 y 130 (resumen fiscal).
+  taxCriterion          TaxCriterion @default(ACCRUAL) @map("tax_criterion")
   createdAt             DateTime    @default(now()) @map("created_at")
   updatedAt             DateTime    @updatedAt @map("updated_at")
   clients               Client[]
@@ -66,6 +72,7 @@ model Project {
   productMaintenanceCost Decimal?       @map("product_maintenance_cost") @db.Decimal(12, 2)
   startDate              DateTime?      @map("start_date") @db.Date
   endDate                DateTime?      @map("end_date") @db.Date
+  isDemo                 Boolean        @default(false) @map("is_demo")
   createdAt              DateTime       @default(now()) @map("created_at")
   updatedAt              DateTime       @updatedAt @map("updated_at")
   client                 Client         @relation("ClientProjects", fields: [clientId], references: [id], onDelete: Restrict)
@@ -86,6 +93,7 @@ model Client {
   email     String?
   phone     String?
   notes     String?
+  isDemo    Boolean    @default(false) @map("is_demo")
   createdAt DateTime   @default(now()) @map("created_at")
   updatedAt DateTime   @updatedAt @map("updated_at")
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -151,6 +159,7 @@ model Contract {
   startedAt              DateTime        @map("started_at") @db.Date
   endedAt                DateTime?       @map("ended_at") @db.Date
   notes                  String?
+  isDemo                 Boolean         @default(false) @map("is_demo")
   createdAt              DateTime        @default(now()) @map("created_at")
   updatedAt              DateTime        @updatedAt @map("updated_at")
   planId                 String?         @map("plan_id") @db.Uuid
@@ -349,6 +358,7 @@ model FixedCost {
   frequency Freq     @default(MONTHLY)
   category  String?
   isActive  Boolean  @default(true) @map("is_active")
+  isDemo    Boolean  @default(false) @map("is_demo")
   createdAt DateTime @default(now()) @map("created_at")
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -454,4 +464,9 @@ enum InvoiceStatus {
 enum CostingMode {
   ABSORPTION
   CONTRIBUTION
+}
+
+enum TaxCriterion {
+  ACCRUAL
+  CASH
 }

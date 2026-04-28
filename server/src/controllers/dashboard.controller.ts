@@ -20,6 +20,7 @@ import {
   type BillingMode,
   type CostingMode,
 } from "../services/profitability.js";
+import { generateModel303Pdf, generateModel130Pdf } from "../services/taxModelPdf.js";
 
 // ---------------------------------------------------------------------------
 // Helpers de rango temporal
@@ -563,36 +564,92 @@ export async function getCollectionsHealth(
 // IMPORTANTE: HorasPRO entrega los NÚMEROS, no presenta la declaración.
 // El usuario los lleva a la web AEAT o a su gestor.
 // ===========================================================================
-export async function getTaxSummary(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const tenantId = req.user!.tenantId;
-    const yearStr    = String(req.query.year ?? new Date().getFullYear());
-    const quarterStr = String(req.query.quarter ?? Math.floor(new Date().getMonth() / 3) + 1);
-    const year    = parseInt(yearStr, 10);
-    const quarter = Math.min(4, Math.max(1, parseInt(quarterStr, 10)));
+export interface TaxSummaryData {
+  period: { year: number; quarter: number; from: string; to: string; label: string };
+  criterion: "ACCRUAL" | "CASH";
+  invoices: {
+    count: number; totalNet: number; totalVat: number; totalIrpf: number;
+    totalGross: number;
+    byVatRate: { rate: number; base: number; vat: number }[];
+  };
+  deductibleExpenses: {
+    fixedNet: number; fixedVat: number;
+    varNet:   number; varVat:   number;
+    totalNet: number; totalVat: number;
+  };
+  model303: {
+    vatRepercutido: number; vatSoportado: number;
+    result: number; status: "TO_PAY" | "TO_COMPENSATE";
+  };
+  model130: {
+    grossProfit: number; irpfRetenido: number;
+    estimate: number; mayBeExempt: boolean;
+  };
+  monthsBreakdown: { month: number; label: string; net: number; vat: number }[];
+}
 
-    if (!Number.isFinite(year)) {
-      res.status(400).json({ error: { message: "Año inválido" } });
-      return;
-    }
-
+export async function computeTaxSummary(
+  tenantId: string,
+  year: number,
+  quarter: number,
+): Promise<TaxSummaryData> {
     // Rango UTC del trimestre [from, to)
     const from = new Date(Date.UTC(year, (quarter - 1) * 3, 1));
     const to   = new Date(Date.UTC(year, quarter * 3, 1));
 
-    // ── Facturas emitidas en el periodo (criterio devengo) ─────────────────
-    const invoices = await prisma.invoice.findMany({
-      where: {
-        tenantId,
-        status:    { in: ["ISSUED", "PAID"] },
-        issueDate: { gte: from, lt: to },
-      },
-      include: { lines: true, client: { select: { name: true, taxId: true } } },
+    // Criterio fiscal del tenant (devengo por defecto)
+    const tenant = await prisma.tenant.findUnique({
+      where:  { id: tenantId },
+      select: { taxCriterion: true },
     });
+    const criterion: "ACCRUAL" | "CASH" = tenant?.taxCriterion ?? "ACCRUAL";
+
+    /** Devuelve la fecha efectiva de "cobro" de una factura para el modo CASH:
+     *  el paidAt de la última PaymentTransaction asociada, o el paidAt del
+     *  Payment, o como fallback la propia issueDate. */
+    type InvWithPayment = Awaited<ReturnType<typeof prisma.invoice.findFirst>> & {
+      lines:   { vatRate: unknown; lineNet: unknown }[];
+      client:  { name: string; taxId: string | null } | null;
+      payment: { paidAt: Date | null; transactions: { paidAt: Date }[] } | null;
+    };
+    function effectivePaidDate(inv: InvWithPayment): Date {
+      const txDates = (inv.payment?.transactions ?? []).map((t) => new Date(t.paidAt).getTime());
+      if (txDates.length > 0) return new Date(Math.max(...txDates));
+      if (inv.payment?.paidAt) return new Date(inv.payment.paidAt);
+      return new Date(inv.issueDate);
+    }
+
+    // ── Facturas del periodo según criterio fiscal ────────────────────────
+    let invoices: InvWithPayment[];
+    if (criterion === "CASH") {
+      // Caja: sólo cuenta lo cobrado dentro del trimestre.
+      const allPaid = await prisma.invoice.findMany({
+        where:   { tenantId, status: "PAID" },
+        include: {
+          lines:   true,
+          client:  { select: { name: true, taxId: true } },
+          payment: { include: { transactions: true } },
+        },
+      }) as InvWithPayment[];
+      invoices = allPaid.filter((inv) => {
+        const d = effectivePaidDate(inv);
+        return d >= from && d < to;
+      });
+    } else {
+      // Devengo: contamos por fecha de emisión.
+      invoices = await prisma.invoice.findMany({
+        where: {
+          tenantId,
+          status:    { in: ["ISSUED", "PAID"] },
+          issueDate: { gte: from, lt: to },
+        },
+        include: {
+          lines:   true,
+          client:  { select: { name: true, taxId: true } },
+          payment: { include: { transactions: true } },
+        },
+      }) as InvWithPayment[];
+    }
 
     // Agrupa IVA repercutido por tipo (21, 10, 4, 0…)
     const vatByRate = new Map<string, { base: number; vat: number }>();
@@ -680,12 +737,13 @@ export async function getTaxSummary(
     const irpf130Estimate    = Math.max(0, grossProfitQuarter * 0.20 - totalIrpf);
 
     // ── Detalle por mes del trimestre (para una mini barra de timeline) ───
+    // En modo CASH usamos la fecha de cobro; en ACCRUAL la de emisión.
     const monthsBreakdown: { month: number; label: string; net: number; vat: number }[] = [];
     for (let m = (quarter - 1) * 3; m < quarter * 3; m++) {
       const mStart = new Date(Date.UTC(year, m, 1));
       const mEnd   = new Date(Date.UTC(year, m + 1, 1));
       const monthInvs = invoices.filter((i) => {
-        const d = new Date(i.issueDate);
+        const d = criterion === "CASH" ? effectivePaidDate(i) : new Date(i.issueDate);
         return d >= mStart && d < mEnd;
       });
       const mNet = monthInvs.reduce((s, i) => s + Number(i.subtotalNet), 0);
@@ -694,52 +752,117 @@ export async function getTaxSummary(
       monthsBreakdown.push({ month: m + 1, label: monthName, net: round2(mNet), vat: round2(mVat) });
     }
 
-    res.json({
-      success: true,
-      data: {
-        period: {
-          year,
-          quarter,
-          from: from.toISOString(),
-          to:   to.toISOString(),
-          label: `Q${quarter} ${year}`,
-        },
-        invoices: {
-          count:        invoicesCount,
-          totalNet:     round2(totalNet),
-          totalVat:     round2(totalVatRep),
-          totalIrpf:    round2(totalIrpf),
-          totalGross:   round2(totalNet + totalVatRep),
-          byVatRate:    Array.from(vatByRate.entries())
-                              .map(([rate, v]) => ({ rate: parseFloat(rate), base: round2(v.base), vat: round2(v.vat) }))
-                              .sort((a, b) => b.rate - a.rate),
-        },
-        deductibleExpenses: {
-          fixedNet:  round2(fixedNetInQuarter),
-          fixedVat:  round2(fixedVatDeductible),
-          varNet:    round2(varNetInQuarter),
-          varVat:    round2(varVatDeductible),
-          totalNet:  round2(totalDeductibleNet),
-          totalVat:  round2(totalVatSupported),
-        },
-        model303: {
-          vatRepercutido:    round2(totalVatRep),
-          vatSoportado:      round2(totalVatSupported),
-          result:            round2(vatToPay303),
-          // Si negativo, se compensa en el siguiente trimestre
-          status: vatToPay303 >= 0 ? "TO_PAY" : "TO_COMPENSATE",
-        },
-        model130: {
-          grossProfit:       round2(grossProfitQuarter),
-          irpfRetenido:      round2(totalIrpf),
-          estimate:          round2(irpf130Estimate),
-          // 130 puede no aplicar si >70% facturado lleva retención. Heuristic
-          mayBeExempt: totalNet > 0 && (totalIrpf / (totalNet * 0.15)) > 0.70,
-        },
-        monthsBreakdown,
+    return {
+      period: {
+        year, quarter,
+        from: from.toISOString(),
+        to:   to.toISOString(),
+        label: `Q${quarter} ${year}`,
       },
-    });
-  } catch (error) {
-    next(error);
-  }
+      criterion,
+      invoices: {
+        count:      invoicesCount,
+        totalNet:   round2(totalNet),
+        totalVat:   round2(totalVatRep),
+        totalIrpf:  round2(totalIrpf),
+        totalGross: round2(totalNet + totalVatRep),
+        byVatRate:  Array.from(vatByRate.entries())
+                          .map(([rate, v]) => ({ rate: parseFloat(rate), base: round2(v.base), vat: round2(v.vat) }))
+                          .sort((a, b) => b.rate - a.rate),
+      },
+      deductibleExpenses: {
+        fixedNet: round2(fixedNetInQuarter),
+        fixedVat: round2(fixedVatDeductible),
+        varNet:   round2(varNetInQuarter),
+        varVat:   round2(varVatDeductible),
+        totalNet: round2(totalDeductibleNet),
+        totalVat: round2(totalVatSupported),
+      },
+      model303: {
+        vatRepercutido: round2(totalVatRep),
+        vatSoportado:   round2(totalVatSupported),
+        result:         round2(vatToPay303),
+        status: vatToPay303 >= 0 ? "TO_PAY" : "TO_COMPENSATE",
+      },
+      model130: {
+        grossProfit:  round2(grossProfitQuarter),
+        irpfRetenido: round2(totalIrpf),
+        estimate:     round2(irpf130Estimate),
+        mayBeExempt:  totalNet > 0 && (totalIrpf / (totalNet * 0.15)) > 0.70,
+      },
+      monthsBreakdown,
+    };
+}
+
+export async function getTaxSummary(
+  req: Request, res: Response, next: NextFunction,
+): Promise<void> {
+  try {
+    const tenantId = req.user!.tenantId;
+    const yearStr    = String(req.query.year    ?? new Date().getFullYear());
+    const quarterStr = String(req.query.quarter ?? Math.floor(new Date().getMonth() / 3) + 1);
+    const year    = parseInt(yearStr, 10);
+    const quarter = Math.min(4, Math.max(1, parseInt(quarterStr, 10)));
+    if (!Number.isFinite(year)) {
+      res.status(400).json({ error: { message: "Año inválido" } }); return;
+    }
+    const data = await computeTaxSummary(tenantId, year, quarter);
+    res.json({ success: true, data });
+  } catch (error) { next(error); }
+}
+
+// ===========================================================================
+// GET /api/v1/dashboard/tax-summary/:model/pdf?year=YYYY&quarter=1|2|3|4
+// ===========================================================================
+// Genera el PDF preformulario del modelo solicitado (303 o 130).
+// Reusa los datos calculados por computeTaxSummary y los formatea con
+// taxModelPdf.ts. No es documento oficial AEAT, sólo hoja resumen.
+// ===========================================================================
+export async function getTaxModelPdf(
+  req: Request, res: Response, next: NextFunction,
+): Promise<void> {
+  try {
+    const tenantId = req.user!.tenantId;
+    const model = String(req.params.model ?? "").toLowerCase();
+    if (model !== "303" && model !== "130") {
+      res.status(404).json({ error: { message: "Modelo no soportado" } }); return;
+    }
+    const yearStr    = String(req.query.year    ?? new Date().getFullYear());
+    const quarterStr = String(req.query.quarter ?? Math.floor(new Date().getMonth() / 3) + 1);
+    const year    = parseInt(yearStr, 10);
+    const quarter = Math.min(4, Math.max(1, parseInt(quarterStr, 10)));
+    if (!Number.isFinite(year)) {
+      res.status(400).json({ error: { message: "Año inválido" } }); return;
+    }
+
+    const [data, tenant] = await Promise.all([
+      computeTaxSummary(tenantId, year, quarter),
+      prisma.tenant.findUnique({
+        where:  { id: tenantId },
+        select: { name: true, taxId: true, settings: true },
+      }),
+    ]);
+
+    const settings = (tenant?.settings ?? {}) as Record<string, unknown>;
+    const billing  = (settings.billing ?? {}) as Record<string, unknown>;
+    const emitter  = {
+      tenantName:  tenant?.name ?? "—",
+      tenantTaxId: tenant?.taxId ?? null,
+      fullName:    (billing.fullName   as string | null) ?? null,
+      taxId:       tenant?.taxId ?? null,
+      address:     (billing.address    as string | null) ?? null,
+      postalCode:  (billing.postalCode as string | null) ?? null,
+      city:        (billing.city       as string | null) ?? null,
+      country:     (billing.country    as string | null) ?? "España",
+    };
+
+    const pdf = model === "303"
+      ? await generateModel303Pdf(data, emitter)
+      : await generateModel130Pdf(data, emitter);
+
+    const fileName = `modelo-${model}-${data.period.label.replace(" ", "-")}.pdf`;
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+    res.send(pdf);
+  } catch (error) { next(error); }
 }
