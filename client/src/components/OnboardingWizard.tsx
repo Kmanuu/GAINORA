@@ -451,6 +451,11 @@ function StepReady({
 function StepFinish({
   onGoDashboard, persona, demoSeeded,
 }: { onGoDashboard: () => void; persona: Persona | null; demoSeeded: boolean }) {
+  // Los bullets de "explorar demo" sólo aplican cuando la elección fue
+  // realmente "trying" Y el seed fue OK. Si el usuario reabrió el wizard
+  // y eligió otra persona, demoSeeded puede quedar `true` por estado
+  // persistente — usamos persona como fuente de verdad.
+  const showDemoTour = persona === 'trying' && demoSeeded;
   return (
     <div className="text-center py-2">
       <div className="inline-flex w-14 h-14 rounded-[16px] bg-[var(--color-blue-subtle)] items-center justify-center mb-4">
@@ -463,10 +468,10 @@ function StepFinish({
         En el dashboard verás tu tarifa real por hora, qué proyectos te dan margen y dónde estás perdiendo dinero. Vuelve a este tutorial cuando quieras desde el botón <strong>“Repetir tutorial”</strong> de la barra lateral.
       </p>
       <p className="text-[12.5px] text-[var(--color-text-tertiary)] mt-4">
-        {demoSeeded ? 'Para empezar a explorar:' : 'Lo primero que conviene hacer:'}
+        {showDemoTour ? 'Para empezar a explorar:' : 'Lo primero que conviene hacer:'}
       </p>
       <ul className="text-[12.5px] text-[var(--color-text-secondary)] mt-1.5 space-y-1 inline-block text-left">
-        {demoSeeded ? (
+        {showDemoTour ? (
           <>
             <li>• Mirar el <em>Dashboard</em> — verás tu tarifa real, márgenes y morosidad.</li>
             <li>• Pasar por <em>Cobros</em> — hay un pago parcial y otro pendiente.</li>

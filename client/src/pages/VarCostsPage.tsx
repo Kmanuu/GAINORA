@@ -196,7 +196,7 @@ export default function VarCostsPage() {
   async function handleDelete(id: string) {
     const ok = await confirm({
       title:       'Eliminar coste variable',
-      message:     'Este coste variable se eliminará permanentemente.',
+      message:     'Este coste variable se eliminará permanentemente del cálculo de rentabilidad.',
       confirmText: 'Eliminar',
       variant:     'danger',
     });
@@ -272,7 +272,7 @@ export default function VarCostsPage() {
             </Button>
           )}
           <Button variant="primary" icon={<Plus className="w-4 h-4" strokeWidth={2.5} />} onClick={openCreate}>
-            Añadir coste
+            Nuevo coste
           </Button>
         </div>
       </header>
@@ -379,7 +379,7 @@ export default function VarCostsPage() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editTarget ? 'Editar coste variable' : 'Añadir coste variable'}
+        title={editTarget ? 'Editar coste variable' : 'Nuevo coste variable'}
         footer={
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
@@ -495,7 +495,7 @@ export default function VarCostsPage() {
             <div>
               <p className="text-[13.5px] text-[var(--color-text)]">Bien de inversión</p>
               <p className="text-[11.5px] text-[var(--color-text-tertiary)] leading-snug">
-                Equipos, mobiliario, vehículos… Su IVA va a las casillas 30/31 del modelo 303.
+                Ordenador, mobiliario, vehículo… Su IVA va a las casillas 30/31 del modelo 303.
               </p>
             </div>
           </div>
@@ -637,7 +637,7 @@ function EmptyCosts({ onNew }: { onNew: () => void }) {
         Registra gastos específicos asociados a proyectos concretos.
       </p>
       <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
-        Añadir coste
+        Nuevo coste
       </Button>
     </Card>
   );

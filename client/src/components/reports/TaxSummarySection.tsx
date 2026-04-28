@@ -270,11 +270,14 @@ export default function TaxSummarySection() {
                     value={fmtCurrency(data.model130.ytdProfit, 2)}
                     bold
                   />
-                  {(data.model130.previousPayments ?? 0) > 0 && (
+                  {/* El modelo 130 es acumulativo. Para Q2-Q4 mostramos
+                      siempre la línea de pagos anteriores aunque sea 0,
+                      para que el usuario entienda la lógica del resultado. */}
+                  {data.period.quarter > 1 && (
                     <Row
                       label="130 ya pagado en trimestres anteriores"
                       value={`-${fmtCurrency(data.model130.previousPayments ?? 0, 2)}`}
-                      tone="positive"
+                      tone={(data.model130.previousPayments ?? 0) > 0 ? 'positive' : undefined}
                     />
                   )}
                 </>
