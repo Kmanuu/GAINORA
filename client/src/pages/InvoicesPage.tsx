@@ -23,6 +23,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import DemoBadge        from '@/components/ui/DemoBadge';
 import { useToast }     from '@/components/ui/Toast';
 import { useConfirm }   from '@/components/ui/ConfirmDialog';
+import { useCan }       from '@/hooks/useCan';
 
 // ---------------------------------------------------------------------------
 // Constantes
@@ -54,6 +55,8 @@ const EUR = (n: number, decimals = 2): string =>
 export default function InvoicesPage() {
   const { toast }   = useToast();
   const { confirm } = useConfirm();
+  const canWrite    = useCan('invoice:write');
+  const canVoid     = useCan('invoice:void');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients,  setClients]  = useState<Client[]>([]);
   const [loading,  setLoading]  = useState(true);
@@ -203,14 +206,16 @@ export default function InvoicesPage() {
             Documentos legales con número correlativo. Configura tus datos en Ajustes → Facturación.
           </p>
         </div>
-        <Button
-          variant="primary"
-          icon={<Plus className="w-4 h-4" strokeWidth={2.4} />}
-          onClick={() => setModalOpen(true)}
-          disabled={clients.length === 0}
-        >
-          Nueva factura
-        </Button>
+        {canWrite && (
+          <Button
+            variant="primary"
+            icon={<Plus className="w-4 h-4" strokeWidth={2.4} />}
+            onClick={() => setModalOpen(true)}
+            disabled={clients.length === 0}
+          >
+            Nueva factura
+          </Button>
+        )}
       </header>
 
       <div className="mb-6 animate-fade-up stagger-1">
@@ -243,6 +248,8 @@ export default function InvoicesPage() {
               onIssue={() => issueInvoice(inv)}
               onVoid={() => voidInvoice(inv)}
               onDelete={() => deleteDraft(inv)}
+              canWrite={canWrite}
+              canVoid={canVoid}
             />
           ))}
         </div>
@@ -264,6 +271,7 @@ export default function InvoicesPage() {
 
 function InvoiceRow({
   invoice, index, menuOpen, onMenuToggle, onView, onDownload, onIssue, onVoid, onDelete,
+  canWrite, canVoid,
 }: {
   invoice:      Invoice;
   index:        number;
@@ -274,9 +282,15 @@ function InvoiceRow({
   onIssue:      () => void;
   onVoid:       () => void;
   onDelete:     () => void;
+  canWrite:     boolean;
+  canVoid:      boolean;
 }) {
   const isDraft  = invoice.status === 'DRAFT';
   const isIssued = invoice.status === 'ISSUED' || invoice.status === 'PAID';
+  // El menú "..." sólo tiene contenido útil si el usuario puede al menos
+  // hacer una acción: emitir/borrar borrador (canWrite) o anular (canVoid).
+  // En VIEWER ambos son false → ocultamos el botón entero.
+  const hasMenuActions = (isDraft && canWrite) || (isIssued && canVoid);
   const numStr   = invoice.number != null && invoice.series
     ? `${invoice.series.code}-${invoice.number}`
     : 'BORRADOR';
@@ -324,29 +338,28 @@ function InvoiceRow({
       <div className="relative shrink-0">
         <Button variant="ghost" size="sm" icon={<Eye className="w-3.5 h-3.5" strokeWidth={2} />} onClick={onView} />
         <Button variant="ghost" size="sm" icon={<Download className="w-3.5 h-3.5" strokeWidth={2} />} onClick={onDownload} />
-        <button
-          onClick={onMenuToggle}
-          className="p-1.5 rounded-[8px] text-[var(--color-text-tertiary)] hover:bg-[rgba(0,0,0,0.06)] dark:hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--color-text)] transition-colors duration-150"
-        >
-          <MoreHorizontal className="w-4 h-4" strokeWidth={2} />
-        </button>
-        {menuOpen && (
+        {hasMenuActions && (
+          <button
+            onClick={onMenuToggle}
+            className="p-1.5 rounded-[8px] text-[var(--color-text-tertiary)] hover:bg-[rgba(0,0,0,0.06)] dark:hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--color-text)] transition-colors duration-150"
+          >
+            <MoreHorizontal className="w-4 h-4" strokeWidth={2} />
+          </button>
+        )}
+        {menuOpen && hasMenuActions && (
           <div
             className="absolute right-0 top-9 z-20 w-44 bg-[var(--color-surface)] rounded-[12px] border border-[var(--color-border-medium)] py-1.5"
             style={{ boxShadow: 'var(--shadow-floating)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            {isDraft && (
+            {isDraft && canWrite && (
               <>
                 <MenuBtn icon={<Send   className="w-3.5 h-3.5" />} label="Emitir"             onClick={onIssue} />
                 <MenuBtn icon={<Trash2 className="w-3.5 h-3.5" />} label="Eliminar borrador"  onClick={onDelete} danger />
               </>
             )}
-            {isIssued && (
+            {isIssued && canVoid && (
               <MenuBtn icon={<Ban className="w-3.5 h-3.5" />} label="Anular (rectificativa)" onClick={onVoid} danger />
-            )}
-            {invoice.status === 'VOIDED' && (
-              <p className="px-3 py-1.5 text-[12px] text-[var(--color-text-tertiary)]">Sin acciones disponibles</p>
             )}
           </div>
         )}
@@ -616,6 +629,7 @@ function NewInvoiceModal({
 // ---------------------------------------------------------------------------
 
 function EmptyInvoices({ onNew, hasAny }: { onNew: () => void; hasAny: boolean }) {
+  const canWrite = useCan('invoice:write');
   if (hasAny) {
     return (
       <Card padding="lg" className="flex flex-col items-center py-12 text-center animate-fade-up">
@@ -626,9 +640,11 @@ function EmptyInvoices({ onNew, hasAny }: { onNew: () => void; hasAny: boolean }
         <p className="text-[13.5px] text-[var(--color-text-secondary)] max-w-[300px] mb-4 leading-relaxed">
           Cambia el filtro para ver el resto.
         </p>
-        <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
-          Nueva factura
-        </Button>
+        {canWrite && (
+          <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
+            Nueva factura
+          </Button>
+        )}
       </Card>
     );
   }
@@ -667,9 +683,11 @@ function EmptyInvoices({ onNew, hasAny }: { onNew: () => void; hasAny: boolean }
       </div>
 
       <div className="flex flex-col sm:flex-row items-center gap-2.5 mt-6">
-        <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
-          Crear primera factura
-        </Button>
+        {canWrite && (
+          <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
+            Crear primera factura
+          </Button>
+        )}
         <a
           href="/ayuda?a=que-es-factura"
           className="text-[12.5px] font-semibold text-[var(--color-blue)] hover:underline"

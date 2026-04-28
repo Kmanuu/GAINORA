@@ -35,6 +35,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import DemoBadge        from '@/components/ui/DemoBadge';
 import { useToast }     from '@/components/ui/Toast';
 import { useConfirm }   from '@/components/ui/ConfirmDialog';
+import { useCan }       from '@/hooks/useCan';
 import NewClientModal   from '@/components/clients/NewClientModal';
 
 // ---------------------------------------------------------------------------
@@ -109,6 +110,7 @@ export default function ProjectsPage() {
   const { toast }   = useToast();
   const { confirm } = useConfirm();
   const navigate    = useNavigate();
+  const canWrite    = useCan('project:write');
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients,  setClients]  = useState<Client[]>([]);
   const [loading,  setLoading]  = useState(true);
@@ -344,9 +346,11 @@ export default function ProjectsPage() {
               <span className="hidden sm:inline">Exportar</span>
             </Button>
           )}
-          <Button variant="primary" icon={<Plus className="w-4 h-4" strokeWidth={2.4} />} onClick={openCreate}>
-            Nuevo proyecto
-          </Button>
+          {canWrite && (
+            <Button variant="primary" icon={<Plus className="w-4 h-4" strokeWidth={2.4} />} onClick={openCreate}>
+              Nuevo proyecto
+            </Button>
+          )}
         </div>
       </header>
 
@@ -562,7 +566,8 @@ function ProjectCard({
   onEdit:       () => void;
   onDelete:     () => void;
 }) {
-  const budget  = toNum(project.budgetAmount);
+  const canWrite = useCan('project:write');
+  const budget   = toNum(project.budgetAmount);
   const entries = project._count?.timeEntries ?? 0;
 
   return (
@@ -589,24 +594,26 @@ function ProjectCard({
           )}
         </div>
 
-        <div className="relative">
-          <button
-            onClick={onMenuToggle}
-            className="p-1.5 rounded-[8px] text-[var(--color-text-tertiary)] hover:bg-[rgba(0,0,0,0.06)] dark:hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--color-text)] transition-colors duration-150"
-          >
-            <MoreHorizontal className="w-4 h-4" strokeWidth={2} />
-          </button>
-          {menuOpen && (
-            <div
-              className="absolute right-0 top-8 z-20 w-40 bg-[var(--color-surface)] rounded-[12px] border border-[var(--color-border-medium)] py-1.5"
-              style={{ boxShadow: 'var(--shadow-floating)' }}
-              onClick={(e) => e.stopPropagation()}
+        {canWrite && (
+          <div className="relative">
+            <button
+              onClick={onMenuToggle}
+              className="p-1.5 rounded-[8px] text-[var(--color-text-tertiary)] hover:bg-[rgba(0,0,0,0.06)] dark:hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--color-text)] transition-colors duration-150"
             >
-              <MenuBtn icon={<Pencil className="w-3.5 h-3.5" />} label="Editar" onClick={onEdit} />
-              <MenuBtn icon={<Trash2 className="w-3.5 h-3.5" />} label="Eliminar" onClick={onDelete} danger />
-            </div>
-          )}
-        </div>
+              <MoreHorizontal className="w-4 h-4" strokeWidth={2} />
+            </button>
+            {menuOpen && (
+              <div
+                className="absolute right-0 top-8 z-20 w-40 bg-[var(--color-surface)] rounded-[12px] border border-[var(--color-border-medium)] py-1.5"
+                style={{ boxShadow: 'var(--shadow-floating)' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MenuBtn icon={<Pencil className="w-3.5 h-3.5" />} label="Editar" onClick={onEdit} />
+                <MenuBtn icon={<Trash2 className="w-3.5 h-3.5" />} label="Eliminar" onClick={onDelete} danger />
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {project.description && (
@@ -705,6 +712,7 @@ function BillingModePicker({ value, onChange }: {
 void BILLING_MODE_LABEL;
 
 function EmptyProjects({ onNew, hasAny }: { onNew: () => void; hasAny: boolean }) {
+  const canWrite = useCan('project:write');
   if (hasAny) {
     return (
       <Card padding="lg" className="flex flex-col items-center py-12 text-center animate-fade-up">
@@ -715,11 +723,13 @@ function EmptyProjects({ onNew, hasAny }: { onNew: () => void; hasAny: boolean }
           Ningún proyecto en este filtro
         </p>
         <p className="text-[13.5px] text-[var(--color-text-secondary)] max-w-[300px] mb-4 leading-relaxed">
-          Prueba con otro filtro o crea un proyecto nuevo.
+          {canWrite ? 'Prueba con otro filtro o crea un proyecto nuevo.' : 'Prueba con otro filtro.'}
         </p>
-        <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
-          Nuevo proyecto
-        </Button>
+        {canWrite && (
+          <Button variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
+            Nuevo proyecto
+          </Button>
+        )}
       </Card>
     );
   }
@@ -758,9 +768,11 @@ function EmptyProjects({ onNew, hasAny }: { onNew: () => void; hasAny: boolean }
       </div>
 
       <div className="flex flex-col sm:flex-row items-center gap-2.5 mt-6">
-        <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
-          Crear primer proyecto
-        </Button>
+        {canWrite && (
+          <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={onNew}>
+            Crear primer proyecto
+          </Button>
+        )}
         <a
           href="/ayuda?a=primeros-pasos"
           className="text-[12.5px] font-semibold text-[var(--color-blue)] hover:underline"

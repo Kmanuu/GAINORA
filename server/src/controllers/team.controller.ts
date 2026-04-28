@@ -19,8 +19,10 @@ type AssignableRole = typeof ASSIGNABLE_ROLES[number];
 
 export async function listTeamUsers(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
+  // SUPERADMIN no forma parte del equipo del tenant aunque comparta tenantId
+  // (es admin global del SaaS, asignado fuera de la app). No aparece en /team.
   const users = await prisma.user.findMany({
-    where: { tenantId },
+    where: { tenantId, role: { not: "SUPERADMIN" } },
     orderBy: [{ role: "asc" }, { createdAt: "asc" }],
     select: {
       id: true, email: true, fullName: true, role: true,

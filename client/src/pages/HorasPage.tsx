@@ -24,6 +24,7 @@ import TimeInput        from '@/components/ui/TimeInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { useToast }    from '@/components/ui/Toast';
 import { useConfirm }  from '@/components/ui/ConfirmDialog';
+import { useCan }      from '@/hooks/useCan';
 import ContractIssueFields from '@/components/contracts/ContractIssueFields';
 
 // ---------------------------------------------------------------------------
@@ -80,6 +81,7 @@ const EMPTY_MANUAL: ManualForm = {
 export default function HorasPage() {
   const { toast }   = useToast();
   const { confirm } = useConfirm();
+  const canWrite    = useCan('timeentry:write:own');
   const [entries,  setEntries]  = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading,  setLoading]  = useState(true);
@@ -463,14 +465,17 @@ export default function HorasPage() {
               <span className="hidden sm:inline">Exportar</span>
             </Button>
           )}
-          <Button variant="secondary" size="sm" icon={<Plus className="w-4 h-4" strokeWidth={2.4} />} onClick={openCreate}>
-            <span className="hidden sm:inline">Añadir manual</span>
-            <span className="sm:hidden">Manual</span>
-          </Button>
+          {canWrite && (
+            <Button variant="secondary" size="sm" icon={<Plus className="w-4 h-4" strokeWidth={2.4} />} onClick={openCreate}>
+              <span className="hidden sm:inline">Añadir manual</span>
+              <span className="sm:hidden">Manual</span>
+            </Button>
+          )}
         </div>
       </header>
 
-      {/* ═══ Timer ═══ */}
+      {/* ═══ Timer ═══ — sólo visible si el rol puede fichar horas. */}
+      {canWrite && (
       <Card padding="none" className="mb-5 animate-fade-up stagger-1 p-5 sm:p-6 relative overflow-hidden">
         {running && (
           <>
@@ -600,6 +605,7 @@ export default function HorasPage() {
           </div>
         </div>
       </Card>
+      )}
 
       {/* ═══ Filtros (colapsables) ═══ */}
       {entries.length > 0 && (
@@ -842,6 +848,7 @@ export default function HorasPage() {
 function EntryRow({ entry, onEdit, onDuplicate, onDelete }: {
   entry: TimeEntry; onEdit: () => void; onDuplicate: () => void; onDelete: () => void;
 }) {
+  const canWrite = useCan('timeentry:write:own');
   return (
     <div className="flex items-center gap-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[12px] px-4 py-3 hover:border-[var(--color-border-medium)] hover:shadow-[0_1px_4px_rgba(0,0,0,0.04)] transition-all group">
       <div className="flex-1 min-w-0">
@@ -865,11 +872,13 @@ function EntryRow({ entry, onEdit, onDuplicate, onDelete }: {
       <span className="text-[12px] text-[var(--color-text-tertiary)] shrink-0 hidden sm:block w-24 text-right tabular-nums">
         {new Date(entry.startedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
       </span>
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <IconBtn onClick={onEdit}      title="Editar"    icon={<Pencil className="w-3.5 h-3.5" />} color="blue" />
-        <IconBtn onClick={onDuplicate} title="Duplicar"  icon={<Copy   className="w-3.5 h-3.5" />} color="green" />
-        <IconBtn onClick={onDelete}    title="Eliminar"  icon={<Trash2 className="w-3.5 h-3.5" />} color="red" />
-      </div>
+      {canWrite && (
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <IconBtn onClick={onEdit}      title="Editar"    icon={<Pencil className="w-3.5 h-3.5" />} color="blue" />
+          <IconBtn onClick={onDuplicate} title="Duplicar"  icon={<Copy   className="w-3.5 h-3.5" />} color="green" />
+          <IconBtn onClick={onDelete}    title="Eliminar"  icon={<Trash2 className="w-3.5 h-3.5" />} color="red" />
+        </div>
+      )}
     </div>
   );
 }
