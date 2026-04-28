@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { AppError } from "../middleware/errorHandler.js";
+import { userCan } from "../lib/permissions.js";
 
 export async function listTimeEntries(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
@@ -91,6 +92,8 @@ export async function createTimeEntry(req: Request, res: Response) {
 
 export async function updateTimeEntry(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
+  const userId   = req.user!.userId;
+  const role     = req.user!.role;
   const { id } = req.params;
   const data = { ...req.body };
 
@@ -100,6 +103,12 @@ export async function updateTimeEntry(req: Request, res: Response) {
 
   if (!existing) {
     throw new AppError(404, "Entrada de tiempo no encontrada");
+  }
+
+  // EMPLOYEE sólo puede editar SUS PROPIAS entries. OWNER/ADMIN pueden editar
+  // cualquiera del tenant.
+  if (existing.userId !== userId && !userCan(role, "timeentry:write:any")) {
+    throw new AppError(403, "Sólo puedes editar tus propias horas");
   }
 
   // Recalcular duración si cambian las fechas
@@ -128,6 +137,8 @@ export async function updateTimeEntry(req: Request, res: Response) {
 
 export async function deleteTimeEntry(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
+  const userId   = req.user!.userId;
+  const role     = req.user!.role;
   const { id } = req.params;
 
   const existing = await prisma.timeEntry.findUnique({
@@ -136,6 +147,10 @@ export async function deleteTimeEntry(req: Request, res: Response) {
 
   if (!existing) {
     throw new AppError(404, "Entrada de tiempo no encontrada");
+  }
+
+  if (existing.userId !== userId && !userCan(role, "timeentry:write:any")) {
+    throw new AppError(403, "Sólo puedes borrar tus propias horas");
   }
 
   await prisma.timeEntry.delete({

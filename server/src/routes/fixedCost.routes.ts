@@ -7,7 +7,7 @@ import {
   deleteFixedCost,
   importFixedCosts,
 } from "../controllers/fixedCost.controller.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireCan } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 
 const router = Router();
@@ -44,9 +44,9 @@ const importSchema = z.object({
 });
 
 router.get("/", listFixedCosts);
-router.post("/import", validate(importSchema), importFixedCosts);
-router.post("/", validate(createFixedCostSchema), createFixedCost);
-router.patch("/:id", validate(updateFixedCostSchema), updateFixedCost);
-router.delete("/:id", deleteFixedCost);
+router.post("/import", requireCan("fixedcost:write"), validate(importSchema),         importFixedCosts);
+router.post("/",       requireCan("fixedcost:write"), validate(createFixedCostSchema), createFixedCost);
+router.patch("/:id",   requireCan("fixedcost:write"), validate(updateFixedCostSchema), updateFixedCost);
+router.delete("/:id",  requireCan("fixedcost:write"), deleteFixedCost);
 
 export default router;

@@ -8,7 +8,7 @@ import {
   deleteContract,
   convertContract,
 } from "../controllers/contract.controller.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireCan } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 
 const router = Router();
@@ -88,10 +88,10 @@ const convertContractSchema = z.object({
 });
 
 router.get("/",             listContracts);
-router.post("/",            validate(createContractSchema),  createContract);
 router.get("/:id",          getContract);
-router.patch("/:id",        validate(updateContractSchema),  updateContract);
-router.delete("/:id",       deleteContract);
-router.post("/:id/convert", validate(convertContractSchema), convertContract);
+router.post("/",            requireCan("contract:write"), validate(createContractSchema),  createContract);
+router.patch("/:id",        requireCan("contract:write"), validate(updateContractSchema),  updateContract);
+router.delete("/:id",       requireCan("contract:write"), deleteContract);
+router.post("/:id/convert", requireCan("contract:write"), validate(convertContractSchema), convertContract);
 
 export default router;

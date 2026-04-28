@@ -8,7 +8,7 @@ import {
   closeIssue,
   deleteIssue,
 } from "../controllers/issue.controller.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireCan } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 
 const router = Router();
@@ -31,10 +31,10 @@ const updateIssueSchema = z.object({
 });
 
 router.get("/",          listIssues);
-router.post("/",         validate(createIssueSchema), createIssue);
 router.get("/:id",       getIssue);
-router.patch("/:id",     validate(updateIssueSchema), updateIssue);
-router.post("/:id/close", closeIssue);
-router.delete("/:id",    deleteIssue);
+router.post("/",          requireCan("issue:write"), validate(createIssueSchema), createIssue);
+router.patch("/:id",      requireCan("issue:write"), validate(updateIssueSchema), updateIssue);
+router.post("/:id/close", requireCan("issue:write"), closeIssue);
+router.delete("/:id",     requireCan("issue:write"), deleteIssue);
 
 export default router;

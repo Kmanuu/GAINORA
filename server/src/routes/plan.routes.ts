@@ -7,7 +7,7 @@ import {
   updatePlan,
   deletePlan,
 } from "../controllers/plan.controller.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireCan } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 
 const router = Router();
@@ -54,9 +54,9 @@ const updatePlanSchema = z.object({
 });
 
 router.get("/",       listPlans);
-router.post("/",      validate(createPlanSchema), createPlan);
 router.get("/:id",    getPlan);
-router.patch("/:id",  validate(updatePlanSchema), updatePlan);
-router.delete("/:id", deletePlan);
+router.post("/",      requireCan("plan:write"), validate(createPlanSchema), createPlan);
+router.patch("/:id",  requireCan("plan:write"), validate(updatePlanSchema), updatePlan);
+router.delete("/:id", requireCan("plan:write"), deletePlan);
 
 export default router;

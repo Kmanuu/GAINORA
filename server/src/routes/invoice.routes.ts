@@ -5,7 +5,7 @@ import {
   updateInvoice, issueInvoice, voidInvoice, deleteInvoice, getInvoicePdf,
   listSeries, createSeries, updateSeries,
 } from "../controllers/invoice.controller.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireCan } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 
 const router = Router();
@@ -55,18 +55,18 @@ const seriesUpdateSchema = z.object({
 
 // Series
 router.get("/series",       listSeries);
-router.post("/series",      validate(seriesCreateSchema), createSeries);
-router.patch("/series/:id", validate(seriesUpdateSchema), updateSeries);
+router.post("/series",      requireCan("invoice:write"), validate(seriesCreateSchema), createSeries);
+router.patch("/series/:id", requireCan("invoice:write"), validate(seriesUpdateSchema), updateSeries);
 
 // Invoices
 router.get("/",                            listInvoices);
-router.post("/",                           validate(createSchema), createInvoice);
-router.post("/from-payment/:paymentId",    createInvoiceFromPayment);
 router.get("/:id",                         getInvoice);
 router.get("/:id/pdf",                     getInvoicePdf);
-router.patch("/:id",                       validate(updateSchema), updateInvoice);
-router.post("/:id/issue",                  issueInvoice);
-router.post("/:id/void",                   voidInvoice);
-router.delete("/:id",                      deleteInvoice);
+router.post("/",                           requireCan("invoice:write"), validate(createSchema), createInvoice);
+router.post("/from-payment/:paymentId",    requireCan("invoice:write"), createInvoiceFromPayment);
+router.patch("/:id",                       requireCan("invoice:write"), validate(updateSchema), updateInvoice);
+router.post("/:id/issue",                  requireCan("invoice:write"), issueInvoice);
+router.post("/:id/void",                   requireCan("invoice:void"),  voidInvoice);
+router.delete("/:id",                      requireCan("invoice:write"), deleteInvoice);
 
 export default router;

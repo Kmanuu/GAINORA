@@ -7,7 +7,7 @@ import {
   updateClient,
   deleteClient,
 } from "../controllers/client.controller.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireCan } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 
 const router = Router();
@@ -35,9 +35,9 @@ const updateClientSchema = z.object({
 });
 
 router.get("/", listClients);
-router.post("/", validate(createClientSchema), createClient);
 router.get("/:id", getClient);
-router.patch("/:id", validate(updateClientSchema), updateClient);
-router.delete("/:id", deleteClient);
+router.post("/",      requireCan("client:write"), validate(createClientSchema), createClient);
+router.patch("/:id",  requireCan("client:write"), validate(updateClientSchema), updateClient);
+router.delete("/:id", requireCan("client:write"), deleteClient);
 
 export default router;

@@ -2,7 +2,7 @@
 // SettingsPage.tsx — Ajustes + Guía de uso interactiva estilo Apple
 // ============================================================================
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, useCallback, type FormEvent } from 'react';
 import {
   User, Lock, Building2,
   ChevronDown, ChevronUp, Gauge, FileText,
@@ -15,9 +15,11 @@ import { useToast }    from '@/components/ui/Toast';
 import Card            from '@/components/ui/Card';
 import Input           from '@/components/ui/Input';
 import Button          from '@/components/ui/Button';
+import Modal           from '@/components/ui/Modal';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import HelpTooltip      from '@/components/ui/HelpTooltip';
 import { useConfirm }   from '@/components/ui/ConfirmDialog';
+import { usePermissions } from '@/hooks/useCan';
 import type { CostingMode, TenantBillingProfile } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -902,11 +904,269 @@ function DemoDataSection() {
 }
 
 // ---------------------------------------------------------------------------
+// Sección — Equipo (sólo OWNER)
+// ---------------------------------------------------------------------------
+
+import { Users as UsersIcon, UserPlus, Trash2 as TrashTeam, ShieldCheck } from 'lucide-react';
+
+interface TeamUser {
+  id:         string;
+  email:      string;
+  fullName:   string;
+  role:       'OWNER' | 'ADMIN' | 'EMPLOYEE' | 'VIEWER';
+  hourlyCost: string | number | null;
+  isActive:   boolean;
+  createdAt:  string;
+}
+
+const TEAM_ROLE_LABEL: Record<TeamUser['role'], string> = {
+  OWNER:    'Owner — todo, incluido legal y usuarios',
+  ADMIN:    'Admin — operaciones del día a día',
+  EMPLOYEE: 'Empleado — sus horas y gastos',
+  VIEWER:   'Viewer — solo lectura',
+};
+
+function TeamSection() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
+  const { user: authUser } = useAuth();
+  const [users, setUsers] = useState<TeamUser[] | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const arr = await api.get<TeamUser[]>('/v1/team');
+      setUsers(arr);
+    } catch (e: unknown) {
+      toast('error', e instanceof Error ? e.message : 'Error cargando equipo');
+    }
+  }, [toast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function changeRole(u: TeamUser, role: TeamUser['role']) {
+    try {
+      await api.patch(`/v1/team/${u.id}`, { role });
+      toast('success', `Rol de ${u.fullName} actualizado a ${role}`);
+      load();
+    } catch (e: unknown) {
+      toast('error', e instanceof Error ? e.message : 'Error al cambiar rol');
+    }
+  }
+
+  async function toggleActive(u: TeamUser) {
+    try {
+      await api.patch(`/v1/team/${u.id}`, { isActive: !u.isActive });
+      toast('success', `${u.fullName} ${!u.isActive ? 'activado' : 'desactivado'}`);
+      load();
+    } catch (e: unknown) {
+      toast('error', e instanceof Error ? e.message : 'Error');
+    }
+  }
+
+  async function removeUser(u: TeamUser) {
+    const ok = await confirm({
+      title: `¿Eliminar a ${u.fullName}?`,
+      message: `Se borrará su cuenta y sus horas registradas. Esta acción no se puede deshacer.\n\nSu correo era ${u.email}.`,
+      confirmText: 'Eliminar',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/v1/team/${u.id}`);
+      toast('success', 'Usuario eliminado');
+      load();
+    } catch (e: unknown) {
+      toast('error', e instanceof Error ? e.message : 'Error al eliminar');
+    }
+  }
+
+  return (
+    <SectionCard
+      icon={<UsersIcon className="w-4 h-4" />}
+      title="Equipo"
+      accentColor="#5856D6"
+      accentBg="rgba(88,86,214,0.10)"
+    >
+      <div className="space-y-3">
+        <p className="text-[12.5px] text-[var(--color-text-secondary)] leading-relaxed">
+          Da acceso a tus colaboradores. Cada rol ve y puede tocar partes distintas de la app.
+          {' '}
+          <RouterLink to="/ayuda?a=roles" className="text-[var(--color-blue)] hover:underline">
+            ¿Qué hace cada rol?
+          </RouterLink>
+        </p>
+
+        {users === null ? (
+          <div className="skeleton h-20 rounded-[10px]" />
+        ) : users.length === 0 ? (
+          <p className="text-[13px] text-[var(--color-text-tertiary)]">Sin usuarios.</p>
+        ) : (
+          <div className="rounded-[12px] border border-[var(--color-border)] divide-y divide-[var(--color-border)]">
+            {users.map((u) => {
+              const isMe = u.id === authUser?.id;
+              return (
+                <div key={u.id} className="px-3 py-2.5 flex items-center gap-3 flex-wrap">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13.5px] font-semibold text-[var(--color-text)] truncate flex items-center gap-1.5">
+                      {u.fullName}
+                      {isMe && <span className="text-[10px] font-normal text-[var(--color-text-tertiary)]">(tú)</span>}
+                      {!u.isActive && <span className="px-1.5 py-[1px] rounded-full text-[9.5px] font-semibold uppercase tracking-[0.04em] bg-[rgba(0,0,0,0.06)] text-[var(--color-text-secondary)]">desactivado</span>}
+                    </p>
+                    <p className="text-[11.5px] text-[var(--color-text-tertiary)] truncate">{u.email}</p>
+                  </div>
+                  <select
+                    value={u.role}
+                    disabled={isMe}
+                    onChange={(e) => changeRole(u, e.target.value as TeamUser['role'])}
+                    className="text-[12.5px] px-2 py-1.5 rounded-[8px] bg-[var(--color-surface)] border border-[var(--color-border-medium)] text-[var(--color-text)] disabled:opacity-50"
+                    title={TEAM_ROLE_LABEL[u.role]}
+                  >
+                    <option value="OWNER">Owner</option>
+                    <option value="ADMIN">Admin</option>
+                    <option value="EMPLOYEE">Empleado</option>
+                    <option value="VIEWER">Viewer</option>
+                  </select>
+                  <button
+                    onClick={() => toggleActive(u)}
+                    disabled={isMe}
+                    className="text-[11.5px] text-[var(--color-text-secondary)] hover:underline disabled:opacity-50"
+                  >
+                    {u.isActive ? 'Desactivar' : 'Activar'}
+                  </button>
+                  {!isMe && (
+                    <button
+                      onClick={() => removeUser(u)}
+                      className="text-[var(--color-red)] hover:bg-[var(--color-red-subtle)] p-1.5 rounded-[6px] transition-colors"
+                      aria-label="Eliminar"
+                    >
+                      <TrashTeam className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setInviteOpen(true)}
+          >
+            <UserPlus className="w-4 h-4 mr-1.5" />
+            Invitar usuario
+          </Button>
+        </div>
+
+        <InviteUserModal
+          open={inviteOpen}
+          onClose={() => setInviteOpen(false)}
+          onCreated={() => { setInviteOpen(false); load(); }}
+        />
+      </div>
+    </SectionCard>
+  );
+}
+
+function InviteUserModal({
+  open, onClose, onCreated,
+}: { open: boolean; onClose: () => void; onCreated: () => void }) {
+  const { toast } = useToast();
+  const [form, setForm] = useState({
+    email: '', fullName: '', password: '', role: 'EMPLOYEE' as TeamUser['role'],
+  });
+  const [busy, setBusy] = useState(false);
+
+  function suggestPassword() {
+    return Math.random().toString(36).slice(-10);
+  }
+
+  async function handleSubmit() {
+    if (!form.email.trim() || !form.fullName.trim() || !form.password.trim()) {
+      toast('error', 'Email, nombre y contraseña son obligatorios');
+      return;
+    }
+    if (form.password.length < 8) {
+      toast('error', 'La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.post('/v1/team', {
+        email: form.email.trim(),
+        fullName: form.fullName.trim(),
+        password: form.password,
+        role: form.role,
+      });
+      toast('success', `${form.fullName} invitado como ${form.role}. Comparte la contraseña con esa persona.`);
+      setForm({ email: '', fullName: '', password: '', role: 'EMPLOYEE' });
+      onCreated();
+    } catch (e: unknown) {
+      toast('error', e instanceof Error ? e.message : 'Error al crear usuario');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Invitar usuario al equipo"
+      subtitle="Crea su cuenta y elige qué rol tendrá."
+      width="sm"
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button variant="primary" loading={busy} onClick={handleSubmit}>Crear usuario</Button>
+        </div>
+      }
+    >
+      <div className="space-y-3">
+        <Input label="Nombre completo *" value={form.fullName}
+          onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} />
+        <Input label="Email *" type="email" value={form.email}
+          onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
+        <div className="flex gap-2 items-end">
+          <Input label="Contraseña inicial *" value={form.password} type="text"
+            onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+            hint="Mínimo 8 caracteres. Se comparte con esa persona y la cambia al entrar." />
+          <button type="button" onClick={() => setForm((p) => ({ ...p, password: suggestPassword() }))}
+            className="text-[11.5px] text-[var(--color-blue)] hover:underline mb-2 whitespace-nowrap">
+            Sugerir
+          </button>
+        </div>
+        <div>
+          <label className="block text-[12px] font-semibold text-[var(--color-text-secondary)] mb-1.5">Rol</label>
+          <select
+            value={form.role}
+            onChange={(e) => setForm((p) => ({ ...p, role: e.target.value as TeamUser['role'] }))}
+            className="w-full text-[14px] px-3 py-2.5 rounded-[10px] bg-[var(--color-surface)] border border-[var(--color-border-medium)] text-[var(--color-text)]"
+          >
+            <option value="OWNER">Owner — control total (NO recomendado para colaboradores)</option>
+            <option value="ADMIN">Admin — operaciones del día a día (sin legal/users)</option>
+            <option value="EMPLOYEE">Empleado — solo sus horas y gastos</option>
+            <option value="VIEWER">Viewer — solo lectura</option>
+          </select>
+          <div className="flex items-center gap-1.5 mt-2 text-[11.5px] text-[var(--color-text-tertiary)]">
+            <ShieldCheck className="w-3 h-3" />
+            <span>{TEAM_ROLE_LABEL[form.role]}</span>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Componente principal
 // ---------------------------------------------------------------------------
 
 export default function SettingsPage() {
   const { user: authUser, tenant: authTenant, logout } = useAuth();
+  const perms = usePermissions();
   const [meData,  setMeData]  = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -983,12 +1243,14 @@ export default function SettingsPage() {
           initialMinHours={meData?.tenant.reliabilityMinHours ?? 5}
         />
 
-        {/* Facturación */}
-        <BillingSection
-          initialTaxId={meData?.tenant.taxId ?? ''}
-          initialBilling={meData?.tenant.settings?.billing ?? {}}
-          initialCriterion={meData?.tenant.taxCriterion ?? 'ACCRUAL'}
-        />
+        {/* Facturación — sólo OWNER (datos legales del tenant) */}
+        {perms.canTenantLegal && (
+          <BillingSection
+            initialTaxId={meData?.tenant.taxId ?? ''}
+            initialBilling={meData?.tenant.settings?.billing ?? {}}
+            initialCriterion={meData?.tenant.taxCriterion ?? 'ACCRUAL'}
+          />
+        )}
 
         {/* Perfil */}
         <ProfileSection
@@ -1003,8 +1265,11 @@ export default function SettingsPage() {
         {/* Guía de uso */}
         <GuideSection />
 
-        {/* Datos demo */}
-        <DemoDataSection />
+        {/* Equipo — sólo OWNER */}
+        {perms.canManageTeam && <TeamSection />}
+
+        {/* Datos demo — sólo OWNER (destructivo) */}
+        {perms.canTenantDemo && <DemoDataSection />}
 
         {/* Sesión */}
         <SectionCard

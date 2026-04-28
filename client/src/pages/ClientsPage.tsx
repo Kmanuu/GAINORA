@@ -21,6 +21,7 @@ import Toggle      from '@/components/ui/Toggle';
 import DemoBadge   from '@/components/ui/DemoBadge';
 import { useToast }    from '@/components/ui/Toast';
 import { useConfirm }  from '@/components/ui/ConfirmDialog';
+import { useCan }      from '@/hooks/useCan';
 
 // ---------------------------------------------------------------------------
 // Formulario
@@ -72,6 +73,7 @@ export default function ClientsPage() {
   const [formError,  setFormError]  = useState('');
 
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const canWrite = useCan('client:write');
 
   const load = useCallback((silent = false) => {
     if (!silent) setLoading(true);
@@ -211,9 +213,11 @@ export default function ClientsPage() {
             {clients.length} cliente{clients.length !== 1 ? 's' : ''} en cartera
           </p>
         </div>
-        <Button variant="primary" icon={<Plus className="w-4 h-4" strokeWidth={2.4} />} onClick={openCreate}>
-          Nuevo cliente
-        </Button>
+        {canWrite && (
+          <Button variant="primary" icon={<Plus className="w-4 h-4" strokeWidth={2.4} />} onClick={openCreate}>
+            Nuevo cliente
+          </Button>
+        )}
       </header>
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6 animate-fade-up stagger-1">
@@ -234,10 +238,12 @@ export default function ClientsPage() {
           <EmptyState
             icon={<Users className="w-7 h-7 text-[var(--color-blue)]" strokeWidth={1.6} />}
             title="Sin clientes"
-            description="Añade tu primer cliente para empezar a crear contratos y suscripciones."
-            actionLabel="Nuevo cliente"
-            actionIcon={<Plus className="w-4 h-4" />}
-            onAction={openCreate}
+            description={canWrite
+              ? "Añade tu primer cliente para empezar a crear contratos y suscripciones."
+              : "Aún no hay clientes en esta empresa. Pide a un OWNER o ADMIN que añada el primero."}
+            actionLabel={canWrite ? "Nuevo cliente" : undefined}
+            actionIcon={canWrite ? <Plus className="w-4 h-4" /> : undefined}
+            onAction={canWrite ? openCreate : undefined}
           />
         ) : (
           <Card padding="lg" className="text-center py-10">
@@ -355,12 +361,16 @@ function ClientCard({
   onDelete:     () => void;
 }) {
   const contracts = client._count?.contracts ?? 0;
+  const canWrite  = useCan('client:write');
 
   return (
     <Card
       padding="md"
-      onClick={onEdit}
-      className="animate-fade-up relative cursor-pointer hover:border-[var(--color-border-strong)] transition-colors"
+      onClick={canWrite ? onEdit : undefined}
+      className={clsx(
+        'animate-fade-up relative transition-colors',
+        canWrite ? 'cursor-pointer hover:border-[var(--color-border-strong)]' : '',
+      )}
       style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' } as React.CSSProperties}
     >
       <div className="flex items-start justify-between mb-3">
@@ -394,24 +404,26 @@ function ClientCard({
           </div>
         </div>
 
-        <div className="relative">
-          <button
-            onClick={onMenuToggle}
-            className="p-1.5 rounded-[8px] text-[var(--color-text-tertiary)] hover:bg-[rgba(0,0,0,0.06)] dark:hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--color-text)] transition-colors duration-150"
-          >
-            <MoreHorizontal className="w-4 h-4" strokeWidth={2} />
-          </button>
-          {menuOpen && (
-            <div
-              className="absolute right-0 top-8 z-20 w-40 bg-[var(--color-surface)] rounded-[12px] border border-[var(--color-border-medium)] py-1.5"
-              style={{ boxShadow: 'var(--shadow-floating)' }}
-              onClick={(e) => e.stopPropagation()}
+        {canWrite && (
+          <div className="relative">
+            <button
+              onClick={onMenuToggle}
+              className="p-1.5 rounded-[8px] text-[var(--color-text-tertiary)] hover:bg-[rgba(0,0,0,0.06)] dark:hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--color-text)] transition-colors duration-150"
             >
-              <MenuBtn icon={<Pencil className="w-3.5 h-3.5" />} label="Editar"  onClick={onEdit} />
-              <MenuBtn icon={<Trash2 className="w-3.5 h-3.5" />} label="Eliminar" onClick={onDelete} danger />
-            </div>
-          )}
-        </div>
+              <MoreHorizontal className="w-4 h-4" strokeWidth={2} />
+            </button>
+            {menuOpen && (
+              <div
+                className="absolute right-0 top-8 z-20 w-40 bg-[var(--color-surface)] rounded-[12px] border border-[var(--color-border-medium)] py-1.5"
+                style={{ boxShadow: 'var(--shadow-floating)' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MenuBtn icon={<Pencil className="w-3.5 h-3.5" />} label="Editar"  onClick={onEdit} />
+                <MenuBtn icon={<Trash2 className="w-3.5 h-3.5" />} label="Eliminar" onClick={onDelete} danger />
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="space-y-1 text-[12.5px] text-[var(--color-text-secondary)] mb-3">

@@ -4,7 +4,7 @@
 
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireCan } from "../middleware/auth.js";
 import { validate }    from "../middleware/validate.js";
 import { getMe, updateMe, changePassword, updateTenant } from "../controllers/me.controller.js";
 
@@ -51,6 +51,8 @@ const updateTenantSchema = z.object({
 router.get(  "/",          requireAuth, getMe);
 router.patch("/",          requireAuth, validate(updateMeSchema),      updateMe);
 router.patch("/password",  requireAuth, validate(changePasswordSchema), changePassword);
-router.patch("/tenant",    requireAuth, validate(updateTenantSchema),  updateTenant);
+// Datos legales/fiscales del tenant: sólo OWNER. Cualquiera con rol inferior
+// recibe 403 — son datos sensibles (NIF, IBAN, criterio fiscal, taxOverrides).
+router.patch("/tenant",    requireAuth, requireCan("tenant:legal"), validate(updateTenantSchema),  updateTenant);
 
 export default router;

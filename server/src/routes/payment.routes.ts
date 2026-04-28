@@ -11,7 +11,7 @@ import {
   addPaymentTransaction,
   deletePaymentTransaction,
 } from "../controllers/payment.controller.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireCan } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 
 const router = Router();
@@ -60,13 +60,13 @@ const transactionSchema = z.object({
 });
 
 router.get("/",                       listPayments);
-router.post("/roll",                  rollPayments);
-router.post("/:id/regenerate",        regeneratePayment);
-router.post("/:id/transactions",      validate(transactionSchema), addPaymentTransaction);
-router.delete("/transactions/:trxId", deletePaymentTransaction);
-router.post("/",                      validate(createPaymentSchema), createPayment);
 router.get("/:id",                    getPayment);
-router.patch("/:id",                  validate(updatePaymentSchema), updatePayment);
-router.delete("/:id",                 deletePayment);
+router.post("/roll",                  requireCan("payment:write"), rollPayments);
+router.post("/:id/regenerate",        requireCan("payment:write"), regeneratePayment);
+router.post("/:id/transactions",      requireCan("payment:write"), validate(transactionSchema), addPaymentTransaction);
+router.delete("/transactions/:trxId", requireCan("payment:write"), deletePaymentTransaction);
+router.post("/",                      requireCan("payment:write"), validate(createPaymentSchema), createPayment);
+router.patch("/:id",                  requireCan("payment:write"), validate(updatePaymentSchema), updatePayment);
+router.delete("/:id",                 requireCan("payment:write"), deletePayment);
 
 export default router;

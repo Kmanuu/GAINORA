@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { listVarCosts, createVarCost, updateVarCost, deleteVarCost } from "../controllers/varCost.controller.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireCan } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 
 const router = Router();
@@ -38,9 +38,12 @@ const updateVarCostSchema = z.object({
   isInvestment:     z.boolean().optional(),
 });
 
+// EMPLOYEE puede crear/editar varCosts (su rol incluye varcost:write:own).
+// VIEWER no puede. La verificación fina "el contrato pertenece al user"
+// se delega al controller en una iteración futura.
 router.get("/", listVarCosts);
-router.post("/", validate(createVarCostSchema), createVarCost);
-router.patch("/:id", validate(updateVarCostSchema), updateVarCost);
-router.delete("/:id", deleteVarCost);
+router.post("/",     requireCan("varcost:write:own"), validate(createVarCostSchema), createVarCost);
+router.patch("/:id", requireCan("varcost:write:own"), validate(updateVarCostSchema), updateVarCost);
+router.delete("/:id", requireCan("varcost:write:own"), deleteVarCost);
 
 export default router;

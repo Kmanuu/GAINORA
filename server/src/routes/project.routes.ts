@@ -8,7 +8,7 @@ import {
   deleteProject,
   getDeletePreview,
 } from "../controllers/project.controller.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireCan } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 
 const router = Router();
@@ -65,10 +65,10 @@ const updateProjectSchema = z
   });
 
 router.get("/", listProjects);
-router.post("/", validate(createProjectSchema), createProject);
 router.get("/:id", getProject);
 router.get("/:id/delete-preview", getDeletePreview);
-router.patch("/:id", validate(updateProjectSchema), updateProject);
-router.delete("/:id", deleteProject);
+router.post("/",      requireCan("project:write"), validate(createProjectSchema), createProject);
+router.patch("/:id",  requireCan("project:write"), validate(updateProjectSchema), updateProject);
+router.delete("/:id", requireCan("project:write"), deleteProject);
 
 export default router;

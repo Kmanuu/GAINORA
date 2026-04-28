@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth }        from '@/context/AuthContext';
+import { usePermissions } from '@/hooks/useCan';
 import { useTheme }       from '@/context/ThemeContext';
 import { useOnboarding }  from '@/context/OnboardingContext';
 
@@ -79,6 +80,7 @@ export default function Sidebar() {
   const { user, tenant, logout } = useAuth();
   const { isDark, toggleTheme }  = useTheme();
   const { open: openOnboarding } = useOnboarding();
+  const perms = usePermissions();
   const navigate    = useNavigate();
   const timerActive = useTimerActive();
 
@@ -165,9 +167,15 @@ export default function Sidebar() {
         <div className="pt-4">
           <SectionLabel label="Costes" />
         </div>
-        {costsNav.map((item) => (
-          <NavItem key={item.path} {...item} />
-        ))}
+        {costsNav
+          .filter((item) => {
+            // Costes fijos: sólo OWNER/ADMIN. EMPLOYEE/VIEWER no los gestionan.
+            if (item.path === '/costes-fijos' && !perms.canWriteFixedCosts) return false;
+            return true;
+          })
+          .map((item) => (
+            <NavItem key={item.path} {...item} />
+          ))}
 
         <div className="pt-4">
           <SectionLabel label="Análisis" />

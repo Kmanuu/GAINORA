@@ -20,6 +20,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import DemoBadge        from '@/components/ui/DemoBadge';
 import { useToast }     from '@/components/ui/Toast';
 import { useConfirm }   from '@/components/ui/ConfirmDialog';
+import { useCan }       from '@/hooks/useCan';
 import { useAuth }      from '@/context/AuthContext';
 
 // ---------------------------------------------------------------------------
@@ -71,6 +72,7 @@ export default function FixedCostsPage() {
   const [form,     setForm]     = useState<FormState>(EMPTY_FORM);
   const [saving,   setSaving]   = useState(false);
   const [formError, setFormError] = useState('');
+  const canWrite = useCan('fixedcost:write');
 
   const load = useCallback((silent = false) => {
     if (!silent) setLoading(true);
@@ -240,17 +242,21 @@ export default function FixedCostsPage() {
               <span className="hidden sm:inline">Exportar</span>
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<Upload className="w-4 h-4" strokeWidth={2} />}
-            onClick={() => setImportOpen(true)}
-          >
-            <span className="hidden sm:inline">Importar CSV</span>
-          </Button>
-          <Button variant="primary" icon={<Plus className="w-4 h-4" strokeWidth={2.5} />} onClick={openCreate}>
-            Nuevo coste
-          </Button>
+          {canWrite && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<Upload className="w-4 h-4" strokeWidth={2} />}
+              onClick={() => setImportOpen(true)}
+            >
+              <span className="hidden sm:inline">Importar CSV</span>
+            </Button>
+          )}
+          {canWrite && (
+            <Button variant="primary" icon={<Plus className="w-4 h-4" strokeWidth={2.5} />} onClick={openCreate}>
+              Nuevo coste
+            </Button>
+          )}
         </div>
       </header>
 

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import { AppError } from "./errorHandler.js";
+import { userCan, type Action } from "../lib/permissions.js";
 
 export interface JwtPayload {
   userId: string;
@@ -50,4 +51,18 @@ export function requireSuperAdmin(req: Request, _res: Response, next: NextFuncti
     throw new AppError(403, "Acceso restringido al administrador del SaaS");
   }
   next();
+}
+
+/** Bloquea la petición si el rol del usuario autenticado no tiene la
+ *  capacidad indicada. Ver `lib/permissions.ts` para la matriz. */
+export function requireCan(action: Action) {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    if (!req.user) {
+      throw new AppError(401, "No autenticado");
+    }
+    if (!userCan(req.user.role, action)) {
+      throw new AppError(403, `Tu rol (${req.user.role}) no permite esta acción`);
+    }
+    next();
+  };
 }

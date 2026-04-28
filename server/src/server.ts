@@ -18,6 +18,7 @@ import planRoutes from "./routes/plan.routes.js";
 import invoiceRoutes from "./routes/invoice.routes.js";
 import demoRoutes    from "./routes/demo.routes.js";
 import adminRoutes   from "./routes/admin.routes.js";
+import teamRoutes    from "./routes/team.routes.js";
 import { startRollPaymentsCron } from "./jobs/rollPaymentsCron.js";
 
 const app = express();
@@ -42,6 +43,7 @@ app.use("/api/v1/plans",     planRoutes);
 app.use("/api/v1/invoices",  invoiceRoutes);
 app.use("/api/v1/demo",      demoRoutes);
 app.use("/api/v1/admin",     adminRoutes);
+app.use("/api/v1/team",      teamRoutes);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
