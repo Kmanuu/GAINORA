@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Gestión de usuarios HorasPRO — uso exclusivo local/dev
+ * Gestión de usuarios Gainora — uso exclusivo local/dev
  *
  * Comandos:
  *   list                          → listar todos los tenants y usuarios
@@ -101,7 +101,7 @@ async function main() {
 
     default:
       console.log(`
-HorasPRO — Admin de usuarios
+Gainora — Admin de usuarios
 ─────────────────────────────────────────────────────
   npx tsx src/scripts/admin-users.ts list
   npx tsx src/scripts/admin-users.ts create <email> <pass> [nombre]

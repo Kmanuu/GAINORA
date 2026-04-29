@@ -23,6 +23,7 @@ export type Action =
   // Horas
   | "timeentry:write:any"   // editar horas de cualquier user
   | "timeentry:write:own"   // editar horas propias
+  | "timeentry:read:any"    // leer horas de todos (sin esto, sólo lee las propias)
   // Costes
   | "varcost:write:any"     // crear/editar varCost en cualquier contrato
   | "varcost:write:own"     // crear/editar varCost en contratos donde el user tiene horas
@@ -33,26 +34,30 @@ export type Action =
   // Usuarios del tenant
   | "team:manage"           // crear/editar/cambiar role/eliminar users del tenant
   // Issues
-  | "issue:write";
+  | "issue:write"
+  // Dashboard financiero del tenant (KPIs agregados, MRR, beneficio, tarifa real)
+  | "dashboard:financials";
 
 const OWNER_PERMISSIONS: Set<Action> = new Set([
   "client:write", "project:write", "contract:write", "plan:write",
   "invoice:write", "invoice:void", "payment:write",
-  "timeentry:write:any", "timeentry:write:own",
+  "timeentry:write:any", "timeentry:write:own", "timeentry:read:any",
   "varcost:write:any", "varcost:write:own",
   "fixedcost:write",
   "tenant:legal", "tenant:demo",
   "team:manage",
   "issue:write",
+  "dashboard:financials",
 ]);
 
 const ADMIN_PERMISSIONS: Set<Action> = new Set([
   "client:write", "project:write", "contract:write", "plan:write",
   "invoice:write", "payment:write",
-  "timeentry:write:any", "timeentry:write:own",
+  "timeentry:write:any", "timeentry:write:own", "timeentry:read:any",
   "varcost:write:any", "varcost:write:own",
   "fixedcost:write",
   "issue:write",
+  "dashboard:financials",
 ]);
 
 const EMPLOYEE_PERMISSIONS: Set<Action> = new Set([
@@ -61,7 +66,9 @@ const EMPLOYEE_PERMISSIONS: Set<Action> = new Set([
   "issue:write",
 ]);
 
-const VIEWER_PERMISSIONS: Set<Action> = new Set([]);
+const VIEWER_PERMISSIONS: Set<Action> = new Set([
+  "timeentry:read:any",
+]);
 
 const SUPERADMIN_PERMISSIONS: Set<Action> = new Set([]); // Sólo accede a /admin/*; no opera dentro de un tenant
 

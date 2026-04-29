@@ -19,6 +19,7 @@ import KpiCard     from '@/components/ui/KpiCard';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { useAuth }        from '@/context/AuthContext';
 import { useOnboarding }  from '@/context/OnboardingContext';
+import { usePermissions } from '@/hooks/useCan';
 import { fmt, fmtCurrency, greeting, toNum } from '@/lib/format';
 import type {
   DashboardData, ApiResponse, ProjectMetrics, TimeEntry,
@@ -58,6 +59,19 @@ function buildHoursSparkline(entries: TimeEntry[]): number[] {
 
 export default function DashboardPage() {
   const { user }  = useAuth();
+  const { role } = usePermissions();
+  const canSeeFinancials = role === 'OWNER' || role === 'ADMIN';
+
+  // EMPLOYEE y VIEWER no ven el dashboard financiero del tenant.
+  // Se les sirve un panel reducido centrado en su trabajo personal.
+  if (!canSeeFinancials) {
+    return <PersonalDashboard />;
+  }
+
+  return <FinancialsDashboard user={user} />;
+}
+
+function FinancialsDashboard({ user }: { user: ReturnType<typeof useAuth>['user'] }) {
   const navigate  = useNavigate();
   const { open: openTutorial } = useOnboarding();
   const [data,       setData]       = useState<DashboardData | null>(null);
@@ -1069,6 +1083,172 @@ function DashboardSkeleton() {
       <div className="skeleton h-8 w-40 mb-3" />
       <div className="space-y-3">
         {[0,1,2].map((i) => <div key={i} className="skeleton h-32 lg:h-16 rounded-[16px]" />)}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PersonalDashboard — versión reducida para EMPLOYEE/VIEWER
+// ---------------------------------------------------------------------------
+// Sin KPIs financieros del tenant. Solo el trabajo personal del usuario:
+// horas registradas en el mes, sparkline de los últimos 14 días, y atajo
+// rápido para fichar / ver sus proyectos.
+
+function PersonalDashboard() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // El backend filtra automáticamente por usuario para roles sin
+        // 'timeentry:read:any', así que recibimos sólo nuestras entradas.
+        const all = await api.get<TimeEntry[]>('/v1/time-entries');
+        if (!cancelled) setEntries(all);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthMin = entries.reduce((acc, e) => {
+    const d = new Date(e.startedAt);
+    if (d >= thisMonthStart) return acc + toNum(e.durationMin);
+    return acc;
+  }, 0);
+  const monthHours = monthMin / 60;
+  const billableHours = entries
+    .filter((e) => e.isBillable && new Date(e.startedAt) >= thisMonthStart)
+    .reduce((acc, e) => acc + toNum(e.durationMin) / 60, 0);
+
+  // Proyectos únicos en los que ha trabajado este mes.
+  const projectsThisMonth = new Map<string, string>();
+  for (const e of entries) {
+    if (new Date(e.startedAt) >= thisMonthStart && e.project) {
+      projectsThisMonth.set(e.project.id, e.project.name);
+    }
+  }
+
+  const sparkline = buildHoursSparkline(entries);
+  const sparkMax = Math.max(...sparkline, 1);
+
+  if (loading) return <DashboardSkeleton />;
+  if (error) {
+    return (
+      <div className="px-4 sm:px-6 lg:px-8 max-w-[1200px] mx-auto py-8">
+        <div className="rounded-[12px] bg-[rgba(255,69,58,0.10)] border border-[rgba(255,69,58,0.25)] p-4">
+          <div className="flex items-center gap-2 text-[#FF453A] font-semibold mb-1">
+            <AlertCircle className="w-4 h-4" /> No pudimos cargar tus horas
+          </div>
+          <p className="text-[13px] text-[var(--color-text-secondary)]">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 sm:px-6 lg:px-8 max-w-[1200px] mx-auto pb-12">
+      <header className="flex items-start justify-between gap-3 mb-6 pt-6 lg:pt-8">
+        <div>
+          <p className="text-[13px] text-[var(--color-text-tertiary)] mb-1">
+            {greeting()}, {user?.fullName ?? 'compañera/o'}
+          </p>
+          <h1 className="text-[28px] sm:text-[32px] font-semibold text-[var(--color-text)] leading-tight tracking-tight">
+            Tu trabajo este mes
+          </h1>
+          <p className="text-[13px] text-[var(--color-text-tertiary)] mt-0.5 capitalize hidden sm:block">
+            {now.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
+        </div>
+        <Button onClick={() => navigate('/horas')} variant="primary" size="md">
+          <Clock className="w-4 h-4 mr-1.5" /> Fichar horas
+        </Button>
+      </header>
+
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <KpiCard
+          tone="blue"
+          icon={<Clock className="w-5 h-5" strokeWidth={2} />}
+          label="Horas trabajadas este mes"
+          value={`${fmt(monthHours, 1)} h`}
+          hint={`${entries.filter(e => new Date(e.startedAt) >= thisMonthStart).length} entradas`}
+        />
+        <KpiCard
+          tone="green"
+          icon={<TrendingUp className="w-5 h-5" strokeWidth={2} />}
+          label="Horas facturables"
+          value={`${fmt(billableHours, 1)} h`}
+          hint={monthHours > 0 ? `${fmt((billableHours / monthHours) * 100, 0)}% del total` : 'Sin datos aún'}
+        />
+        <KpiCard
+          tone="orange"
+          icon={<Target className="w-5 h-5" strokeWidth={2} />}
+          label="Proyectos activos"
+          value={`${projectsThisMonth.size}`}
+          hint={projectsThisMonth.size === 0 ? 'Aún sin actividad' : 'En los que has fichado'}
+        />
+      </section>
+
+      <Card className="p-5 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-[16px] font-semibold text-[var(--color-text)]">Tus últimas 2 semanas</h2>
+            <p className="text-[12px] text-[var(--color-text-tertiary)] mt-0.5">Horas facturables por día</p>
+          </div>
+        </div>
+        <div className="flex items-end gap-1.5 h-24">
+          {sparkline.map((h, i) => (
+            <div
+              key={i}
+              className="flex-1 rounded-t-md transition-all"
+              style={{
+                height: `${Math.max((h / sparkMax) * 100, 4)}%`,
+                background: h > 0 ? 'var(--color-blue)' : 'var(--color-border)',
+                opacity: h > 0 ? 0.85 : 0.4,
+              }}
+              title={`${fmt(h, 1)}h`}
+            />
+          ))}
+        </div>
+      </Card>
+
+      <div>
+        <h2 className="text-[16px] font-semibold text-[var(--color-text)] mb-3">Proyectos en los que trabajaste este mes</h2>
+        {projectsThisMonth.size === 0 ? (
+          <Card className="p-6 text-center">
+            <Clock className="w-8 h-8 text-[var(--color-text-tertiary)] mx-auto mb-2" />
+            <p className="text-[14px] text-[var(--color-text-secondary)] mb-3">Aún no has fichado horas este mes.</p>
+            <Button onClick={() => navigate('/horas')} variant="primary" size="sm">Empezar ahora</Button>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {Array.from(projectsThisMonth.entries()).map(([id, name]) => (
+              <button
+                key={id}
+                onClick={() => navigate(`/proyectos/${id}`)}
+                className="w-full text-left flex items-center justify-between p-4 rounded-[12px] bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-border-strong)] transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-[10px] bg-[var(--color-blue-subtle)] flex items-center justify-center">
+                    <BarChart3 className="w-4 h-4 text-[var(--color-blue)]" strokeWidth={2} />
+                  </div>
+                  <span className="text-[14px] font-medium text-[var(--color-text)]">{name}</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[var(--color-text-tertiary)]" />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

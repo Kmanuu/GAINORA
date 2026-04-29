@@ -16,7 +16,6 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  Zap,
   Sun,
   Moon,
   PlayCircle,
@@ -26,6 +25,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth }        from '@/context/AuthContext';
+import { GainoraMark }    from '@/components/brand/GainoraLogo';
 import { usePermissions } from '@/hooks/useCan';
 import { useTheme }       from '@/context/ThemeContext';
 import { useOnboarding }  from '@/context/OnboardingContext';
@@ -86,7 +86,7 @@ export default function Sidebar() {
 
   function handleLogout() {
     logout();
-    navigate('/');
+    navigate('/login');
   }
 
   return (
@@ -109,18 +109,10 @@ export default function Sidebar() {
             className="flex items-center gap-2.5 min-w-0 flex-1 text-left hover:opacity-80 transition-opacity"
             title="Ir al Dashboard"
           >
-            <div
-              className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0"
-              style={{
-                background: 'linear-gradient(180deg, #0A84FF 0%, #0060C0 100%)',
-                boxShadow: '0 2px 8px rgba(10,132,255,0.35), inset 0 1px 0 rgba(255,255,255,0.25)',
-              }}
-            >
-              <Zap className="w-4 h-4 text-white" strokeWidth={2.5} fill="white" />
-            </div>
+            <GainoraMark size={26} className="shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="text-[13.5px] font-semibold text-[var(--color-text)] leading-tight tracking-[-0.01em]">
-                HorasPRO
+                Gainora
               </p>
               <p className="text-[11px] text-[var(--color-text-tertiary)] truncate leading-tight mt-0.5">
                 {tenant?.name ?? '—'}

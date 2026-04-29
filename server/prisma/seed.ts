@@ -151,17 +151,17 @@ async function main() {
     },
   });
 
-  const productoHoraspro = await prisma.project.create({
+  const productoGainora = await prisma.project.create({
     data: {
       tenantId: tenant.id,
-      name: "HorasPRO (Suscripción)",
+      name: "Gainora (Suscripción)",
       description: "Producto propio en modo suscripción",
       status: Status.ACTIVE,
       billingMode: BillingMode.SUBSCRIPTION,
       productMaintenanceCost: 5.0,
     },
   });
-  console.log(`✅ Proyectos: ${project.name}, ${productoHoraspro.name}`);
+  console.log(`✅ Proyectos: ${project.name}, ${productoGainora.name}`);
 
   // 6. Contratos
   const contractRediseno = await prisma.contract.create({
@@ -180,7 +180,7 @@ async function main() {
   const contractTallerSub = await prisma.contract.create({
     data: {
       tenantId: tenant.id,
-      projectId: productoHoraspro.id,
+      projectId: productoGainora.id,
       clientId: clientTaller.id,
       planId: planPro.id,
       tier: ContractTier.PRO,

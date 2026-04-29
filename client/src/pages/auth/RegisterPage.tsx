@@ -1,10 +1,11 @@
 // ============================================================================
-// RegisterPage.tsx — Registro de nueva empresa + propietario estilo HorasPRO
+// RegisterPage.tsx — Registro de nueva empresa + propietario estilo Gainora
 // ============================================================================
 
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Target, Building2, User, Mail, Lock, Hash, Check } from 'lucide-react';
+import { Eye, EyeOff, Building2, User, Mail, Lock, Hash, Check } from 'lucide-react';
+import { GainoraMark } from '@/components/brand/GainoraLogo';
 import clsx from 'clsx';
 import { useAuth }       from '@/context/AuthContext';
 import { useOnboarding } from '@/context/OnboardingContext';
@@ -112,7 +113,7 @@ export default function RegisterPage() {
       // forzamos open() para que el tour se vea al aterrizar en /dashboard.
       localStorage.removeItem('hp_onboarding_done');
       open('main');
-      toast('success', 'Cuenta creada correctamente. Bienvenido a HorasPRO.');
+      toast('success', 'Cuenta creada correctamente. Bienvenido a Gainora.');
       navigate('/dashboard');
     } catch (err: unknown) {
       setApiError(err instanceof Error ? err.message : 'Error al registrar');
@@ -154,14 +155,8 @@ export default function RegisterPage() {
           <div className="px-10 pt-10 pb-10">
             {/* Header */}
             <div className="flex flex-col items-center mb-8">
-              <div
-                className="w-16 h-16 rounded-[20px] flex items-center justify-center mb-5"
-                style={{
-                  background: 'linear-gradient(180deg, #00D4FF 0%, #0066FF 100%)',
-                  boxShadow:  '0 10px 30px rgba(0, 212, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
-                }}
-              >
-                <Target className="w-8 h-8 text-[#050A14]" strokeWidth={2.5} />
+              <div className="mb-3">
+                <GainoraMark size={72} />
               </div>
               <h1 className="text-[28px] font-black text-white tracking-[-0.03em]">Empezar gratis</h1>
               <p className="text-[14px] text-[#6B7280] mt-2 font-medium text-center">Configura tu espacio de trabajo en segundos</p>
@@ -275,7 +270,7 @@ export default function RegisterPage() {
                   fullWidth 
                   className="bg-gradient-to-r from-[#00D4FF] to-[#0066FF] text-[#050A14] font-bold text-[16px] h-[54px] rounded-[14px] hover:shadow-[0_8px_30px_rgba(0,212,255,0.4)] transition-all active:scale-[0.98]"
                 >
-                  Crear mi empresa en HorasPRO
+                  Crear mi empresa en Gainora
                 </Button>
               </div>
             </form>
@@ -291,7 +286,7 @@ export default function RegisterPage() {
       </div>
 
       <div className="mt-12 flex items-center gap-6 text-[12px] text-[#1F2937] font-medium relative">
-        <span>© {new Date().getFullYear()} HorasPRO.io</span>
+        <span>© {new Date().getFullYear()} Gainora</span>
         <div className="w-1 h-1 rounded-full bg-[#1F2937]" />
         <a href="#" className="hover:text-[#4B5563] transition-colors">Privacidad</a>
         <a href="#" className="hover:text-[#4B5563] transition-colors">Términos</a>

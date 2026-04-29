@@ -10,7 +10,7 @@
 //   3 — Cierre con CTA al dashboard.
 //
 // Skippable en cualquier paso. Recuperable desde sidebar
-// ("Cómo usar HorasPRO" → openOnboarding('main')).
+// ("Cómo usar Gainora" → openOnboarding('main')).
 // ============================================================================
 
 import { useState, type ReactNode } from 'react';
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useOnboarding } from '@/context/OnboardingContext';
+import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import Button from '@/components/ui/Button';
@@ -68,6 +69,7 @@ type BillingMode = 'FIXED' | 'HOURLY';
 
 export default function OnboardingWizard() {
   const { activeFlow, currentStep, close, next, goTo } = useOnboarding();
+  const { user } = useAuth();
   const { toast } = useToast();
   const navigate  = useNavigate();
 
@@ -82,6 +84,11 @@ export default function OnboardingWizard() {
   const [seedError,  setSeedError]  = useState<string | null>(null);
 
   if (activeFlow !== 'main') return null;
+  // El wizard configura el tenant (capacidad, costing mode, primer cliente,
+  // datos demo). Sólo el OWNER tiene `tenant:legal` + `tenant:demo`. Para
+  // SUPERADMIN, ADMIN, EMPLOYEE y VIEWER no aplica — al SUPERADMIN porque
+  // está fuera de tenants, al resto porque hereda la configuración del OWNER.
+  if (user?.role !== 'OWNER') return null;
 
   async function selectPersona(p: PersonaOption) {
     setPersona(p.id);
@@ -169,7 +176,17 @@ export default function OnboardingWizard() {
   }
 
   function handleClose() { close(); }
-  function goToDashboard() { close(); navigate('/dashboard'); }
+  function goToDashboard() {
+    close();
+    // Si acabamos de sembrar datos demo, forzamos reload duro para que el
+    // dashboard remonte y los recoja. Sin esto, si ya estabas en /dashboard
+    // el componente no se remonta y sigue mostrando el estado vacío anterior.
+    if (demoSeeded) {
+      window.location.assign('/dashboard');
+    } else {
+      navigate('/dashboard');
+    }
+  }
 
   return (
     <div
@@ -242,7 +259,7 @@ function StepPersona({ onSelect }: { onSelect: (p: PersonaOption) => void }) {
           <Sparkles className="w-5 h-5 text-[var(--color-blue)]" strokeWidth={1.9} />
         </div>
         <h2 className="text-[22px] font-semibold text-[var(--color-text)] tracking-tight">
-          Vamos a configurar HorasPRO en 30 segundos
+          Vamos a configurar Gainora en 30 segundos
         </h2>
         <p className="text-[14px] text-[var(--color-text-secondary)] mt-1.5">
           ¿Cómo trabajas ahora?

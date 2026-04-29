@@ -4,7 +4,7 @@
 // Muestra los números base de los modelos 303 (IVA) y 130 (IRPF) calculados
 // a partir de las facturas emitidas y los gastos deducibles del trimestre.
 //
-// HorasPRO entrega los números, no presenta la declaración. El usuario los
+// Gainora entrega los números, no presenta la declaración. El usuario los
 // usa para llenar el formulario de la AEAT o se los pasa a su gestor.
 // ============================================================================
 
@@ -111,7 +111,7 @@ export default function TaxSummarySection() {
             <h2 className="text-[18px] font-semibold text-[var(--color-text)] tracking-[-0.01em] flex items-center gap-1.5">
               Tu trimestre fiscal
               <HelpTooltip
-                text="Los números base de los modelos 303 (IVA) y 130 (IRPF) calculados con tus facturas y gastos. HorasPRO no presenta la declaración: tú o tu gestor llevan estos números a la AEAT."
+                text="Los números base de los modelos 303 (IVA) y 130 (IRPF) calculados con tus facturas y gastos. Gainora no presenta la declaración: tú o tu gestor llevan estos números a la AEAT."
                 maxWidth={320}
               />
             </h2>
@@ -399,7 +399,7 @@ export default function TaxSummarySection() {
           Cómo se calculan estos números
         </Link>
         <p className="text-[11px] text-[var(--color-text-tertiary)] italic">
-          HorasPRO entrega los números, no presenta la declaración.
+          Gainora entrega los números, no presenta la declaración.
         </p>
       </div>
     </section>

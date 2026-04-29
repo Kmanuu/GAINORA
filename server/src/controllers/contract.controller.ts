@@ -141,14 +141,38 @@ export async function updateContract(req: Request, res: Response) {
   if (data.startedAt) data.startedAt = new Date(data.startedAt);
   if (data.endedAt)   data.endedAt   = new Date(data.endedAt);
 
-  const updated = await prisma.contract.update({
-    where: { id: id as string },
-    data,
-    include: {
-      client:  { select: { id: true, name: true } },
-      project: { select: { id: true, name: true } },
-      plan:    { select: { id: true, name: true, tier: true } },
-    },
+  // Si se cancela el contrato, fijar endedAt si no viene y eliminar
+  // pagos PENDING/PARTIAL que ya no tienen sentido cobrar (los PAID
+  // se conservan para histórico fiscal).
+  const isBeingCancelled = data.status === "CANCELLED" && existing.status !== "CANCELLED";
+  if (isBeingCancelled && !data.endedAt) {
+    data.endedAt = new Date();
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const u = await tx.contract.update({
+      where: { id: id as string },
+      data,
+      include: {
+        client:  { select: { id: true, name: true } },
+        project: { select: { id: true, name: true } },
+        plan:    { select: { id: true, name: true, tier: true } },
+      },
+    });
+
+    if (isBeingCancelled) {
+      await tx.payment.deleteMany({
+        where: {
+          contractId: id as string,
+          status: { in: ["PENDING", "PARTIAL"] },
+          // Sólo los que aún no tienen abonos: si tiene transacciones
+          // cobradas, lo dejamos como PARTIAL para no perder histórico.
+          transactions: { none: {} },
+        },
+      });
+    }
+
+    return u;
   });
 
   res.json(updated);

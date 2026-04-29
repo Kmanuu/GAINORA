@@ -1,7 +1,7 @@
 {
-  "name": "horaspro-server",
+  "name": "gainora-server",
   "version": "0.1.0",
-  "description": "HorasPRO API - Control de rentabilidad para agencias y freelancers",
+  "description": "Gainora API - Control de rentabilidad para autónomos y agencias",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",

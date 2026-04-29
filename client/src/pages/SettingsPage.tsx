@@ -62,14 +62,14 @@ const GUIDE_STEPS: GuideStep[] = [
     title:   'Empieza por los costes fijos',
     badge:   { text: 'Fundamental', color: '#FF453A' },
     summary: 'Sin esto, los números del dashboard son bonitos pero mentira.',
-    detail:  'Ve a "Costes fijos" y añade todo lo que pagas siempre: el alquiler de la oficina, las licencias de software, los sueldos, la gestoría... Mensual, trimestral o anual — HorasPRO lo normaliza solo.\n\nCuando termines, el dashboard ya tendrá datos reales para calcular cuánto te cuesta realmente cada hora trabajada.',
+    detail:  'Ve a "Costes fijos" y añade todo lo que pagas siempre: el alquiler de la oficina, las licencias de software, los sueldos, la gestoría... Mensual, trimestral o anual — Gainora lo normaliza solo.\n\nCuando termines, el dashboard ya tendrá datos reales para calcular cuánto te cuesta realmente cada hora trabajada.',
     tip:     'Si no sabes exactamente cuánto es, pon una aproximación. Siempre es mejor que nada.',
   },
   {
     emoji:   '📁',
     title:   'Un proyecto por cliente',
     summary: 'Crea una carpeta digital para cada trabajo que hagas.',
-    detail:  'Cada proyecto tiene un nombre, un cliente y — lo más importante — el presupuesto que le has cobrado.\n\nCon eso, HorasPRO puede comparar lo que te llevas con lo que te cuesta hacerlo. Eso es la rentabilidad.',
+    detail:  'Cada proyecto tiene un nombre, un cliente y — lo más importante — el presupuesto que le has cobrado.\n\nCon eso, Gainora puede comparar lo que te llevas con lo que te cuesta hacerlo. Eso es la rentabilidad.',
     tip:     'El estado del proyecto importa: solo los "Activos" cuentan en el dashboard del mes.',
   },
   {
@@ -103,7 +103,7 @@ const GUIDE_STEPS: GuideStep[] = [
     emoji:   '📊',
     title:   'Revísalo cada semana, no cada trimestre',
     summary: 'La diferencia entre saber y enterarte tarde.',
-    detail:  'Tu gestor te dice cómo fue el año... en abril del año siguiente. HorasPRO te dice cómo va el mes ahora mismo.\n\nDedica 5 minutos cada lunes: revisa el dashboard, asegúrate de que las horas están fichadas, comprueba que ningún proyecto esté en rojo.\n\nEso es todo. Con eso tienes el pulso de tu negocio.',
+    detail:  'Tu gestor te dice cómo fue el año... en abril del año siguiente. Gainora te dice cómo va el mes ahora mismo.\n\nDedica 5 minutos cada lunes: revisa el dashboard, asegúrate de que las horas están fichadas, comprueba que ningún proyecto esté en rojo.\n\nEso es todo. Con eso tienes el pulso de tu negocio.',
     tip:     'Si un proyecto está en rojo y aún no has terminado, todavía puedes actuar: renegocia, reduce horas, o al menos aprende para el siguiente.',
   },
 ];
@@ -161,7 +161,7 @@ function GuideSection() {
     >
       {/* Intro */}
       <p className="text-[13px] text-[var(--color-text-secondary)] mb-4 leading-relaxed">
-        7 pasos para sacarle todo el partido a HorasPRO. Sin tecnicismos, sin rollos.
+        7 pasos para sacarle todo el partido a Gainora. Sin tecnicismos, sin rollos.
       </p>
 
       <div className="space-y-2">
@@ -263,7 +263,7 @@ function GuideSection() {
           ¿Ya lo tienes todo configurado? 🎉
         </p>
         <p className="text-[12px] text-[var(--color-text-secondary)]">
-          Ahora solo queda trabajar — y dejar que HorasPRO te diga si merece la pena.
+          Ahora solo queda trabajar — y dejar que Gainora te diga si merece la pena.
         </p>
       </div>
     </SectionCard>

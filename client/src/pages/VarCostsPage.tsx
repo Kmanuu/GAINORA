@@ -258,7 +258,7 @@ export default function VarCostsPage() {
               icon={<Download className="w-4 h-4" strokeWidth={2} />}
               onClick={() => {
                 const prefix = tenant?.name ? `${tenant.name.toLowerCase().replace(/\s+/g, '-')}-` : '';
-                exportCsv(`${prefix}costes-variables-horaspro`, [
+                exportCsv(`${prefix}costes-variables-gainora`, [
                   { header: 'Nombre',    value: (c: VarCost) => c.name },
                   { header: 'Importe',   value: (c: VarCost) => c.amount },
                   { header: 'Fecha',     value: (c: VarCost) => c.date.slice(0, 10) },

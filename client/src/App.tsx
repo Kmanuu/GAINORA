@@ -1,5 +1,5 @@
 // ============================================================================
-// App.tsx — Entrada principal de la aplicación HorasPRO
+// App.tsx — Entrada principal de la aplicación Gainora
 // ============================================================================
 
 import { RouterProvider }      from 'react-router-dom';

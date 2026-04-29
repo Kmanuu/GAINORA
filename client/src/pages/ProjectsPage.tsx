@@ -331,7 +331,7 @@ export default function ProjectsPage() {
               size="sm"
               icon={<Download className="w-4 h-4" strokeWidth={2} />}
               onClick={() => {
-                exportCsv('proyectos-horaspro', [
+                exportCsv('proyectos-gainora', [
                   { header: 'Nombre',       value: (p: Project) => p.name },
                   { header: 'Cliente',      value: (p: Project) => p.client?.name ?? '' },
                   { header: 'Estado',       value: (p: Project) => STATUS_LABEL[p.status] },
@@ -748,7 +748,7 @@ function EmptyProjects({ onNew, hasAny }: { onNew: () => void; hasAny: boolean }
       </p>
       <p className="text-[14px] text-[var(--color-text-secondary)] mt-1.5 max-w-[440px] leading-relaxed">
         Cada proyecto es un trabajo concreto para un cliente. Le dices cuánto te paga
-        y le metes las horas que dediques. HorasPRO calcula sola si te sale rentable.
+        y le metes las horas que dediques. Gainora calcula sola si te sale rentable.
       </p>
 
       <div className="grid grid-cols-3 gap-2 max-w-[460px] w-full mt-6 text-left">

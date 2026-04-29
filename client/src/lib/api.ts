@@ -1,5 +1,5 @@
 // ============================================================================
-// api.ts — Cliente HTTP base para la API de HorasPRO
+// api.ts — Cliente HTTP base para la API de Gainora
 // ============================================================================
 // Incluye auto-refresh de token: si una petición devuelve 401,
 // intenta renovar el accessToken con el refreshToken y reintenta una vez.
@@ -115,11 +115,17 @@ export async function apiFetch<T = unknown>(
 ): Promise<T> {
   let token = getAccessToken();
 
+  // Endpoints de autenticación (login, register, refresh) NO deben pasar
+  // por la lógica de auto-refresh: un 401 ahí significa "credenciales
+  // incorrectas", no "sesión expirada", y queremos que el mensaje real
+  // del backend llegue al usuario.
+  const isAuthEndpoint = path.startsWith('/auth/');
+
   // Refresh proactivo: si el access token ya está expirado o a punto de
   // expirar, refrescar antes de mandar la petición. Evita el 401 visible
   // en consola que aparecía cada vez que se reabría la app con token
   // caducado en localStorage.
-  if (token && isTokenExpiring(token) && getRefreshToken() && _retry) {
+  if (!isAuthEndpoint && token && isTokenExpiring(token) && getRefreshToken() && _retry) {
     try {
       token = await doRefresh();
     } catch {
@@ -137,8 +143,8 @@ export async function apiFetch<T = unknown>(
     },
   });
 
-  // Auto-refresh en 401
-  if (res.status === 401 && _retry) {
+  // Auto-refresh en 401 — sólo para endpoints autenticados, no para /auth/*.
+  if (res.status === 401 && _retry && !isAuthEndpoint) {
     try {
       const newToken = await doRefresh();
       // Reintenta la petición original con el nuevo token

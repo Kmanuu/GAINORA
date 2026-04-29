@@ -18,6 +18,7 @@ import type { ReactNode } from 'react';
 // landing además incluye CSS propio que no debe cargar para usuarios
 // autenticados.
 const LandingPage        = lazy(() => import('@/pages/LandingPage'));
+const LegalPage          = lazy(() => import('@/pages/LegalPage'));
 const ProjectsPage       = lazy(() => import('@/pages/ProjectsPage'));
 const HorasPage          = lazy(() => import('@/pages/HorasPage'));
 const FixedCostsPage     = lazy(() => import('@/pages/FixedCostsPage'));
@@ -59,7 +60,7 @@ function L({ children }: { children: ReactNode }) {
 function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   if (isLoading) return null;
-  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
@@ -85,6 +86,12 @@ export const router = createBrowserRouter([
       </RequireGuest>
     ),
   },
+
+  // Páginas legales públicas
+  { path: '/privacy', element: <L><LegalPage doc="privacy" /></L> },
+  { path: '/terms',   element: <L><LegalPage doc="terms" /></L>   },
+  { path: '/legal',   element: <L><LegalPage doc="legal" /></L>   },
+  { path: '/cookies', element: <L><LegalPage doc="cookies" /></L> },
 
   // Rutas públicas (auth)
   {

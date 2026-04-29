@@ -1,5 +1,5 @@
 // ============================================================================
-// types/index.ts — Tipos TypeScript compartidos del cliente HorasPRO
+// types/index.ts — Tipos TypeScript compartidos del cliente Gainora
 // ============================================================================
 
 // --- Auth -------------------------------------------------------------------

@@ -576,7 +576,7 @@ function PlanFormModal({
                   Nivel
                 </span>
                 <HelpTooltip
-                  text="Categoría visual del plan que ofreces a tus clientes (Básico/Pro/Élite). No tiene relación con tu plan de suscripción a HorasPRO."
+                  text="Categoría visual del plan que ofreces a tus clientes (Básico/Pro/Élite). No tiene relación con tu plan de suscripción a Gainora."
                   maxWidth={260}
                 />
               </div>

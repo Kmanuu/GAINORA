@@ -9,6 +9,7 @@ import {
   createContext, useContext, useState, useEffect, useCallback,
   type ReactNode,
 } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 export type FlowType = 'main' | 'fixed_costs' | 'projects' | 'time' | null;
 
@@ -28,11 +29,15 @@ const STORAGE_KEY = 'hp_onboarding_done';
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [activeFlow,  setActiveFlow]  = useState<FlowType>(null);
   const [currentStep, setCurrentStep] = useState(0);
 
-  // Abre el tutorial principal automáticamente si es la primera visita
+  // Abre el tutorial principal automáticamente sólo para OWNER en su
+  // primera visita. Otros roles (SUPERADMIN/ADMIN/EMPLOYEE/VIEWER) no
+  // tienen un tenant que configurar — heredan del OWNER.
   useEffect(() => {
+    if (user?.role !== 'OWNER') return;
     const done = localStorage.getItem(STORAGE_KEY);
     if (!done) {
       const t = setTimeout(() => {
@@ -41,7 +46,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       }, 800);
       return () => clearTimeout(t);
     }
-  }, []);
+  }, [user?.role]);
 
   const open = useCallback((flow: FlowType = 'main') => {
     setCurrentStep(0);

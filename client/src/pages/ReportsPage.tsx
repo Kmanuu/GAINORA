@@ -193,7 +193,7 @@ export default function ReportsPage() {
           size="sm"
           icon={<Download className="w-4 h-4" strokeWidth={2} />}
           onClick={() => {
-            exportCsv('informe-horaspro', [
+            exportCsv('informe-gainora', [
               { header: 'Fecha',          value: (e: TimeEntry) => e.startedAt.slice(0, 10) },
               { header: 'Proyecto',       value: (e: TimeEntry) => e.project?.name ?? '' },
               { header: 'Descripción',    value: (e: TimeEntry) => e.description ?? '' },

@@ -88,10 +88,14 @@ export default function ContractDetailPage() {
     const gross = contract.priceIncludesVat ? p          : p * factor;
     const net   = contract.priceIncludesVat ? p / factor : p;
     const isSub = contract.billingMode === 'SUBSCRIPTION';
+    // Si el contrato no está activo, no genera MRR ni próximo cobro: ya está
+    // pausado o cancelado. Mostrar 200€/mes en un contrato cancelado induce
+    // a error.
+    const isLive = contract.status === 'ACTIVE';
     const ps    = (contract.payments ?? []).slice().sort((a, b) =>
       new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime(),
     );
-    const next  = ps.find((x) => x.status !== 'PAID') ?? null;
+    const next  = isLive ? (ps.find((x) => x.status !== 'PAID') ?? null) : null;
     const yearStart = new Date(new Date().getFullYear(), 0, 1);
     let paidYear = 0;
     let dueYear  = 0;
@@ -105,7 +109,7 @@ export default function ContractDetailPage() {
     return {
       priceGross:       gross,
       priceNet:         net,
-      mrrNet:           isSub ? net : 0,
+      mrrNet:           isSub && isLive ? net : 0,
       payments:         ps,
       nextDuePayment:   next,
       paidThisYear:     paidYear,

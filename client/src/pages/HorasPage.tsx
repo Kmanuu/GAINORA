@@ -415,7 +415,7 @@ export default function HorasPage() {
   }, [projects, entries]);
 
   function handleExport() {
-    exportCsv('horas-horaspro', [
+    exportCsv('horas-gainora', [
       { header: 'Fecha',         value: (e) => e.startedAt.slice(0, 10) },
       { header: 'Proyecto',      value: (e) => e.project?.name ?? '' },
       { header: 'Descripción',   value: (e) => e.description ?? '' },
@@ -922,7 +922,7 @@ function EmptyEntries() {
         <div className="rounded-[12px] border border-[var(--color-border)] p-3.5 text-left">
           <p className="text-[13.5px] font-semibold text-[var(--color-text)]">⏱️ Modo timer</p>
           <p className="text-[12px] text-[var(--color-text-secondary)] mt-1 leading-relaxed">
-            Pulsa "Iniciar timer" arriba cuando empieces a trabajar. HorasPRO cuenta solo.
+            Pulsa "Iniciar timer" arriba cuando empieces a trabajar. Gainora cuenta solo.
           </p>
         </div>
         <div className="rounded-[12px] border border-[var(--color-border)] p-3.5 text-left">

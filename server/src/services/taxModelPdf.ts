@@ -227,7 +227,7 @@ export function generateModel303Pdf(
     // Disclaimer final
     doc.fillColor(COLOR_SECONDARY).font("Helvetica").fontSize(8.5)
        .text(
-         "Generado por HorasPRO el " +
+         "Generado por Gainora el " +
            new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date()) +
            ". Cifras calculadas a partir de las facturas emitidas y los gastos deducibles registrados. " +
            "El IVA de los costes fijos se asume al 21% por defecto si no se ha especificado otro tipo. " +
@@ -348,7 +348,7 @@ export function generateModel130Pdf(
 
     doc.fillColor(COLOR_SECONDARY).font("Helvetica").fontSize(8.5)
        .text(
-         "Generado por HorasPRO. El modelo 130 es ACUMULATIVO desde el 1 de enero. La columna 'Acumulado año' contiene los importes que van al formulario AEAT; la columna 'Trimestre' es informativa. " +
+         "Generado por Gainora. El modelo 130 es ACUMULATIVO desde el 1 de enero. La columna 'Acumulado año' contiene los importes que van al formulario AEAT; la columna 'Trimestre' es informativa. " +
          "La casilla 07 se calcula sumando los pagos fraccionados estimados de los trimestres anteriores del mismo ejercicio. " +
          "Verifica con tu gestor antes de presentar.",
          50, y + 8, { width: W, align: "left" },

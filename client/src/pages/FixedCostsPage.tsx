@@ -229,7 +229,7 @@ export default function FixedCostsPage() {
               icon={<Download className="w-4 h-4" strokeWidth={2} />}
               onClick={() => {
                 const prefix = tenant?.name ? `${tenant.name.toLowerCase().replace(/\s+/g, '-')}-` : '';
-                exportCsv(`${prefix}costes-fijos-horaspro`, [
+                exportCsv(`${prefix}costes-fijos-gainora`, [
                   { header: 'Nombre',     value: (c: FixedCost) => c.name },
                   { header: 'Importe',    value: (c: FixedCost) => c.amount },
                   { header: 'Frecuencia', value: (c: FixedCost) => FREQ_LABEL[c.frequency] },

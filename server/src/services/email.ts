@@ -44,13 +44,13 @@ export async function sendBudgetAlert(
 ): Promise<EmailResult> {
   return sendEmail({
     to,
-    subject: `⚠️ HorasPRO: "${projectName}" ha superado las horas presupuestadas`,
+    subject: `⚠️ Gainora: "${projectName}" ha superado las horas presupuestadas`,
     html: `
       <h2>Alerta de sobrepaso de horas</h2>
       <p>El proyecto <strong>${projectName}</strong> ha consumido 
          <strong>${actualHours.toFixed(1)}h</strong> de las 
          <strong>${budgetHours}h</strong> presupuestadas.</p>
-      <p>Revisa la rentabilidad en tu dashboard de HorasPRO.</p>
+      <p>Revisa la rentabilidad en tu dashboard de Gainora.</p>
     `,
   });
 }

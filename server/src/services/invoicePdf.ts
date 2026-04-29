@@ -309,7 +309,7 @@ export async function generateInvoicePdf(
     // lineBreak:false impide que pdfkit añada otra página al medir overflow.
     doc.font("Helvetica").fontSize(7).fillColor(COLOR_SECONDARY)
        .text(
-         "Documento generado por HorasPRO · Conserva este documento durante 5 años (LGT art. 70).",
+         "Documento generado por Gainora · Conserva este documento durante 5 años (LGT art. 70).",
          50, 790, { width: 495, align: "center", lineBreak: false },
        );
 

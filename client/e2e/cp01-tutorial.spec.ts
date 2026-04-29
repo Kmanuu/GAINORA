@@ -105,7 +105,7 @@ test.describe('CP1 — Tutorial', () => {
 
     // Segundo pase: reabrir y elegir "solo"
     await page.evaluate(() => localStorage.removeItem('hp_onboarding_done'));
-    await page.getByRole('button', { name: /repetir tutorial|cómo usar horaspro/i }).click();
+    await page.getByRole('button', { name: /repetir tutorial|cómo usar gainora/i }).click();
     await page.waitForSelector('[role="dialog"][aria-label="Tutorial de bienvenida"]');
     await page.getByRole('button', { name: /solo, varios clientes pequeños/i }).click();
 

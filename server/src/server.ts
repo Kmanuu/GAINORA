@@ -52,6 +52,6 @@ app.get("/api/health", (_req, res) => {
 app.use(errorHandler);
 
 app.listen(env.PORT, () => {
-  console.log(`HorasPRO API running on http://localhost:${env.PORT}`);
+  console.log(`Gainora API running on http://localhost:${env.PORT}`);
   startRollPaymentsCron();
 });

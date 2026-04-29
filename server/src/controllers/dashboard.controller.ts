@@ -561,7 +561,7 @@ export async function getCollectionsHealth(
 //   · FixedCost + VariableCost del periodo  → IVA soportado deducible
 //   · Payments con IRPF aplicado            → retenciones soportadas
 //
-// IMPORTANTE: HorasPRO entrega los NÚMEROS, no presenta la declaración.
+// IMPORTANTE: Gainora entrega los NÚMEROS, no presenta la declaración.
 // El usuario los lleva a la web AEAT o a su gestor.
 // ===========================================================================
 export interface TaxSummaryData {

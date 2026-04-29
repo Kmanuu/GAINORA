@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright config para QA validación visual de HorasPRO.
+ * Playwright config para QA validación visual de Gainora.
  * Server y Vite deben estar arrancados manualmente antes (puertos 3001 y 5173).
  */
 export default defineConfig({

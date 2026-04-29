@@ -1,10 +1,11 @@
 // ============================================================================
-// LoginPage.tsx — Inicio de sesión estilo HorasPRO (Premium Dark)
+// LoginPage.tsx — Inicio de sesión estilo Gainora (Premium Dark)
 // ============================================================================
 
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Target } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
+import { GainoraMark } from '@/components/brand/GainoraLogo';
 import { useAuth }   from '@/context/AuthContext';
 import { useToast }  from '@/components/ui/Toast';
 import Button from '@/components/ui/Button';
@@ -27,16 +28,24 @@ export default function LoginPage() {
     };
   }
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!form.email || !form.password) {
+    // Leer del DOM via FormData en vez de sólo del state. El autocomplete
+    // del navegador rellena el input pero no siempre dispara onChange,
+    // dejando el state vacío al primer submit. FormData siempre tiene el
+    // valor visible.
+    const data = new FormData(e.currentTarget);
+    const email    = (data.get('email')    as string ?? form.email).trim();
+    const password = (data.get('password') as string ?? form.password);
+
+    if (!email || !password) {
       setError('Completa todos los campos');
       return;
     }
     setLoading(true);
     setError('');
     try {
-      await login(form);
+      await login({ email, password });
       toast('success', 'Sesión iniciada correctamente');
       navigate('/dashboard');
     } catch (err: unknown) {
@@ -83,14 +92,8 @@ export default function LoginPage() {
           <div className="px-10 pt-10 pb-10">
             {/* Brand Logo */}
             <div className="flex flex-col items-center mb-10">
-              <div
-                className="w-16 h-16 rounded-[20px] flex items-center justify-center mb-5"
-                style={{
-                  background: 'linear-gradient(180deg, #00D4FF 0%, #0066FF 100%)',
-                  boxShadow:  '0 10px 30px rgba(0, 212, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
-                }}
-              >
-                <Target className="w-8 h-8 text-[#050A14]" strokeWidth={2.5} />
+              <div className="mb-3">
+                <GainoraMark size={72} />
               </div>
               <h1 className="text-[28px] font-black text-white leading-tight tracking-[-0.03em]">
                 Bienvenido de nuevo
@@ -106,6 +109,7 @@ export default function LoginPage() {
                 <Input
                   label="Correo electrónico"
                   type="email"
+                  name="email"
                   value={form.email}
                   onChange={handleChange('email')}
                   autoComplete="email"
@@ -119,6 +123,7 @@ export default function LoginPage() {
                 <Input
                   label="Contraseña"
                   type={showPass ? 'text' : 'password'}
+                  name="password"
                   value={form.password}
                   onChange={handleChange('password')}
                   autoComplete="current-password"
@@ -158,7 +163,7 @@ export default function LoginPage() {
                   fullWidth
                   className="bg-gradient-to-r from-[#00D4FF] to-[#0066FF] text-[#050A14] font-bold text-[16px] h-[54px] rounded-[14px] hover:shadow-[0_8px_30px_rgba(0,212,255,0.4)] transition-all active:scale-[0.98]"
                 >
-                  Entrar a HorasPRO
+                  Entrar a Gainora
                 </Button>
               </div>
             </form>
@@ -177,7 +182,7 @@ export default function LoginPage() {
       </div>
 
       <div className="mt-12 flex items-center gap-6 text-[12px] text-[#1F2937] font-medium relative">
-        <span>© {new Date().getFullYear()} HorasPRO.io</span>
+        <span>© {new Date().getFullYear()} Gainora</span>
         <div className="w-1 h-1 rounded-full bg-[#1F2937]" />
         <a href="#" className="hover:text-[#4B5563] transition-colors">Privacidad</a>
         <a href="#" className="hover:text-[#4B5563] transition-colors">Términos</a>

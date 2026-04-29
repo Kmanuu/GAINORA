@@ -5,6 +5,8 @@ import { userCan } from "../lib/permissions.js";
 
 export async function listTimeEntries(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
+  const requesterId = req.user!.userId;
+  const role = req.user!.role;
   const { projectId, userId, from, to } = req.query;
 
   const where: any = { tenantId };
@@ -14,6 +16,13 @@ export async function listTimeEntries(req: Request, res: Response) {
     where.startedAt = {};
     if (from) where.startedAt.gte = new Date(from as string);
     if (to) where.startedAt.lte = new Date(to as string);
+  }
+
+  // Confidencialidad: si el rol no puede leer horas de otros usuarios
+  // (EMPLOYEE no tiene `timeentry:read:any`), forzamos filtro por usuario
+  // propio aunque el cliente intente pasar otro userId.
+  if (!userCan(role, "timeentry:read:any")) {
+    where.userId = requesterId;
   }
 
   const entries = await prisma.timeEntry.findMany({

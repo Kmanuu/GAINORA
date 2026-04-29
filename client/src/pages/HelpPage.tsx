@@ -220,7 +220,7 @@ export default function HelpPage() {
               </div>
             </div>
           </Card>
-          <a href="mailto:soporte@horaspro.app" className="block">
+          <a href="mailto:soporte@gainora.app" className="block">
             <Card padding="md" hover>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-[10px] bg-[var(--color-purple-subtle)] text-[var(--color-purple)] flex items-center justify-center shrink-0">
@@ -252,7 +252,7 @@ export default function HelpPage() {
           </h1>
         </div>
         <p className="text-[14px] text-[var(--color-text-secondary)] max-w-[600px] leading-relaxed">
-          Guías sin tecnicismos para sacarle todo el partido a HorasPRO. Lee
+          Guías sin tecnicismos para sacarle todo el partido a Gainora. Lee
           solo lo que necesites cuando lo necesites.
         </p>
       </header>
@@ -357,7 +357,7 @@ export default function HelpPage() {
             </div>
           </div>
         </Card>
-        <a href="mailto:soporte@horaspro.app" className="block">
+        <a href="mailto:soporte@gainora.app" className="block">
           <Card padding="md" hover>
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-[10px] bg-[var(--color-purple-subtle)] text-[var(--color-purple)] flex items-center justify-center shrink-0">
