@@ -6,9 +6,6 @@ const dbUrl = rawUrl.replace(/^postgresql:\/\//, "postgres://");
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
-  migrations: {
-    path: "prisma/migrations",
-  },
   datasource: {
     url: dbUrl,
   },
