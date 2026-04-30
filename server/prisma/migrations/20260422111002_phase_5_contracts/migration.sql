@@ -1,29 +1,65 @@
 -- CreateEnum
-CREATE TYPE IF NOT EXISTS "Plan" AS ENUM ('STARTER', 'GROWTH', 'EMPIRE');
+DO $$ BEGIN
+  CREATE TYPE "Plan" AS ENUM ('STARTER', 'GROWTH', 'EMPIRE');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE IF NOT EXISTS "Role" AS ENUM ('OWNER', 'ADMIN', 'EMPLOYEE', 'VIEWER');
+DO $$ BEGIN
+  CREATE TYPE "Role" AS ENUM ('OWNER', 'ADMIN', 'EMPLOYEE', 'VIEWER');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE IF NOT EXISTS "Status" AS ENUM ('DRAFT', 'ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELLED');
+DO $$ BEGIN
+  CREATE TYPE "Status" AS ENUM ('DRAFT', 'ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELLED');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE IF NOT EXISTS "Freq" AS ENUM ('MONTHLY', 'QUARTERLY', 'YEARLY');
+DO $$ BEGIN
+  CREATE TYPE "Freq" AS ENUM ('MONTHLY', 'QUARTERLY', 'YEARLY');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE IF NOT EXISTS "BillingMode" AS ENUM ('FIXED', 'HOURLY', 'HYBRID', 'SUBSCRIPTION');
+DO $$ BEGIN
+  CREATE TYPE "BillingMode" AS ENUM ('FIXED', 'HOURLY', 'HYBRID', 'SUBSCRIPTION');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE IF NOT EXISTS "ContractTier" AS ENUM ('FREE', 'PRO', 'MAX');
+DO $$ BEGIN
+  CREATE TYPE "ContractTier" AS ENUM ('FREE', 'PRO', 'MAX');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE IF NOT EXISTS "ContractStatus" AS ENUM ('ACTIVE', 'PAUSED', 'CANCELLED');
+DO $$ BEGIN
+  CREATE TYPE "ContractStatus" AS ENUM ('ACTIVE', 'PAUSED', 'CANCELLED');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE IF NOT EXISTS "MaintenanceMode" AS ENUM ('NONE', 'SHARED', 'CUSTOM');
+DO $$ BEGIN
+  CREATE TYPE "MaintenanceMode" AS ENUM ('NONE', 'SHARED', 'CUSTOM');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateEnum
-CREATE TYPE IF NOT EXISTS "PaymentStatus" AS ENUM ('PENDING', 'PARTIAL', 'PAID');
+DO $$ BEGIN
+  CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'PARTIAL', 'PAID');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateTable
 CREATE TABLE "tenants" (
