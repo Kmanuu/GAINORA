@@ -396,8 +396,8 @@ const Hero = () => {
       </div>
 
       <h1 style={{
-        fontSize: 'clamp(48px, 7.4vw, 104px)', fontWeight: 800, lineHeight: .98,
-        letterSpacing: '-.045em', marginBottom: 28, maxWidth: 1000,
+        fontSize: 'clamp(34px, 7.4vw, 104px)', fontWeight: 800, lineHeight: 1.05,
+        letterSpacing: '-.04em', marginBottom: 28, maxWidth: 1000,
         animation: 'fade-up .9s .12s ease-out forwards', opacity: 0,
         background: `linear-gradient(180deg, #FFFFFF 0%, #B0BCC8 100%)`,
         WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',

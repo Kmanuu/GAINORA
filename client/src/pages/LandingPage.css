@@ -112,3 +112,69 @@ body.landing-active {
 
 /* Selection */
 .landing-page ::selection { background: rgba(10,132,255,.35); color: #FFFFFF; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Responsive overrides: la landing usa estilos en línea con grids fijos que
+   se rompen en móvil. Aquí forzamos el reflow a una sola columna y
+   ajustamos paddings y tamaños de fuente para anchos < 768px.
+   Con !important porque tenemos que ganarle a los `style={{...}}` de React.
+   ───────────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .landing-page section {
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+  }
+
+  /* Nav: compacta en móvil */
+  .landing-page nav { padding: 0 16px !important; }
+  .landing-page nav button,
+  .landing-page nav a { font-size: 13px !important; }
+
+  /* Demo del dashboard: la sidebar y la tabla ya tienen `hidden sm:block`,
+     pero el grid padre sigue con `200px 1fr`. Lo colapsamos a 1 columna. */
+  #dashboard-mock > div:nth-child(2) {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* KPI cards: 3→1 columna */
+  #dashboard-mock div[style*="repeat(3, 1fr)"] {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Tablas con 5 columnas que asoman tras el `hidden sm:block` (por si acaso) */
+  #dashboard-mock div[style*="1.6fr 1fr"] {
+    grid-template-columns: 1fr !important;
+    gap: 4px !important;
+  }
+
+  /* Heatmap 6 columnas → 3 en móvil */
+  .landing-page section[id="flow"] div[style*="repeat(6, 1fr)"] {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Grids 1fr 1fr genéricos → 1 columna en móvil
+     (pricing, sección hero/dashboard layout, etc.) */
+  .landing-page section[id="pricing"] div[style*="repeat(2, 1fr)"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Padding general de secciones: bajar de 120px a 64px arriba/abajo */
+  .landing-page section[id="flow"],
+  .landing-page section[id="fiscal"],
+  .landing-page section[id="pricing"],
+  .landing-page section[id="about"] {
+    padding-top: 64px !important;
+    padding-bottom: 64px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Tipografía de hero: ya bajamos el clamp a 34px, aquí afinamos line-height */
+  .landing-page h1 { line-height: 1.08 !important; letter-spacing: -.03em !important; }
+
+  /* KPI grid: a una sola columna en pantallas muy pequeñas */
+  #dashboard-mock div[style*="repeat(3, 1fr)"] {
+    grid-template-columns: 1fr !important;
+  }
+}
