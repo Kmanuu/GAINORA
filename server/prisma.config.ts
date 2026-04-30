@@ -8,6 +8,9 @@ export default defineConfig({
   migrations: {
     path: "prisma/migrations",
   },
+  datasource: {
+    url: process.env.DATABASE_URL,
+  },
   migrate: {
     adapter: (env) => new PrismaPg(new Pool({ connectionString: env.DATABASE_URL })),
   },
