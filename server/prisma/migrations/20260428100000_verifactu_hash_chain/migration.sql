@@ -1,5 +1,5 @@
 -- VeriFactu (RD 1007/2023): hash chain por serie + log inmutable de auditoría.
-CREATE TYPE "InvoiceAuditAction" AS ENUM ('ISSUE', 'VOID', 'RECTIFY');
+CREATE TYPE IF NOT EXISTS "InvoiceAuditAction" AS ENUM ('ISSUE', 'VOID', 'RECTIFY');
 
 ALTER TABLE "invoices"
   ADD COLUMN "previous_hash" VARCHAR(64),
