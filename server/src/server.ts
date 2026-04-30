@@ -51,7 +51,7 @@ app.get("/api/health", (_req, res) => {
 
 app.use(errorHandler);
 
-app.listen(env.PORT, () => {
-  console.log(`Gainora API running on http://localhost:${env.PORT}`);
+app.listen(env.PORT, "0.0.0.0", () => {
+  console.log(`Gainora API running on http://0.0.0.0:${env.PORT}`);
   startRollPaymentsCron();
 });
