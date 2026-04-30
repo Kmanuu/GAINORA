@@ -114,21 +114,35 @@ body.landing-active {
 .landing-page ::selection { background: rgba(10,132,255,.35); color: #FFFFFF; }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Responsive overrides: la landing usa estilos en línea con grids fijos que
-   se rompen en móvil. Aquí forzamos el reflow a una sola columna y
-   ajustamos paddings y tamaños de fuente para anchos < 768px.
-   Con !important porque tenemos que ganarle a los `style={{...}}` de React.
+   Responsive + Apple Human Interface Guidelines (HIG)
+   - Tap targets ≥ 44×44 (Apple HIG mandatorio)
+   - Safe area insets para iPhone con notch / Dynamic Island
+   - Espaciado generoso (Apple respeta el whitespace incluso en móvil)
+   - Jerarquía tipográfica clara y line-height relajado
+   - Padding horizontal mínimo de 20px en móvil (Apple HIG)
    ───────────────────────────────────────────────────────────────────────── */
+
+/* Safe area para iPhone modernos (notch / Dynamic Island) */
+.landing-page nav {
+  padding-left: max(20px, env(safe-area-inset-left)) !important;
+  padding-right: max(20px, env(safe-area-inset-right)) !important;
+}
+
 @media (max-width: 768px) {
   .landing-page section {
-    padding-left: 18px !important;
-    padding-right: 18px !important;
+    padding-left: max(20px, env(safe-area-inset-left)) !important;
+    padding-right: max(20px, env(safe-area-inset-right)) !important;
   }
 
-  /* Nav: compacta en móvil */
-  .landing-page nav { padding: 0 16px !important; }
+  /* Nav: compacta pero respetando 44px tap target */
+  .landing-page nav { padding: 0 16px !important; height: 56px !important; }
   .landing-page nav button,
-  .landing-page nav a { font-size: 13px !important; }
+  .landing-page nav a {
+    font-size: 13px !important;
+    min-height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
 
   /* Demo del dashboard: la sidebar y la tabla ya tienen `hidden sm:block`,
      pero el grid padre sigue con `200px 1fr`. Lo colapsamos a 1 columna. */
@@ -159,22 +173,64 @@ body.landing-active {
     grid-template-columns: 1fr !important;
   }
 
-  /* Padding general de secciones: bajar de 120px a 64px arriba/abajo */
+  /* Padding generoso entre secciones (Apple HIG: respira) */
   .landing-page section[id="flow"],
   .landing-page section[id="fiscal"],
   .landing-page section[id="pricing"],
   .landing-page section[id="about"] {
-    padding-top: 64px !important;
-    padding-bottom: 64px !important;
+    padding-top: 72px !important;
+    padding-bottom: 72px !important;
+  }
+
+  /* Tipografía Apple-like: tracking más relajado, line-height generoso */
+  .landing-page h1 {
+    line-height: 1.08 !important;
+    letter-spacing: -.025em !important;
+  }
+  .landing-page h2 {
+    line-height: 1.12 !important;
+    letter-spacing: -.022em !important;
+    font-size: clamp(28px, 5.5vw, 48px) !important;
+  }
+  .landing-page p {
+    line-height: 1.55 !important;
+  }
+
+  /* Botones primary/CTA: tap target 44×44 y padding cómodo */
+  .landing-page button[style*="background"],
+  .landing-page a[style*="background"] {
+    min-height: 44px !important;
+  }
+
+  /* Safe area inferior para iPhone con home indicator */
+  .landing-page > footer,
+  .landing-page section:last-of-type {
+    padding-bottom: max(72px, env(safe-area-inset-bottom)) !important;
   }
 }
 
 @media (max-width: 480px) {
-  /* Tipografía de hero: ya bajamos el clamp a 34px, aquí afinamos line-height */
-  .landing-page h1 { line-height: 1.08 !important; letter-spacing: -.03em !important; }
+  /* iPhone SE / Mini / Android pequeño */
 
   /* KPI grid: a una sola columna en pantallas muy pequeñas */
   #dashboard-mock div[style*="repeat(3, 1fr)"] {
     grid-template-columns: 1fr !important;
+  }
+
+  /* Hero más compacto en pantallas pequeñas */
+  .landing-page section:first-of-type {
+    padding-top: 96px !important;
+    padding-bottom: 56px !important;
+  }
+
+  /* Tipografía hero un punto más controlada */
+  .landing-page h1 {
+    font-size: clamp(30px, 9vw, 44px) !important;
+  }
+
+  /* Pills y badges: que no se desborden */
+  .landing-page section:first-of-type div[style*="border-radius: 999"] {
+    font-size: 11px !important;
+    padding: 6px 12px !important;
   }
 }
