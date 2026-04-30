@@ -24,7 +24,8 @@ import { startRollPaymentsCron } from "./jobs/rollPaymentsCron.js";
 const app = express();
 
 app.use(helmet());
-app.use(cors({ origin: env.CLIENT_URL }));
+const allowedOrigins = [env.CLIENT_URL, env.CLIENT_URL_PROD].filter(Boolean) as string[];
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
 // --- Rutas ---
