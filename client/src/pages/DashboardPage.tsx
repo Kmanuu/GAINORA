@@ -587,11 +587,19 @@ function SubscriptionsBlock({
           <p className="text-[26px] font-semibold text-[var(--color-text)] leading-tight tracking-[-0.01em] tabular-nums">
             {fmtCurrency(projRev, 0)}
           </p>
-          <p className={clsx(
-            'text-[11.5px] mt-1 tabular-nums font-medium',
-            projProf >= 0 ? 'text-[#25A244] dark:text-[#5CE67D]' : 'text-[#D93025] dark:text-[#FF6961]',
-          )}>
+          <p
+            className={clsx(
+              'text-[11.5px] mt-1 tabular-nums font-medium',
+              projProf >= 0 ? 'text-[#25A244] dark:text-[#5CE67D]' : 'text-[#D93025] dark:text-[#FF6961]',
+            )}
+            title={projProf >= 0
+              ? 'Ingresos previstos menos costes fijos en el periodo seleccionado.'
+              : 'Tus costes fijos superan a los ingresos proyectados. Sube tarifas, aumenta MRR o reduce costes para revertirlo.'}
+          >
             Beneficio estimado: {projProf >= 0 ? '+' : ''}{fmtCurrency(projProf, 0)}
+            {projProf < 0 && (
+              <span className="ml-1 text-[var(--color-text-secondary)] font-normal">(costes &gt; ingresos)</span>
+            )}
           </p>
         </div>
       </Card>

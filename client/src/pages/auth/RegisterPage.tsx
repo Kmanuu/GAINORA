@@ -4,7 +4,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Building2, User, Mail, Lock, Hash, Check } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Building2, User, Mail, Lock, Hash, Check } from 'lucide-react';
 import { GainoraMark } from '@/components/brand/GainoraLogo';
 import clsx from 'clsx';
 import { useAuth }       from '@/context/AuthContext';
@@ -140,6 +140,15 @@ export default function RegisterPage() {
           style={{ background: 'radial-gradient(ellipse, #00D4FF 0%, transparent 70%)' }}
         />
       </div>
+
+      {/* Back to landing */}
+      <Link
+        to="/"
+        className="absolute top-6 left-6 flex items-center gap-2 px-4 py-2 rounded-full text-[13px] text-[#9CA3AF] hover:text-white hover:bg-white/5 transition-all z-10"
+      >
+        <ArrowLeft className="w-4 h-4" strokeWidth={2} />
+        Volver
+      </Link>
 
       <div className="relative w-full max-w-[460px] animate-fade-up" style={{ animationFillMode: 'both' }}>
         <div
@@ -288,8 +297,8 @@ export default function RegisterPage() {
       <div className="mt-12 flex items-center gap-6 text-[12px] text-[#1F2937] font-medium relative">
         <span>© {new Date().getFullYear()} Gainora</span>
         <div className="w-1 h-1 rounded-full bg-[#1F2937]" />
-        <a href="#" className="hover:text-[#4B5563] transition-colors">Privacidad</a>
-        <a href="#" className="hover:text-[#4B5563] transition-colors">Términos</a>
+        <Link to="/privacy" className="hover:text-[#4B5563] transition-colors">Privacidad</Link>
+        <Link to="/terms" className="hover:text-[#4B5563] transition-colors">Términos</Link>
       </div>
     </div>
   );
