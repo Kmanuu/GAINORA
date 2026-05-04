@@ -15,3 +15,7 @@ APUNTES.md
 .testing_hidden/
 image/.testing_hidden/
 .vscode/
+
+# Documentación interna (solo local)
+documentaciones/INDICE.md
+documentaciones/README-para-estudiar.md
