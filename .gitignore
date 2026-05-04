@@ -19,3 +19,7 @@ image/.testing_hidden/
 # Documentación interna (solo local)
 documentaciones/INDICE.md
 documentaciones/README-para-estudiar.md
+
+# Archivos de debug (solo local)
+server/test.ts
+server/test_db.ts
