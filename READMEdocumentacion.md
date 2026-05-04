@@ -1,635 +1,313 @@
-# HorasPRO
+# Gainora — Memoria del Proyecto
 
-> Sistema de control de rentabilidad para pequeñas agencias y profesionales freelance.
->
-> **Proyecto Intermodular DAW** — IES Francisco de los Ríos, Fernán Núñez, Córdoba
->
-> **Autor:** Manuel Laguna Prieto · **Entrega:** Mayo 2026
+> Esqueleto provisional · 30 abril 2026
+> Versión 0.1 — pendiente de contenido detallado, capturas y referencias.
 
 ---
 
-## Diario de desarrollo
+## 0. Portada (a maquetar al final)
 
-### Sesión 1 — 1-18 de marzo de 2026
+- Título: **Gainora — Plataforma SaaS de control de rentabilidad para autónomos y pequeñas agencias**
+- Autor: Manuel Laguna Prieto
+- Tutor: *(rellenar)*
+- Centro / Titulación: IES Francisco de los Ríos · Proyecto Intermodular DAW
+- Convocatoria: *(rellenar)*
+- Fecha de entrega: 15 de mayo de 2026
 
-#### 1. Comprobación de herramientas
+---
 
-Se verificó que el equipo (Mac M4) tenía todo lo necesario instalado:
+## 1. Resumen ejecutivo *(1 página)*
 
-- **Git** → `git --version` → v2.50.1
-- **Node.js** → ya instalado
-- **Docker Desktop** → ya instalado
-- **VS Code / Cursor** → ya instalado
+Tres párrafos cortos, escritos para alguien que no conoce ni programación ni contabilidad:
 
-```console
-$ git --version
-git version 2.50.1
-$ node -v
-v24.12.0
+1. **Qué problema resuelve.** Un autónomo o una pequeña agencia normalmente no sabe si está ganando o perdiendo dinero hasta el final del año, cuando habla con su gestor. Gainora le dice **cada mes** cuánto cuesta su hora de trabajo, cuánto está ingresando y si su negocio es rentable.
+2. **Qué es Gainora.** Una aplicación web a la que se entra desde el navegador. No hay que instalar nada. Funciona como Gmail o Google Drive: cada empresa tiene su propio espacio aislado, con sus clientes, proyectos, horas, costes y facturas.
+3. **Qué tiene de especial.** Calcula la **tarifa mínima rentable** automáticamente, genera **facturas legales en PDF** con todos los requisitos fiscales españoles (IVA, IRPF, recargo de equivalencia), y mantiene un **historial inalterable de facturas** según el Real Decreto VeriFactu, sin que el usuario tenga que entender ninguno de esos términos.
+
+---
+
+## 2. Glosario para no expertos *(IMPORTANTE — leer antes que el resto)*
+
+Esta memoria menciona conceptos contables y técnicos. Esta tabla los explica con palabras del día a día:
+
+| Término | Qué significa de verdad |
+|---|---|
+| **Tarifa mínima** | Lo mínimo que tienes que cobrar la hora para no perder dinero. Si tu coste fijo mensual (alquiler, luz, software) más tus horas de trabajo suman 2.000 €, y trabajas 100 horas al mes, tu tarifa mínima es 20 €/h. Por debajo de eso, pierdes. |
+| **MRR** | *Monthly Recurring Revenue* — los ingresos que recibes cada mes de forma fija (suscripciones, mantenimientos). Como el "fijo" del trabajo, pero del cliente que te paga regularmente. |
+| **IVA** | Impuesto que añades al precio de tu servicio (21% en España general) y que luego le entregas a Hacienda. No es tuyo, eres "intermediario". |
+| **IRPF** | Lo que retienes a Hacienda por adelantado. Si facturas a una empresa, ellos te pagan 79€ de cada 100€, y los 21€ los envían directamente a Hacienda en tu nombre. |
+| **Recargo de equivalencia** | Régimen especial de IVA para comerciantes minoristas: pagan un IVA extra y a cambio Hacienda no les pide declaración trimestral. |
+| **VeriFactu** | Real Decreto 1007/2023. Obliga desde 2026 a que cada factura "esté encadenada" con la anterior mediante una huella digital, para que sea imposible falsificar facturas a posteriori. |
+| **SaaS** | *Software as a Service* — software al que se accede desde la web, sin instalación. Ej: Gmail, Netflix, Spotify, Gainora. |
+| **Multi-tenant** | Una sola aplicación que sirve a muchas empresas distintas, cada una con su espacio privado. Como un edificio de oficinas: el edificio es uno solo, pero cada empresa alquila su planta y nadie ve lo de los demás. |
+| **API** | El "camarero" entre el navegador del usuario y la base de datos. La página le pide cosas, la API las trae. |
+| **Base de datos** | Donde se guarda toda la información (usuarios, facturas, horas) de forma estructurada. |
+
+---
+
+## 3. Introducción y motivación *(2-3 páginas)*
+
+### 3.1 Contexto: el autónomo invisible
+
+- Cuántos autónomos hay en España, cuántas pequeñas agencias.
+- Por qué el problema de "no saber si soy rentable" es tan común.
+- Por qué Excel no es la solución (errores manuales, no actualiza el coste-hora real, no genera facturas legales).
+
+### 3.2 Soluciones existentes y su limitación
+
+Comparativa breve con tres alternativas reales:
+
+- **Holded / Quipu** — buen software contable pero pensado para gestores; el autónomo no lo entiende.
+- **FreshBooks / QuickBooks** — internacionales, no soportan particularidades fiscales españolas (IRPF, recargo de equivalencia, VeriFactu).
+- **Excels caseros** — flexibles pero llenos de errores y sin facturas legales.
+
+### 3.3 Hueco que ocupa Gainora
+
+Software pensado para el autónomo, en español, con fiscalidad española al día, y que **traduce los números a decisiones**: "sube tu tarifa", "cuidado, este mes pierdes dinero", "este cliente no es rentable".
+
+---
+
+## 4. Objetivos *(1 página)*
+
+### 4.1 Objetivo general
+
+Diseñar, desarrollar y desplegar una aplicación web SaaS multi-tenant que permita a un autónomo o pequeña agencia conocer en tiempo real su rentabilidad y cumplir con la normativa fiscal española de facturación.
+
+### 4.2 Objetivos específicos
+
+1. Calcular automáticamente la tarifa mínima rentable a partir de costes fijos, capacidad y margen objetivo.
+2. Permitir el seguimiento de horas trabajadas por proyecto y empleado.
+3. Generar facturas en PDF con todos los requisitos legales (IVA, IRPF, recargo de equivalencia, hash chain VeriFactu).
+4. Implementar un sistema de roles (Owner, Admin, Empleado, Viewer, Superadmin) con permisos diferenciados.
+5. Aislar los datos de cada empresa (multi-tenancy) con seguridad.
+6. Desplegar la aplicación en producción accesible desde Internet.
+
+---
+
+## 5. Análisis previo *(2 páginas)*
+
+### 5.1 Requisitos funcionales
+
+Lista numerada (RF-01, RF-02…) explicada en una frase cada uno. Bloques:
+
+- Autenticación y registro
+- Gestión de clientes y proyectos
+- Fichaje de horas
+- Costes fijos y variables
+- Contratos de suscripción
+- Facturación legal con PDF
+- Panel de control y métricas
+- Roles y permisos
+
+### 5.2 Requisitos no funcionales
+
+- **Seguridad**: contraseñas hasheadas, JWT, aislamiento entre empresas.
+- **Disponibilidad**: la app debe estar online 24/7.
+- **Rendimiento**: respuesta en menos de 1s en operaciones normales.
+- **Usabilidad**: cualquier persona sin formación técnica debe entenderla.
+- **Cumplimiento legal**: facturas conformes con la normativa española.
+
+### 5.3 Casos de uso principales
+
+5-6 casos de uso descritos en lenguaje natural, con un diagrama simple:
+- "Laura, dueña de una agencia, da de alta un cliente nuevo"
+- "Juan, empleado, ficha sus horas en un proyecto"
+- "Laura emite una factura mensual y la descarga en PDF"
+- "Pepa, administradora, anula una factura por error y emite una rectificativa"
+- etc.
+
+---
+
+## 6. Diseño *(3-4 páginas)*
+
+### 6.1 Arquitectura general
+
+Diagrama explicando las 3 capas:
+
+```
+[Navegador del usuario]
+      ↓ HTTPS
+[Frontend React (Vercel)]
+      ↓ HTTPS API REST
+[Backend Express + Node.js (Railway)]
+      ↓ TCP
+[Base de datos PostgreSQL (Railway)]
 ```
 
-#### 2. Creación del repositorio
+Explicado en lenguaje llano: el navegador es el escaparate, el backend es el cerebro, y la base de datos es la memoria a largo plazo.
 
-![Code snippet 1 - bash](assets/code_snippet_1.png)
+### 6.2 Modelo de datos
 
-Se creó la carpeta del proyecto dentro de `~/Desktop/Proyecto 2GS/` y se inicializó el repositorio Git con la estructura básica: `client/`, `server/src/`, `server/prisma/`.
+Diagrama de las entidades principales y cómo se relacionan:
 
-```text
+- Tenant (empresa) → contiene Users, Clients, Projects, Plans, Invoices…
+- Project → tiene Contracts y TimeEntries
+- Contract → genera Payments y Invoices
+- Invoice → tiene InvoiceLines y queda encadenada con la anterior por hash
+
+Explicación de por qué cada relación es como es. Captura del diagrama generado por Prisma.
+
+### 6.3 Diseño de la interfaz
+
+- Decisiones de UX: paleta oscura/clara, sidebar, dashboard como pantalla principal.
+- Capturas grandes de las 6 pantallas más representativas.
+- Mención de la "Apple-inspired design system": tipografía, tokens de color, espaciado.
+
+### 6.4 Roles y permisos
+
+Tabla con la matriz de permisos:
+
+| Acción | OWNER | ADMIN | EMPLOYEE | VIEWER |
+|---|:-:|:-:|:-:|:-:|
+| Ver dashboard | ✓ | ✓ | ✓ | ✓ |
+| Crear/editar clientes y proyectos | ✓ | ✓ | ✗ | ✗ |
+| Emitir facturas | ✓ | ✓ | ✗ | ✗ |
+| Anular factura (rectificativa) | ✓ | ✗ | ✗ | ✗ |
+| Fichar horas propias | ✓ | ✓ | ✓ | ✗ |
+| Datos legales y fiscales | ✓ | ✗ | ✗ | ✗ |
+| Gestión de equipo | ✓ | ✗ | ✗ | ✗ |
+
+### 6.5 Flujo de facturación legal
+
+Diagrama de cómo una factura nace, se firma con hash, se encadena con la anterior y se exporta a PDF. Explicación de VeriFactu en lenguaje no técnico.
+
+---
+
+## 7. Implementación *(3 páginas)*
+
+### 7.1 Tecnologías utilizadas y por qué
+
+| Capa | Tecnología | Por qué |
+|---|---|---|
+| Frontend | React 19 + TypeScript + Vite + Tailwind CSS 4 | Estándar de la industria, ecosistema enorme, velocidad de desarrollo. |
+| Backend | Node.js + Express 5 + TypeScript | JavaScript en ambos lados → un solo lenguaje, menos contexto. |
+| Base de datos | PostgreSQL 17 + Prisma 7 | Postgres es el estándar para datos relacionales fiables. Prisma da type-safety end-to-end. |
+| Autenticación | JWT + bcryptjs | Estándar para APIs sin estado. |
+| PDF | PDFKit | Control total sobre el layout legal de la factura. |
+| Cron | node-cron | Generar pagos recurrentes a las 03:00 cada noche. |
+| Despliegue | Railway (back+BD) + Vercel (front) | Gratis para el alcance del proyecto, despliegue continuo desde GitHub. |
+
+### 7.2 Decisiones técnicas relevantes
+
+3-4 decisiones que se justifican por escrito:
+
+- **Multi-tenancy con `tenantId` en cada tabla** vs schema-per-tenant. Por qué esa elección (más simple, suficiente para el alcance).
+- **JWT con refresh token** vs sesiones en cookie. Por qué JWT (sin estado, escalable).
+- **Hash chain de facturas con SHA-256** según VeriFactu. Cómo se implementa.
+- **Generación de PDF en backend** vs frontend. Por qué backend (consistencia, firma, sin depender del navegador).
+
+### 7.3 Estructura del código
+
+```
 horaspro/
-├── client/
-│   ├── public/
-│   ├── src/
-│   ├── package.json
-│   └── vite.config.ts
-├── server/
-│   ├── prisma/
-│   │   ├── schema.prisma
-│   │   └── seed.ts
-│   ├── src/
-│   │   ├── controllers/
-│   │   ├── middleware/
-│   │   ├── routes/
-│   │   └── server.ts
-│   ├── .env
-│   ├── package.json
-│   ├── prisma.config.ts
-│   └── tsconfig.json
-├── docker-compose.yml
-└── READMEdocumentacion.md
-```
-
-#### 3. PostgreSQL con Docker
-
-Se creó `docker-compose.yml` en la raíz del proyecto para levantar PostgreSQL 16:
-
-![Code snippet 2 - yaml](assets/code_snippet_2.png)
-
-![Code snippet 3 - bash](assets/code_snippet_3.png)
-
-```console
-$ docker ps
-CONTAINER ID   IMAGE                COMMAND                  CREATED         STATUS         PORTS                    NAMES
-8f9e1a2b3c4d   postgres:16-alpine   "docker-entrypoint.s…"   10 minutes ago  Up 10 minutes  0.0.0.0:5432->5432/tcp   horaspro-db
-```
-
-#### 4. Inicialización del backend
-
-![Code snippet 4 - bash](assets/code_snippet_4.png)
-
-Dependencias instaladas:
-
-| Tipo    | Paquetes                                                                   |
-| ------- | -------------------------------------------------------------------------- |
-| Runtime | express, @prisma/client, cors, helmet, zod, bcryptjs, jsonwebtoken, dotenv |
-| Dev     | typescript, @types/\*, tsx, vitest, prisma                                 |
-
-#### 5. Configuración de TypeScript
-
-Se creó `server/tsconfig.json`:
-
-![Code snippet 5 - json](assets/code_snippet_5.png)
-
-#### 6. Inicialización de Prisma
-
-![Code snippet 6 - bash](assets/code_snippet_6.png)
-
-Esto generó:
-
-- `prisma/schema.prisma` — schema de la base de datos
-- `prisma.config.ts` — configuración de Prisma 7 (la URL de la BD se define aquí)
-- `.env` — variables de entorno
-- `.gitignore` — excluye node_modules, .env y el cliente generado
-
-**Nota:** Prisma 7 ya no soporta `url = env("DATABASE_URL")` directamente en el schema. La conexión se configura en `prisma.config.ts`:
-
-![Code snippet 7 - ts](assets/code_snippet_7.png)
-
-#### 7. Schema de Prisma
-
-Se escribió el schema completo con 7 modelos y 4 enums en `prisma/schema.prisma`:
-
-| Modelo         | Descripción                                      |
-| -------------- | ------------------------------------------------ |
-| `Tenant`       | Negocio/empresa (multi-tenant)                   |
-| `User`         | Usuario con rol (OWNER, ADMIN, EMPLOYEE, VIEWER) |
-| `Project`      | Proyecto con cliente, presupuesto y estado       |
-| `TimeEntry`    | Registro de horas trabajadas                     |
-| `FixedCost`    | Costes fijos (alquiler, licencias...)            |
-| `VariableCost` | Costes variables por proyecto                    |
-
-![Code snippet 8 - bash](assets/code_snippet_8.png)
-
-```console
-$ npx prisma db push
-Environment variables loaded from .env
-Prisma schema loaded from prisma/schema.prisma
-Datasource "db": PostgreSQL database "horaspro_dev", schema "public" at "localhost:5432"
-
-🚀  Your database is now in sync with your Prisma schema. Done in 184ms
-```
-
-#### 8. Variables de entorno
-
-Se configuró `server/.env`:
-
-![Code snippet 9 - env](assets/code_snippet_9.png)
-
-También se creó `.env.example` en la raíz del proyecto (sin secretos) para que cualquiera pueda configurar su entorno.
-
-#### 9. Estructura de carpetas del servidor
-
-Se crearon todos los archivos esqueleto con `// TODO` indicando qué implementar en cada uno:
-
-![Code snippet 10 - ](assets/code_snippet_10.png)
-
-#### 10. Scripts de npm
-
-Se configuraron los scripts en `server/package.json`:
-
-![Code snippet 11 - json](assets/code_snippet_11.png)
-
-#### 11. Verificación del servidor
-
-![Code snippet 12 - bash](assets/code_snippet_12.png)
-
-El servidor arranca correctamente y responde al endpoint de health check.
-
-```console
-$ npm run dev
-> horaspro-server@0.1.0 dev
-> tsx watch src/server.ts
-
-HorasPRO API running on http://localhost:3001
-
-# En otra terminal:
-$ curl http://localhost:3001/api/health
-{"status":"ok","timestamp":"2026-03-19T13:45:12.345Z"}
+├── client/          ← lo que el usuario ve (React)
+│   └── src/
+│       ├── pages/   ← una carpeta por pantalla
+│       ├── components/
+│       └── lib/     ← utilidades (cliente HTTP, formatters)
+├── server/          ← el cerebro (Node.js)
+│   └── src/
+│       ├── routes/  ← qué URLs existen
+│       ├── controllers/  ← qué hace cada URL
+│       ├── services/     ← lógica de negocio
+│       └── lib/
+└── prisma/          ← cómo se llama y conecta cada tabla
+    └── schema.prisma
 ```
 
 ---
 
-### Sesión 2 — 15-19 de marzo de 2026
+## 8. Validación y pruebas *(1-2 páginas)*
 
-#### 1. Validación de variables de entorno
+### 8.1 Pruebas manuales
 
-Se creó `server/src/config/env.ts` para validar las variables de entorno al arrancar con Zod. Si falta alguna variable obligatoria (como `DATABASE_URL` o `JWT_SECRET`), el servidor no arranca y muestra un error claro:
+Sesiones de QA con Claude Chrome y revisión humana. Se documentan los 8 bugs detectados y los 3 que se resolvieron antes del despliegue final.
 
-```typescript
-const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
-  PORT: z.coerce.number().default(3001),
-  CLIENT_URL: z.string().default("http://localhost:5173"),
-  DATABASE_URL: z.string(),
-  JWT_SECRET: z.string().min(16),
-  JWT_EXPIRES_IN: z.string().default("15m"),
-  REFRESH_TOKEN_EXPIRES_IN: z.string().default("7d"),
-});
-```
+### 8.2 Pruebas automáticas
 
-#### 2. Middleware de errores
+Referencia a los tests de Vitest existentes para servicios críticos (cálculo de tarifa, generación de hash, etc.).
 
-Se implementó `middleware/errorHandler.ts` con una clase `AppError` que permite lanzar errores con código HTTP desde cualquier punto del código:
+### 8.3 Pruebas de roles
 
-```typescript
-throw new AppError(404, "Coste fijo no encontrado");
-// → responde { "error": "Coste fijo no encontrado" } con status 404
-```
+Matriz: cada rol intenta cada acción y se verifica que el sistema le permite/deniega lo que toca.
 
-El middleware captura todos los errores y devuelve siempre JSON limpio. Los errores no controlados devuelven un 500 genérico sin exponer detalles internos.
+### 8.4 Despliegue real
 
-#### 3. Middleware de validación con Zod
-
-Se creó `middleware/validate.ts`, un middleware reutilizable que valida `req.body` contra un schema Zod antes de llegar al controller:
-
-```typescript
-router.post("/register", validate(registerSchema), register);
-```
-
-Si los datos no pasan la validación, responde con 400 y los detalles del error.
-
-#### 4. Middleware de autenticación JWT
-
-Se implementó `middleware/auth.ts` con dos funciones:
-
-- **`requireAuth`** — Verifica el token JWT del header `Authorization: Bearer <token>`, decodifica el payload e inyecta `userId`, `tenantId` y `role` en `req.user`.
-- **`requireRole(...roles)`** — Middleware adicional que comprueba que el usuario tiene uno de los roles permitidos.
-
-```typescript
-// Ejemplo de uso en rutas protegidas
-router.use(requireAuth);                        // todas las rutas requieren JWT
-router.delete("/:id", requireRole("OWNER", "ADMIN"), deleteProject);  // solo OWNER o ADMIN
-```
-
-#### 5. Middleware de tenant
-
-Se creó `middleware/tenant.ts` con `tenantScope`, que verifica que el usuario autenticado tenga un `tenantId` válido. Todos los controllers usan `req.user!.tenantId` para filtrar datos, garantizando que un tenant nunca vea datos de otro.
-
-#### 6. Autenticación completa
-
-Se implementó `controllers/auth.controller.ts` y `routes/auth.routes.ts`:
-
-| Endpoint                  | Descripción                                          |
-| ------------------------- | ---------------------------------------------------- |
-| `POST /api/auth/register` | Crea un nuevo tenant + usuario OWNER                 |
-| `POST /api/auth/login`    | Verifica credenciales y devuelve tokens JWT          |
-| `POST /api/auth/refresh`  | Renueva el access token con un refresh token válido  |
-
-**Flujo de registro:**
-
-1. Valida los datos con Zod (nombre empresa, slug, email, contraseña, nombre completo)
-2. Comprueba que el slug no esté en uso
-3. Hashea la contraseña con bcrypt (12 rondas)
-4. Crea el tenant y el usuario OWNER en una sola transacción de Prisma
-5. Devuelve los datos del usuario + tokens JWT
-
-**Flujo de login:**
-
-1. Busca el tenant por slug
-2. Busca el usuario por email dentro de ese tenant
-3. Compara la contraseña con bcrypt
-4. Devuelve los datos del usuario + tokens JWT (access + refresh)
-
-#### 7. CRUD de costes fijos
-
-Se implementó el primer módulo CRUD completo: `controllers/fixedCost.controller.ts` y `routes/fixedCost.routes.ts`.
-
-| Endpoint                  | Método     | Descripción                    |
-| ------------------------- | ---------- | ------------------------------ |
-| `/api/v1/fixed-costs`     | `GET`      | Listar costes fijos del tenant |
-| `/api/v1/fixed-costs`     | `POST`     | Crear un coste fijo            |
-| `/api/v1/fixed-costs/:id` | `PATCH`    | Actualizar un coste fijo       |
-| `/api/v1/fixed-costs/:id` | `DELETE`   | Eliminar un coste fijo         |
-
-Todas las rutas están protegidas con `requireAuth`. Cada operación filtra por `tenantId` para garantizar el aislamiento multi-tenant.
-
-Validación con Zod en creación:
-
-```typescript
-const createFixedCostSchema = z.object({
-  name: z.string().min(2),
-  amount: z.number().positive(),
-  frequency: z.enum(["MONTHLY", "QUARTERLY", "YEARLY"]),
-  category: z.string().optional(),
-});
-```
-
-#### 8. Conexión de rutas en el servidor
-
-Se actualizó `server.ts` para registrar las rutas implementadas y añadir el `errorHandler` como último middleware:
-
-```typescript
-app.use("/api/auth", authRoutes);
-app.use("/api/v1/fixed-costs", fixedCostRoutes);
-app.use(errorHandler);
-```
+URL de producción, capturas, prueba de creación de cuenta nueva por un usuario externo.
 
 ---
 
-### Sesión 3 — 20-23 de marzo de 2026
+## 9. Despliegue *(1 página)*
 
-#### 1. CRUD de Proyectos
+### 9.1 Infraestructura
 
-Se implementó el módulo completo de gestión de proyectos en `controllers/project.controller.ts` y `routes/project.routes.ts`:
+GitHub → push → Railway (backend) y Vercel (frontend) despliegan automáticamente.
 
-| Endpoint               | Método     | Descripción                          |
-| ---------------------- | ---------- | ------------------------------------ |
-| `/api/v1/projects`     | `GET`      | Listar proyectos (filtro por status) |
-| `/api/v1/projects`     | `POST`     | Crear un proyecto                    |
-| `/api/v1/projects/:id` | `GET`      | Detalle con time entries y costes    |
-| `/api/v1/projects/:id` | `PATCH`    | Actualizar un proyecto               |
-| `/api/v1/projects/:id` | `DELETE`   | Soft delete (marca como CANCELLED)   |
+### 9.2 URLs públicas
 
-El endpoint de detalle (`GET /:id`) incluye las relaciones: devuelve las entradas de tiempo con el nombre y coste/hora del empleado, y los costes variables asociados. Esto permite al frontend calcular y mostrar la rentabilidad del proyecto.
+- Frontend: https://client-five-ebon-83.vercel.app
+- Backend: https://gainora.up.railway.app
+- Base de datos: PostgreSQL gestionada por Railway
 
-El delete es un **soft delete**: en lugar de eliminar el registro, cambia el estado a `CANCELLED`. Así se conserva el historial para informes.
+### 9.3 Variables de entorno y secretos
 
-Validación con Zod en creación:
-
-```typescript
-const createProjectSchema = z.object({
-  name: z.string().min(2),
-  clientName: z.string().optional(),
-  clientTaxId: z.string().optional(),
-  description: z.string().optional(),
-  status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"]).optional(),
-  budgetHours: z.number().positive().optional(),
-  budgetAmount: z.number().positive().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-});
-```
-
-#### 2. CRUD de Time Entries (Registro de horas)
-
-Se implementó el módulo de fichaje de horas en `controllers/timeEntry.controller.ts` y `routes/timeEntry.routes.ts`:
-
-| Endpoint                   | Método    | Descripción                                         |
-| -------------------------- | --------- | --------------------------------------------------- |
-| `/api/v1/time-entries`     | `GET`     | Listar horas (filtro por proyecto, usuario, fechas) |
-| `/api/v1/time-entries`     | `POST`    | Registrar horas                                     |
-| `/api/v1/time-entries/:id` | `PATCH`   | Editar entrada de tiempo                            |
-
-Características implementadas:
-
-- **Cálculo automático de duración**: si se envían `startedAt` y `endedAt` sin `durationMin`, se calcula automáticamente la diferencia en minutos.
-- **Filtros en listado**: por `projectId`, `userId`, y rango de fechas (`from`/`to`).
-- **Validación de proyecto**: al crear una entrada, se verifica que el proyecto existe y pertenece al tenant.
-- **Asignación automática de usuario**: la entrada se asocia al usuario autenticado (`req.user.userId`).
-
-```typescript
-const createTimeEntrySchema = z.object({
-  projectId: z.string().uuid(),
-  description: z.string().optional(),
-  startedAt: z.string(),
-  endedAt: z.string().optional(),
-  durationMin: z.number().int().positive().optional(),
-  isBillable: z.boolean().optional(),
-});
-```
-
-#### 3. CRUD de Costes Variables
-
-Se implementó el módulo de costes variables en `controllers/varCost.controller.ts` y `routes/varCost.routes.ts`:
-
-| Endpoint                 | Método    | Descripción                                   |
-| ------------------------ | --------- | --------------------------------------------- |
-| `/api/v1/variable-costs` | `GET`     | Listar costes variables (filtro por proyecto) |
-| `/api/v1/variable-costs` | `POST`    | Crear un coste variable                       |
-
-Los costes variables se pueden asociar opcionalmente a un proyecto. Al crear uno, se valida que el proyecto existe y pertenece al tenant. El listado incluye el nombre del proyecto asociado.
-
-#### 4. Conexión de rutas en el servidor
-
-Se actualizó `server.ts` para registrar las tres nuevas rutas:
-
-```typescript
-app.use("/api/v1/projects", projectRoutes);
-app.use("/api/v1/time-entries", timeEntryRoutes);
-app.use("/api/v1/variable-costs", varCostRoutes);
-```
+Cómo se gestionan (sin exponer valores reales en la memoria).
 
 ---
 
-### Sesión 4 — 9 de abril de 2026 (Finalización de Backend y base de Frontend)
+## 10. Conclusiones *(1 página)*
 
-#### 1. Servicios auxiliares (Mocks)
-
-Se implementaron los servicios para VIES (`services/vies.ts`) y Resend para los correos electrónicos (`services/email.ts`). Actualmente ambas implementaciones son mocks preparadas para integrar las APIs reales más adelante.
-
-#### 2. Dashboard y Rentabilidad
-
-Se implementó la lógica principal en `services/profitability.ts` y el endpoint `GET /api/v1/dashboard` en `controllers/dashboard.controller.ts`.
-El dashboard agrupa datos de:
-
-- Proyectos activos
-- Costes fijos del tenant
-- Total de entradas de tiempo
-- Total de costes variables
-
-Con ello se calcula el margen neto de rentabilidad tanto para la empresa global como de forma individual por proyectos.
-
-#### 3. Frontend Base
-
-Se inicializó el cliente del frontend con Vite (`npm create vite@latest`) y React + TypeScript en la carpeta `client/`, marcando el inicio del desarrollo visual del proyecto.
+- Objetivos cumplidos / parcialmente cumplidos / no cumplidos.
+- Aprendizajes técnicos: TypeScript estricto, Prisma 7, despliegue real, fiscalidad.
+- Aprendizajes no técnicos: priorización, deuda técnica consciente, QA con IA.
 
 ---
 
-### Sesión 5 — Abril 2026
+## 11. Trabajo futuro *(media página)*
 
-#### 1. Desarrollo completo del Frontend
-
-Se ha desarrollado todo el frontend con React y TailwindCSS. La aplicación ahora cuenta con una interfaz premium ("Clean & Premium"), completamente responsiva (mobile-first) con navegación adaptativa (barra inferior tipo iOS en móviles y barra lateral en escritorio) y soporte para Dark/Light mode implícito en la pureza del diseño actual.
-
-#### 2. Componentes UI Reutilizables y Adaptativos
-
-Se construyeron componentes UI base (Card, Button, Input, Modal). Los modales son ahora adaptativos: en escritorio son un panel lateral deslizante y en móvil un "bottom sheet" que asciende desde abajo, con "safe areas" y handle típicos de iOS, mejorando inmensamente la experiencia de usuario móvil.
-
-#### 3. Dashboard y Vistas Completas
-
-- **Dashboard**: Muestra rentabilidad en tiempo real. En escritorio con vista tabular y gráfica; en móvil apilado en tarjetas con indicadores visuales semafóricos ("Verde", "Naranja", "Rojo").
-- **Costes y Proyectos**: Interfaces de gestión con diseño fluido, modales para creación/edición, y listas optimizadas. Se implementó un padding consistente y adaptativo entre dispositivos.
-- **Registro de horas**: temporizador interactivo en primera pantalla con animaciones de "pulsación" y listado de horas.
-- **Ajustes y Guía Interactiva**: Se diseñó una experiencia de "Guía de uso" estilo Apple con formato acordeón para reducir fricción en nuevos usuarios y explicar los conceptos del sistema.
+- Página de detalle de cliente (B5 del QA).
+- Sección dedicada de Contratos en el sidebar (B6 del QA).
+- Integración con bancos vía PSD2 para conciliación automática.
+- App móvil nativa o PWA.
+- Exportación a SII (declaración trimestral automatizada).
+- Internacionalización (otros países, otros idiomas).
 
 ---
 
-### Sesión 6 — 10-19 de abril de 2026
+## 12. Bibliografía y referencias
 
-#### 1. Sistema de Notificaciones (Toast)
-
-Se implementó un sistema de notificaciones global (`ToastProvider`) con soporte para tres tipos: `success`, `error` e `info`. Las notificaciones aparecen en la esquina superior derecha con animación fade-up y se auto-descartan a los 4 segundos. Se reemplazaron todos los `alert()` y componentes Toast inline por el sistema global.
-
-#### 2. Componentes UI adicionales
-
-- **Textarea**: Componente con label flotante consistente con Input, para textos largos (descripciones de proyecto).
-- **ConfirmDialog**: Diálogo de confirmación estilo Apple que reemplaza `window.confirm()` en todas las acciones destructivas (eliminar costes, cancelar proyectos, borrar entradas).
-- **EmptyState**: Componente reutilizable para estados vacíos con icono, título, descripción y acción opcional.
-
-#### 3. Filtros avanzados en Horas
-
-Se añadieron filtros por proyecto, rango de fechas (desde/hasta) y un resumen del filtro con total de entradas y duración. Las entradas se agrupan ahora por fecha con totales diarios visibles.
-
-#### 4. Vista de detalle de proyecto
-
-Nueva página `/proyectos/:id` con:
-
-- KPIs del proyecto (horas, coste directo, costes variables, margen neto)
-- Barra de progreso de horas consumidas vs. presupuestadas
-- Pestañas: Resumen financiero, Historial de horas, Costes variables
-- Desglose financiero completo con barra de rentabilidad
-- Exportación CSV por pestaña
-
-Las cards de proyectos en la vista principal ahora navegan al detalle al hacer click.
-
-#### 5. Módulo de Informes
-
-Nueva sección "Informes" (`/informes`) accesible desde sidebar y navegación móvil:
-
-- Filtros por período: semana actual, mes actual, trimestre actual
-- KPIs: horas totales, porcentaje facturable, media diaria, costes fijos
-- Gráfico de barras horizontal de distribución de horas por proyecto
-- Gráfico de barras vertical de distribución semanal (lunes a domingo)
-- Resumen de costes fijos + variables con tarifa mínima recomendada
-
-#### 6. Dashboard enriquecido
-
-Se añadieron dos secciones nuevas al dashboard:
-
-- **Acciones rápidas**: enlaces directos a fichar horas, crear proyecto y ver informes
-- **Actividad reciente**: últimas 5 entradas de tiempo con proyecto, duración y fecha
-
-#### 7. Exportación CSV
-
-Utilidad genérica `exportCsv()` con BOM UTF-8 y separador `;` para compatibilidad con Excel. Botones de exportación en:
-
-- Horas (con filtros aplicados)
-- Costes fijos
-- Costes variables
-- Detalle de proyecto (horas y costes)
-- Informes
-
-#### 8. Mejoras en API y utilidades
-
-- `ApiError`: Error tipado con `status` y `code` para mejor manejo en el frontend
-- `format.ts`: Módulo con funciones de formato reutilizables (`fmt`, `fmtDuration`, `fmtDate`, `fmtCurrency`, `toNum`, `greeting`)
-
-#### 9. Mejoras en autenticación
-
-- Indicador visual de fortaleza de contraseña en registro (longitud, mayúscula, número) con barra de progreso de 3 niveles
-- Feedback via Toast tras login y registro exitosos
-
-#### 10. Refactorización de Ajustes
-
-Se migró la página de Ajustes al sistema Toast global, eliminando el componente `Toast` inline y el estado `ToastState` local tanto en `ProfileSection` como en `PasswordSection`.
+- Real Decreto 1007/2023 (VeriFactu) — BOE.
+- Documentación oficial de React, Express, Prisma, PostgreSQL.
+- Holded, Quipu (referencias del estado del arte).
+- Recursos sobre multi-tenancy y JWT.
 
 ---
 
-### Sesión 7 — 20 de abril de 2026
+## 13. Anexos
 
-#### 1. Edición de entradas de tiempo (HorasPage)
-
-Se completó la funcionalidad de edición inline para las entradas de tiempo:
-
-- Estado `editTarget` para distinguir entre crear y editar
-- Función `openEdit(entry)` que precarga el formulario con los datos de la entrada existente
-- `handleSaveManual()` bifurca entre `POST` (crear) y `PATCH` (editar) según `editTarget`
-- Modal adapta título, subtítulo y texto del botón según el modo (crear/editar)
-- Botón de edición (Pencil) junto al de eliminación en cada fila, visible on hover
-
-#### 2. Edición de costes variables (VarCostsPage)
-
-Mismo patrón aplicado a costes variables:
-
-- `editTarget` + `openEdit(cost)` + bifurcación POST/PATCH en `handleSave()`
-- Modal con título y botón dinámicos
-- Pencil button en `CostRow` junto al botón de eliminar
-
-#### 3. Buscador de proyectos (ProjectsPage)
-
-Se añadió un campo de búsqueda con icono de lupa que filtra proyectos en tiempo real:
-
-- Busca por nombre de proyecto y nombre de cliente
-- Compatible con los filtros de estado existentes (Todos/Activos/Pausados/etc.)
-- Diseño responsive: apilado en móvil, en fila en desktop
-- Estilo Apple consistente con el resto de la interfaz
-
-#### 4. Verificación
-
-- TypeScript: `tsc --noEmit` sin errores
-- Build de producción: 415.66 kB JS, 41.17 kB CSS — correcto
-
-#### 5. Exportación CSV en Proyectos
-
-Se añadió botón de exportación CSV en la página de Proyectos, que exporta los proyectos visibles (respetando filtros y búsqueda activos).
-
-#### 6. Duplicar entradas de tiempo
-
-Botón de duplicar (icono Copy, color verde) en cada fila de HorasPage. Crea una copia exacta de la entrada con un solo clic.
-
-#### 7. Búsqueda y filtros en Costes Fijos
-
-- Buscador por nombre y categoría
-- Filtro por estado: Todos / Activos / Inactivos
-- Exportación CSV respeta los filtros aplicados
-- Empty state cuando no hay resultados
-
-#### 8. Búsqueda y filtros en Costes Variables
-
-- Buscador por nombre y categoría
-- Filtro por proyecto asociado con selector
-- Botón "Limpiar" para resetear filtros
-- Exportación CSV respeta los filtros aplicados
-
-#### 9. Timer persistente con localStorage
-
-El timer de HorasPage ahora sobrevive a la navegación entre páginas:
-
-- Al iniciar: guarda `startedAt`, proyecto, descripción y facturable en localStorage
-- Al volver a la página: recupera el estado y calcula el tiempo transcurrido real
-- Al parar: limpia localStorage automáticamente
-
-#### 10. Indicador de timer activo en navegación
-
-Cuando hay un timer corriendo, se muestra un punto rojo pulsante:
-
-- **Sidebar (desktop)**: junto al item "Horas"
-- **BottomNav (móvil)**: badge sobre el icono del reloj
-- Ambos detectan el timer via localStorage cada 2 segundos
-
-#### 11. Verificación final
-
-- TypeScript: `tsc --noEmit` sin errores
-- Build de producción: 421.58 kB JS, 41.60 kB CSS — correcto
+- A. Capturas de pantalla completas de cada pantalla.
+- B. Esquema completo de la base de datos.
+- C. Ejemplo de factura PDF generada.
+- D. Credenciales de la cuenta de demostración.
+- E. Manual de usuario rápido (para el tribunal en la defensa).
 
 ---
 
-### Sesión 8 — 22 de abril de 2026 (Refinamiento Core y Entorno Dev)
+## 📝 Lista de control (a borrar antes de entregar)
 
-Esta sesión se centró en pulir la experiencia de usuario (UX), resolver bugs de validación en la base de datos y estabilizar el entorno de desarrollo local.
-
-#### 1. Corrección de validaciones Zod y Base de Datos
-
-Se detectaron bloqueos al enviar campos vacíos desde el frontend:
-
-- **Fix Zod Nullish**: Se cambió `.optional()` a `.nullish()` en las rutas de Proyectos y Costes Variables para aceptar `null` correctamente desde los formularios.
-- **Costes Fijos**: Se corrigió el schema de creación para aceptar el flag `isActive`, permitiendo crear costes inactivos desde el principio.
-- **Exportación CSV**: Se mejoró el utilitario para inyectar dinámicamente el nombre del `Tenant` (empresa) en el nombre del archivo descargado.
-
-#### 2. Mejoras de Navegación y UX (Sidebar y Detalle)
-
-Se eliminó la fricción en la navegación principal:
-
-- El logotipo de HorasPRO ahora es clicable y redirige al Dashboard.
-- El *User Chip* del sidebar ahora abre los ajustes de perfil directamente.
-- Se implementó la actualización en tiempo real del nombre de usuario en el sidebar tras editarlo, inyectando un método `updateUser` en el `AuthContext`.
-- **Vista de Proyecto**: Se añadió el botón "Editar" directamente en el *header* del detalle del proyecto, evitando tener que volver a la lista principal.
-
-#### 3. Estabilización del Timer (Caso Crítico)
-
-Se solucionó un bug severo donde el cronómetro quedaba bloqueado (*Zombie Timer*) si la API fallaba al guardar:
-
-- Ahora el timer se detiene localmente (limpiando `localStorage` y el `interval`) *antes* de realizar la petición HTTP.
-- Se añadió un botón "Descartar" como vía de escape manual.
-- Se añadió protección contra entradas de menos de 5 segundos.
-
-#### 4. Reestructuración del Entorno de Desarrollo (Dev Tools)
-
-El entorno local acumulaba procesos huérfanos de Vite, causando colisiones de puertos:
-
-- **Vite Proxy & Strict Port**: Se activó `strictPort: true` y se configuró un proxy interno para que `/api` apunte automáticamente a `localhost:3001`, eliminando URLs hardcodeadas en el cliente.
-- **CLI de Administración**: Se creó un script de terminal (`src/scripts/admin-users.ts`) ejecutable vía `npm run users` para gestionar usuarios, resetear contraseñas y listar *tenants* directamente contra Prisma sin necesidad de UI.
-
----
-
-### Estado actual
-
-| Componente                 | Estado                                             |
-| -------------------------- | -------------------------------------------------- |
-| Repositorio Git            | Inicializado, subido a GitHub                      |
-| PostgreSQL (Docker)        | Configurado                                        |
-| Schema Prisma (6 modelos)  | Sincronizado con BD                                |
-| Express server             | Arranca, health check OK                           |
-| Autenticación JWT          | Register, login y refresh completos                |
-| CRUD Endpoints             | Listos (Costes, Proyectos, Horas, Variables)       |
-| Validaciones & Errors      | Middleware de Zod en toda la API                   |
-| Dashboard rentabilidad     | Completo (API + Servicio + Acciones rápidas)       |
-| Frontend UI                | Completado: Navegación, Dashboard, CRUDs           |
-| Responsive Design          | Completado: UX Adaptativa (Bottom Sheet, etc.)     |
-| UX / Onboarding            | Guía interactiva completada                        |
-| Detalle de proyecto        | Completo (métricas, pestañas, exportación)         |
-| Informes y análisis        | Completo (productividad, distribución, costes)     |
-| Exportación CSV            | Todas las vistas, respeta filtros + nombre tenant  |
-| Sistema de notificaciones  | Toast global + ConfirmDialog en acciones críticas  |
-| Indicador contraseña       | Fortaleza visual en registro                       |
-| Edición inline             | Horas, Costes fijos, Costes variables, Proyectos   |
-| Búsqueda y filtros         | Proyectos, Costes fijos, Costes variables, Horas   |
-| Timer persistente          | Sobrevive a navegación + indicador en nav          |
-| Timer anti-zombie          | Se detiene antes del HTTP + botón Descartar        |
-| Navegación contextual      | Logo y User Chip con destino correcto              |
-| Actualización sidebar live | Nombre de usuario reactivo vía `updateUser`        |
-| Vite proxy & strict port   | `/api` → `localhost:3001`, sin URLs hardcodeadas   |
-| CLI de administración      | `npm run users` para gestión directa contra Prisma |
-
-### Siguiente paso
-
-Realizar ajustes finales, despliegue a la nube e integración con la API VIES/Resend para la versión de producción.
+- [ ] §1 Resumen ejecutivo
+- [x] §2 Glosario *(esqueleto ya hecho, falta pulir)*
+- [ ] §3 Introducción y motivación
+- [ ] §4 Objetivos
+- [ ] §5 Análisis previo
+- [ ] §6 Diseño
+- [ ] §7 Implementación
+- [ ] §8 Validación y pruebas
+- [ ] §9 Despliegue
+- [ ] §10 Conclusiones
+- [ ] §11 Trabajo futuro
+- [ ] §12 Bibliografía
+- [ ] §13 Anexos
+- [ ] Capturas de pantalla
+- [ ] Diagramas (arquitectura, modelo de datos, flujo de factura)
+- [ ] Maquetación final con portada y formato del centro
