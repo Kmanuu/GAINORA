@@ -255,7 +255,7 @@ La comunicación entre capas se realiza siempre mediante HTTPS con certificados 
 
 **Diagrama de Casos de Uso:**
 
-*(Insertar imagen: `casos de uso gainora.png`)*
+![Diagrama de Casos de Uso](assets/casos de uso gainora.png)*
 
 Los actores del sistema son: **Visitante** (no autenticado), **VIEWER**, **EMPLOYEE**, **ADMIN**, **OWNER** y **SUPERADMIN**.
 
@@ -276,7 +276,7 @@ El modelo de datos se diseñó con Prisma Schema Language y genera la base de da
 
 **Diagrama Entidad-Relación:**
 
-*(Insertar imagen: `Tenant Invoice Management-2026-05-04-062706.png`)*
+![Diagrama Entidad-Relación](assets/er gainora.png)*
 
 Las entidades y sus relaciones principales son:
 
@@ -409,7 +409,7 @@ donde `previousHash` es el `currentHash` de la última factura emitida de la mis
 
 **Diagrama de Clases:**
 
-*(Insertar imagen: `diagrama de clases.png`)*
+![Diagrama de Clases](assets/diagrama de clases.png)*
 
 Las clases/módulos principales del backend son:
 
@@ -640,7 +640,9 @@ URL de producción: https://client-five-ebon-83.vercel.app
 
 **C — Ejemplo de factura PDF generada**
 
-*(Insertar imagen del PDF de factura generado por el sistema)*
+La siguiente imagen muestra la factura A-1 emitida por LaPri Nexus a Empresa Demo S.L., generada por Gainora. Incluye desglose de base imponible, IVA (21%), retención IRPF (15%) y el bloque VeriFactu con QR y hash SHA-256.
+
+![Factura PDF generada por Gainora](assets/factura.pdf)
 
 **D — Variables de entorno necesarias**
 
