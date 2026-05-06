@@ -84,6 +84,14 @@ export async function getProject(req: Request, res: Response) {
         orderBy: { startedAt: "desc" },
       },
       varCosts: { orderBy: { date: "desc" } },
+      contracts: {
+        where: { status: "ACTIVE" },
+        select: {
+          id: true, billingMode: true, price: true, vatRate: true,
+          billingFrequency: true, priceIncludesVat: true, status: true,
+        },
+        take: 5,
+      },
     },
   });
 

@@ -721,6 +721,26 @@ function SummaryTab({
           )}
           <span className="text-[var(--color-text-secondary)]">Modo de facturación</span>
           <span className="font-medium text-[var(--color-text)]">{BILLING_MODE_LABEL[project.billingMode]}</span>
+          {(() => {
+            const sub = project.contracts?.find(c => c.billingMode === 'SUBSCRIPTION' && c.status === 'ACTIVE');
+            if (!sub || !sub.price) return null;
+            const price = toNum(sub.price);
+            const vat   = toNum(sub.vatRate ?? '21');
+            const net   = sub.priceIncludesVat ? price / (1 + vat / 100) : price;
+            const gross = sub.priceIncludesVat ? price : price * (1 + vat / 100);
+            const freq  = sub.billingFrequency === 'QUARTERLY' ? 'trim.' : sub.billingFrequency === 'YEARLY' ? 'año' : 'mes';
+            return (
+              <>
+                <span className="text-[var(--color-text-secondary)]">Cuota recurrente</span>
+                <span className="font-medium text-[var(--color-green)] tabular-nums">
+                  {fmtCurrency(Math.round(net * 100) / 100, 2)}/{freq}
+                  <span className="text-[11px] font-normal text-[var(--color-text-tertiary)] ml-1.5">
+                    ({fmtCurrency(Math.round(gross * 100) / 100, 2)} con IVA)
+                  </span>
+                </span>
+              </>
+            );
+          })()}
           {showFixedMargin && budget > 0 && (
             <>
               <span className="text-[var(--color-text-secondary)]">Presupuesto</span>

@@ -66,6 +66,15 @@ export interface Project {
     varCosts:    number;
     contracts?:  number;
   };
+  contracts?: Array<{
+    id:               string;
+    billingMode:      BillingMode;
+    price:            string | null;
+    vatRate:          string | null;
+    billingFrequency: string | null;
+    priceIncludesVat: boolean;
+    status:           string;
+  }>;
 }
 
 // --- Time Entries -----------------------------------------------------------
