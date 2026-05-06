@@ -60,7 +60,7 @@ function buildHoursSparkline(entries: TimeEntry[]): number[] {
 export default function DashboardPage() {
   const { user }  = useAuth();
   const { role } = usePermissions();
-  const canSeeFinancials = role === 'OWNER' || role === 'ADMIN';
+  const canSeeFinancials = role === 'OWNER' || role === 'ADMIN' || role === 'SUPERADMIN';
 
   // EMPLOYEE y VIEWER no ven el dashboard financiero del tenant.
   // Se les sirve un panel reducido centrado en su trabajo personal.
