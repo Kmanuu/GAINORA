@@ -19,7 +19,17 @@ export type Action =
   | 'dashboard:financials';
 
 const PERMS: Record<UserRole, ReadonlySet<Action>> = {
-  SUPERADMIN: new Set([]),
+  SUPERADMIN: new Set([
+    'client:write', 'project:write', 'contract:write', 'plan:write',
+    'invoice:write', 'invoice:void', 'payment:write',
+    'timeentry:write:any', 'timeentry:write:own', 'timeentry:read:any',
+    'varcost:write:any', 'varcost:write:own',
+    'fixedcost:write',
+    'tenant:legal', 'tenant:demo',
+    'team:manage',
+    'issue:write',
+    'dashboard:financials',
+  ]),
   OWNER: new Set([
     'client:write', 'project:write', 'contract:write', 'plan:write',
     'invoice:write', 'invoice:void', 'payment:write',

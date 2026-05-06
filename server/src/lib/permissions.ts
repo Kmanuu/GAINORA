@@ -70,7 +70,9 @@ const VIEWER_PERMISSIONS: Set<Action> = new Set([
   "timeentry:read:any",
 ]);
 
-const SUPERADMIN_PERMISSIONS: Set<Action> = new Set([]); // Sólo accede a /admin/*; no opera dentro de un tenant
+const SUPERADMIN_PERMISSIONS: Set<Action> = new Set([
+  ...OWNER_PERMISSIONS,
+]); // Dentro de un tenant tiene acceso completo (igual que OWNER)
 
 const PERMISSIONS_BY_ROLE: Record<Role, Set<Action>> = {
   SUPERADMIN: SUPERADMIN_PERMISSIONS,
