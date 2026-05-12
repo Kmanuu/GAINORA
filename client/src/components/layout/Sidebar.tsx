@@ -22,6 +22,7 @@ import {
   Sparkles,
   BookOpen,
   Shield,
+  ShieldCheck,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth }        from '@/context/AuthContext';
@@ -60,6 +61,10 @@ const costsNav: NavItem[] = [
 
 const analysisNav: NavItem[] = [
   { label: 'Informes', path: '/informes', icon: BarChart3 },
+];
+
+const toolsNav: NavItem[] = [
+  { label: 'Validar NIF', path: '/validar-nif', icon: ShieldCheck },
 ];
 
 // ---------------------------------------------------------------------------
@@ -173,6 +178,13 @@ export default function Sidebar() {
           <SectionLabel label="Análisis" />
         </div>
         {analysisNav.map((item) => (
+          <NavItem key={item.path} {...item} />
+        ))}
+
+        <div className="pt-4">
+          <SectionLabel label="Herramientas" />
+        </div>
+        {toolsNav.map((item) => (
           <NavItem key={item.path} {...item} />
         ))}
       </nav>

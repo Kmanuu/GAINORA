@@ -79,6 +79,14 @@ export async function seedDemo({ tenantId, userId }: SeedArgs): Promise<SeedResu
       email: "vega@consultoriavega.es",
       notes: "Cliente referido por un colega — pendiente primer encargo.",
     }});
+    await tx.client.create({ data: {
+      tenantId, isDemo: true,
+      name: "Amazon Europe Core S.à r.l.",
+      taxId: "LU26375245",
+      taxRegime: "EU_INTRA",
+      email: "intra-demo@gainora.app",
+      notes: "Cliente intracomunitario de demostración. Su NIF está dado de alta en el censo VIES de la Comisión Europea — permite verificar la validación en tiempo real desde Herramientas → Validar NIF.",
+    }});
 
     // 2. Proyectos (3 — Boutique y Consultoría sin proyecto activo todavía,
     //    aparecen en cartera para que se vea cómo se gestionan leads).
@@ -358,7 +366,7 @@ export async function seedDemo({ tenantId, userId }: SeedArgs): Promise<SeedResu
     });
 
     return {
-      clients:    5,
+      clients:    6,
       projects:   3,
       contracts:  3,
       fixedCosts: fixedCount.count,
