@@ -72,22 +72,16 @@ export default function ValidarNifPage() {
 
       <Card>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div>
-            <label className="block text-[13px] font-medium text-[var(--color-text)] mb-1.5">
-              NIF/CIF (con código de país: ES, FR, DE...)
-            </label>
-            <Input
-              value={taxId}
-              onChange={(e) => setTaxId(e.target.value.toUpperCase())}
-              placeholder="Ej. ESA28015865"
-              maxLength={20}
-              disabled={loading}
-              autoFocus
-            />
-            <p className="text-[12px] text-[var(--color-text-tertiary)] mt-1.5">
-              Las 2 primeras letras son el país (ES, FR, DE, IT...), el resto el número.
-            </p>
-          </div>
+          <Input
+            label="NIF/CIF (con código de país: ES, FR, DE...)"
+            hint="Las 2 primeras letras son el país (ES, FR, DE, IT...), el resto el número."
+            value={taxId}
+            onChange={(e) => setTaxId(e.target.value.toUpperCase())}
+            placeholder="Ej. ESA28015865"
+            maxLength={20}
+            disabled={loading}
+            autoFocus
+          />
 
           {error && (
             <div className="flex items-start gap-2 text-[13px] text-[var(--color-danger)] bg-[var(--color-danger-bg)] rounded-[10px] px-3 py-2">
