@@ -351,10 +351,11 @@ Las entidades y sus relaciones principales son:
 #### Estructura de directorios
 
 ```
-horaspro/
+gainora/
 ├── client/                      ← Proyecto frontend (React + Vite)
 │   ├── src/
-│   │   ├── pages/               ← Una pantalla por archivo (DashboardPage, InvoicesPage…)
+│   │   ├── pages/               ← Una pantalla por archivo (DashboardPage, InvoicesPage,
+│   │   │                          ValidarNifPage…)
 │   │   ├── components/
 │   │   │   ├── ui/              ← Componentes reutilizables: Button, Modal, Input, Toast…
 │   │   │   ├── layout/          ← AppLayout, Sidebar, BottomNav, FloatingHelpButton
@@ -381,6 +382,7 @@ horaspro/
 │   │   │   ├── validate.ts      ← Validación del body con Zod
 │   │   │   └── errorHandler.ts  ← Manejo centralizado de errores
 │   │   ├── services/            ← Lógica de negocio desacoplada de HTTP
+│   │   │   └── vies.ts          ← Cliente de la API REST de VIES (Comisión Europea)
 │   │   ├── jobs/
 │   │   │   └── rollPaymentsCron.ts ← Tarea programada de pagos nocturnos
 │   │   ├── lib/
@@ -419,6 +421,18 @@ Las clases/módulos principales del backend son:
 - `DashboardService` — cálculo de KPIs y tarifa mínima.
 - `TaxSummaryService` — cálculo de casillas Modelo 303/130.
 - `PdfService` — generación de PDFs con PDFKit.
+
+#### Consumo de API externa (VIES)
+
+El sistema consume la **API REST oficial de VIES** (*VAT Information Exchange System*), gestionada por la Dirección General de Fiscalidad y Unión Aduanera de la Comisión Europea. Esta API permite verificar si un número de IVA intracomunitario está dado de alta en el censo europeo y, en caso afirmativo, obtener la razón social y dirección registradas por la administración tributaria del país correspondiente.
+
+- **Endpoint utilizado:** `https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number`
+- **Método:** `POST` con cuerpo JSON `{ countryCode, vatNumber }`
+- **Implementación:** `server/src/services/vies.ts` realiza la llamada con `fetch`, aplica un timeout de 5 segundos y normaliza la respuesta a una interfaz tipada (`ViesValidationResult`).
+- **Consumo desde la interfaz:** la pantalla `client/src/pages/ValidarNifPage.tsx`, accesible en `/validar-nif`, permite al usuario introducir un NIF/CIF intracomunitario y muestra el resultado de la consulta en tiempo real.
+- **Modo configurable por entorno:** la variable `VIES_STRICT` controla el comportamiento ante una respuesta negativa o un fallo de la API. En modo `false` (desarrollo) la operación continúa y se devuelve `source: "fallback"`; en modo `true` (producción) bloquearía el alta del cliente. Esto permite operar en entornos académicos y de demostración sin depender de la disponibilidad del servicio externo.
+
+Se eligió VIES por encajar de forma natural con el dominio del proyecto (facturación a clientes intracomunitarios) y por ser un servicio público, gratuito y mantenido por una institución oficial.
 
 #### Seguridad frente a inyección SQL
 
