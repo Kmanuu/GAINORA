@@ -493,7 +493,7 @@ PDFKit no renderizaba correctamente tildes ni eñes al usar la fuente por defect
 
 ### 6.1. Crear una cuenta
 
-1. Acceder a la URL de producción: https://client-five-ebon-83.vercel.app
+1. Acceder a la URL de producción: https://gainora.vercel.app
 2. Hacer clic en **"Empieza gratis"** o ir a `/register`.
 3. Introducir el nombre de la empresa, el email y una contraseña.
 4. Hacer clic en **"Crear cuenta"**. Se iniciará sesión automáticamente y comenzará el asistente de configuración.
@@ -642,7 +642,7 @@ El repositorio contiene las carpetas `client/` (frontend React) y `server/` (bac
 
 **B — Credenciales de la cuenta de demostración**
 
-URL de producción: https://client-five-ebon-83.vercel.app
+URL de producción: https://gainora.vercel.app
 
 | Nombre | Rol | Email | Contraseña |
 |---|---|---|---|

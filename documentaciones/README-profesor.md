@@ -81,7 +81,7 @@ Aunque el objetivo es la sencillez para el usuario, por dentro hay elementos té
 
 La aplicación está en producción y accesible en:
 
-- **Frontend (lo que ve el usuario)**: https://client-five-ebon-83.vercel.app
+- **Frontend (lo que ve el usuario)**: https://gainora.vercel.app
 - **Backend (el servidor)**: https://gainora.up.railway.app
 
 Para hacer una prueba rápida en el tribunal, puede entrar con:
