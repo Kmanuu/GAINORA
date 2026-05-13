@@ -350,6 +350,56 @@ export async function createInvoice(req: Request, res: Response) {
     },
   });
 
+  // Si la factura está vinculada a un contrato y aún no tiene Payment,
+  // generamos un Payment PENDING para que aparezca en /cobros. Esto unifica
+  // el flujo de cobro: SUBSCRIPTION los genera el cron mensualmente y el
+  // resto de modos los genera la emisión de factura.
+  if (invoice.contractId && !invoice.paymentId) {
+    try {
+      const contract = await prisma.contract.findFirst({
+        where:  { id: invoice.contractId, tenantId },
+        select: { vatRate: true },
+      });
+      if (contract) {
+        const net   = round2(Number(invoice.subtotalNet));
+        const gross = round2(Number(invoice.subtotalNet) + Number(invoice.totalVat));
+        const irpf  = round2(Number(invoice.totalIrpf));
+        const due   = round2(gross - irpf);
+        const vat   = net > 0
+          ? round2(((gross - net) / net) * 100)
+          : Number(contract.vatRate);
+        const payment = await prisma.payment.create({
+          data: {
+            tenantId,
+            contractId:  invoice.contractId,
+            periodStart: invoice.issueDate,
+            periodEnd:   invoice.dueDate ?? invoice.issueDate,
+            amountNet:   net,
+            vatRate:     vat,
+            amountGross: gross,
+            irpfAmount:  irpf,
+            amountDue:   due,
+            amountPaid:  0,
+            status:      "PENDING",
+          },
+          select: { id: true },
+        });
+        await prisma.invoice.update({
+          where: { id: invoice.id },
+          data:  { paymentId: payment.id },
+        });
+        (invoice as { paymentId: string | null }).paymentId = payment.id;
+      }
+    } catch (err) {
+      // @@unique([contractId, periodStart]) puede chocar si ya existe un
+      // Payment para esa fecha. La factura queda creada igualmente; el OWNER
+      // puede vincular o cobrar el pago existente desde /cobros.
+      console.warn(
+        `[invoice→payment] omitido para invoice ${invoice.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
   res.status(201).json(invoice);
 }
 

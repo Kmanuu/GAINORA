@@ -10,7 +10,7 @@ import {
 import clsx from 'clsx';
 import { api } from '@/lib/api';
 import { fmtDate, toNum } from '@/lib/format';
-import type { Invoice, InvoiceStatus, Client } from '@/types';
+import type { Invoice, InvoiceStatus, Client, Project, Contract } from '@/types';
 import Card             from '@/components/ui/Card';
 import Badge            from '@/components/ui/Badge';
 import Button           from '@/components/ui/Button';
@@ -422,6 +422,10 @@ function NewInvoiceModal({
   const { toast } = useToast();
   const today = new Date().toISOString().slice(0, 10);
   const [clientId,  setClientId]  = useState('');
+  const [projectId, setProjectId] = useState('');
+  const [contractId, setContractId] = useState('');
+  const [projects,  setProjects]  = useState<Project[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
   const [issueDate, setIssueDate] = useState(today);
   const [dueDate,   setDueDate]   = useState('');
   const [notes,     setNotes]     = useState('');
@@ -433,6 +437,10 @@ function NewInvoiceModal({
   useEffect(() => {
     if (open) {
       setClientId(clients[0]?.id ?? '');
+      setProjectId('');
+      setContractId('');
+      setProjects([]);
+      setContracts([]);
       setIssueDate(today);
       setDueDate('');
       setNotes('');
@@ -442,6 +450,30 @@ function NewInvoiceModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Cargar proyectos del cliente seleccionado.
+  useEffect(() => {
+    if (!open || !clientId) { setProjects([]); setProjectId(''); setContracts([]); setContractId(''); return; }
+    let cancelled = false;
+    api.get<Project[]>(`/v1/projects?clientId=${clientId}`)
+      .then((data) => { if (!cancelled) setProjects(data); })
+      .catch(() => { if (!cancelled) setProjects([]); });
+    setProjectId('');
+    setContractId('');
+    setContracts([]);
+    return () => { cancelled = true; };
+  }, [open, clientId]);
+
+  // Cargar contratos del proyecto seleccionado.
+  useEffect(() => {
+    if (!open || !projectId) { setContracts([]); setContractId(''); return; }
+    let cancelled = false;
+    api.get<Contract[]>(`/v1/contracts?projectId=${projectId}`)
+      .then((data) => { if (!cancelled) setContracts(data); })
+      .catch(() => { if (!cancelled) setContracts([]); });
+    setContractId('');
+    return () => { cancelled = true; };
+  }, [open, projectId]);
 
   function setLine<K extends keyof LineDraft>(i: number, key: K, value: LineDraft[K]) {
     setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, [key]: value } : l));
@@ -479,6 +511,7 @@ function NewInvoiceModal({
     try {
       const payload = {
         clientId,
+        contractId: contractId || null,
         issueDate,
         dueDate:   dueDate || null,
         notes:     notes.trim() || null,
@@ -541,6 +574,26 @@ function NewInvoiceModal({
             options={[
               { value: 'issue', label: 'Emitir con número' },
               { value: 'draft', label: 'Guardar como borrador' },
+            ]}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Select
+            label="Proyecto"
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
+            options={[
+              { value: '', label: clientId ? (projects.length ? 'Sin proyecto · factura suelta' : 'Sin proyectos para este cliente') : 'Elige cliente primero' },
+              ...projects.map((p) => ({ value: p.id, label: p.name })),
+            ]}
+          />
+          <Select
+            label="Contrato"
+            value={contractId}
+            onChange={(e) => setContractId(e.target.value)}
+            options={[
+              { value: '', label: projectId ? (contracts.length ? 'Sin contrato · factura suelta' : 'Sin contratos en este proyecto') : 'Elige proyecto primero' },
+              ...contracts.map((c) => ({ value: c.id, label: `${c.tier ?? ''} · ${c.billingMode}` })),
             ]}
           />
         </div>

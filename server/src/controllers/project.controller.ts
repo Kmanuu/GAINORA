@@ -20,12 +20,11 @@ async function assertClientBelongsToTenant(clientId: string, tenantId: string) {
 
 export async function listProjects(req: Request, res: Response) {
   const tenantId = req.user!.tenantId;
-  const { status } = req.query;
+  const { status, clientId } = req.query;
 
   const where: any = { tenantId };
-  if (status) {
-    where.status = status as string;
-  }
+  if (status)   where.status   = status   as string;
+  if (clientId) where.clientId = clientId as string;
 
   const projects = await prisma.project.findMany({
     where,
