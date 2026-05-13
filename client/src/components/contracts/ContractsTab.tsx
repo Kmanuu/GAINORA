@@ -79,11 +79,27 @@ interface ContractFormState {
   startedAt:        string;
 }
 
-const EMPTY_FORM: ContractFormState = {
-  clientId: '', planId: '', tier: 'PRO', billingMode: 'SUBSCRIPTION',
-  price: '', setupFee: '', billingFrequency: 'MONTHLY', billingDay: '1',
-  startedAt: new Date().toISOString().slice(0, 10),
-};
+function buildEmptyForm(
+  projectBillingMode?: ExtendedBillingMode,
+  projectBudgetAmount?: string | null,
+): ContractFormState {
+  // Heredamos billingMode del proyecto cuando se conoce. Si el proyecto
+  // tiene un presupuesto cerrado (FIXED/HYBRID), arrancamos el contrato con
+  // ese precio por defecto — el usuario puede tocarlo, pero le avisamos.
+  const mode: ExtendedBillingMode = projectBillingMode ?? 'SUBSCRIPTION';
+  const price = (mode === 'FIXED' || mode === 'HYBRID') && projectBudgetAmount
+    ? String(Number(projectBudgetAmount))
+    : '';
+  return {
+    clientId: '', planId: '', tier: 'PRO',
+    billingMode: mode,
+    price,
+    setupFee: '',
+    billingFrequency: 'MONTHLY',
+    billingDay: '1',
+    startedAt: new Date().toISOString().slice(0, 10),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Componente principal
@@ -92,9 +108,13 @@ const EMPTY_FORM: ContractFormState = {
 export default function ContractsTab({
   projectId,
   projectName,
+  projectBillingMode,
+  projectBudgetAmount,
 }: {
-  projectId:   string;
-  projectName: string;
+  projectId:           string;
+  projectName:         string;
+  projectBillingMode?: ExtendedBillingMode;
+  projectBudgetAmount?: string | null;
 }) {
   const { toast }    = useToast();
   const navigate     = useNavigate();
@@ -104,9 +124,19 @@ export default function ContractsTab({
   const [loading,   setLoading]   = useState(true);
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [form,      setForm]      = useState<ContractFormState>(EMPTY_FORM);
+  const [form,      setForm]      = useState<ContractFormState>(() =>
+    buildEmptyForm(projectBillingMode, projectBudgetAmount),
+  );
   const [saving,    setSaving]    = useState(false);
   const [formError, setFormError] = useState('');
+
+  // Defaults heredados del proyecto, para detectar si el usuario los ha tocado.
+  const projectDefaults = buildEmptyForm(projectBillingMode, projectBudgetAmount);
+  const priceChangedFromProject = Boolean(projectDefaults.price)
+    && form.price !== ''
+    && form.price !== projectDefaults.price;
+  const modeChangedFromProject = projectBillingMode != null
+    && form.billingMode !== projectBillingMode;
 
   const loadAll = useCallback((silent = false) => {
     if (!silent) setLoading(true);
@@ -127,7 +157,7 @@ export default function ContractsTab({
   useEffect(() => { loadAll(); }, [loadAll]);
 
   function openCreate() {
-    setForm(EMPTY_FORM);
+    setForm(buildEmptyForm(projectBillingMode, projectBudgetAmount));
     setFormError('');
     setModalOpen(true);
   }
@@ -285,6 +315,11 @@ export default function ContractsTab({
               options={BILLING_OPTIONS}
             />
           </div>
+          {modeChangedFromProject && (
+            <p className="text-[11.5px] text-[var(--color-orange)] leading-relaxed -mt-1">
+              Has modificado el modo de cobro que venía del proyecto ({projectBillingMode}). Asegúrate de que es lo que has acordado con el cliente.
+            </p>
+          )}
 
           <Input
             label={form.billingMode === 'SUBSCRIPTION' ? 'Precio mensual *' : 'Precio *'}
@@ -292,7 +327,15 @@ export default function ContractsTab({
             value={form.price}
             onChange={(e) => { setForm((p) => ({ ...p, price: e.target.value })); setFormError(''); }}
             min="0" step="0.01" prefix="€"
+            hint={projectDefaults.price && form.price === projectDefaults.price
+              ? `Heredado del proyecto (${projectDefaults.price} €). Edítalo si tu acuerdo con el cliente es distinto.`
+              : undefined}
           />
+          {priceChangedFromProject && (
+            <p className="text-[11.5px] text-[var(--color-orange)] leading-relaxed -mt-1">
+              Has modificado el precio que venía del proyecto ({projectDefaults.price} €). ¿Seguro que quieres cobrar un precio distinto?
+            </p>
+          )}
 
           {form.billingMode === 'SUBSCRIPTION' && (
             <Select

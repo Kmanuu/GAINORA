@@ -420,7 +420,12 @@ export default function ProjectDetailPage() {
           />
         )}
         {tab === 'contratos' && (
-          <ContractsTab projectId={project.id} projectName={project.name} />
+          <ContractsTab
+            projectId={project.id}
+            projectName={project.name}
+            projectBillingMode={project.billingMode}
+            projectBudgetAmount={project.budgetAmount}
+          />
         )}
         {tab === 'horas' && (
           <HoursTab

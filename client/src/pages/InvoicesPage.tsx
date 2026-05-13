@@ -475,6 +475,39 @@ function NewInvoiceModal({
     return () => { cancelled = true; };
   }, [open, projectId]);
 
+  // Autocompletar la primera línea con los datos del contrato seleccionado.
+  // La línea queda bloqueada (readonly) mientras haya contrato — el contrato
+  // es la "ley", no se factura por encima/debajo del precio acordado. Para
+  // editar libre el usuario quita el contrato y la factura pasa a ser suelta.
+  useEffect(() => {
+    if (!contractId) return;
+    const c = contracts.find((x) => x.id === contractId);
+    if (!c) return;
+    const project = projects.find((p) => p.id === projectId);
+    const projectName = project?.name ?? 'Servicio';
+    const tier = c.tier === 'FREE' ? 'Básico' : c.tier === 'PRO' ? 'Pro' : c.tier === 'MAX' ? 'Élite' : '';
+    let description = projectName;
+    if (c.billingMode === 'SUBSCRIPTION') description = `${projectName} · cuota ${tier ? tier + ' ' : ''}mensual`;
+    else if (c.billingMode === 'FIXED')   description = `${projectName} · presupuesto cerrado`;
+    else if (c.billingMode === 'HOURLY')  description = `${projectName} · servicios por horas`;
+    else if (c.billingMode === 'HYBRID')  description = `${projectName} · presupuesto + horas`;
+    const vat       = Number(c.vatRate ?? 21);
+    const priceRaw  = Number(c.price ?? 0);
+    const netPrice  = c.priceIncludesVat ? priceRaw / (1 + vat / 100) : priceRaw;
+    const irpf      = Number(c.irpfRate ?? 0);
+    setLines((prev) => [
+      {
+        description,
+        quantity:  '1',
+        unitPrice: netPrice.toFixed(2),
+        vatRate:   String(vat),
+        irpfRate:  String(irpf),
+        discount:  '0',
+      },
+      ...prev.slice(1),
+    ]);
+  }, [contractId, contracts, projects, projectId]);
+
   function setLine<K extends keyof LineDraft>(i: number, key: K, value: LineDraft[K]) {
     setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, [key]: value } : l));
   }
@@ -607,8 +640,15 @@ function NewInvoiceModal({
             Líneas
           </p>
           <div className="space-y-2">
-            {lines.map((l, i) => (
+            {lines.map((l, i) => {
+              const lockedByContract = i === 0 && Boolean(contractId);
+              return (
               <div key={i} className="rounded-[12px] border border-[var(--color-border-medium)] p-3 space-y-2">
+                {lockedByContract && (
+                  <p className="text-[11px] text-[var(--color-text-tertiary)] -mt-1">
+                    Línea heredada del contrato. Para editar el precio, quita el contrato y la factura pasa a ser suelta.
+                  </p>
+                )}
                 <div className="flex items-start gap-2">
                   <Input
                     label={i === 0 ? 'Descripción' : ''}
@@ -616,8 +656,9 @@ function NewInvoiceModal({
                     value={l.description}
                     onChange={(e) => setLine(i, 'description', e.target.value)}
                     placeholder="Servicio, producto…"
+                    disabled={lockedByContract}
                   />
-                  {lines.length > 1 && (
+                  {lines.length > 1 && !lockedByContract && (
                     <button
                       onClick={() => removeLine(i)}
                       className="mt-6 p-1.5 rounded-[8px] text-[var(--color-text-tertiary)] hover:bg-[var(--color-red-subtle)] hover:text-[var(--color-red)] transition-colors"
@@ -629,18 +670,24 @@ function NewInvoiceModal({
                 </div>
                 <div className="grid grid-cols-5 gap-2">
                   <Input label="Cant." type="number" min="0" step="0.01"
-                    value={l.quantity}  onChange={(e) => setLine(i, 'quantity',  e.target.value)} />
+                    value={l.quantity}  onChange={(e) => setLine(i, 'quantity',  e.target.value)}
+                    disabled={lockedByContract} />
                   <Input label="Precio" type="number" min="0" step="0.01" prefix="€"
-                    value={l.unitPrice} onChange={(e) => setLine(i, 'unitPrice', e.target.value)} />
+                    value={l.unitPrice} onChange={(e) => setLine(i, 'unitPrice', e.target.value)}
+                    disabled={lockedByContract} />
                   <Input label="IVA %" type="number" min="0" max="100"
-                    value={l.vatRate}   onChange={(e) => setLine(i, 'vatRate',   e.target.value)} />
+                    value={l.vatRate}   onChange={(e) => setLine(i, 'vatRate',   e.target.value)}
+                    disabled={lockedByContract} />
                   <Input label="IRPF %" type="number" min="0" max="100"
-                    value={l.irpfRate}  onChange={(e) => setLine(i, 'irpfRate',  e.target.value)} />
+                    value={l.irpfRate}  onChange={(e) => setLine(i, 'irpfRate',  e.target.value)}
+                    disabled={lockedByContract} />
                   <Input label="Dto %" type="number" min="0" max="100"
-                    value={l.discount}  onChange={(e) => setLine(i, 'discount',  e.target.value)} />
+                    value={l.discount}  onChange={(e) => setLine(i, 'discount',  e.target.value)}
+                    disabled={lockedByContract} />
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           <button
             type="button"
