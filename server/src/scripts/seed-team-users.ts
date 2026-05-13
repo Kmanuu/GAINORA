@@ -1,7 +1,7 @@
 /**
  * Crea 3 usuarios de prueba (ADMIN/EMPLOYEE/VIEWER) en agencia-demo,
  * todos con password "demo1234". Idempotente: si el email ya existe lo
- * salta. Útil para QA y Claude-Chrome.
+ * salta. Útil para QA.
  *
  * Uso:  npx tsx src/scripts/seed-team-users.ts
  */

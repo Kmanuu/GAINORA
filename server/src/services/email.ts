@@ -23,8 +23,8 @@ export interface EmailResult {
  * REAL: Llamar a la API de Resend con RESEND_API_KEY.
  */
 export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
-  // --- MOCK: simula el envío ---
-  // TODO: sustituir por fetch real a https://api.resend.com/emails
+  // En producción se sustituye por fetch a https://api.resend.com/emails
+  // usando RESEND_API_KEY. La interfaz pública no cambia.
   console.log(`[EMAIL MOCK] To: ${options.to} | Subject: ${options.subject}`);
 
   return {

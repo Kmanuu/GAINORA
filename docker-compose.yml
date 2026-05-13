@@ -2,12 +2,12 @@ version: '3.8'
 services:
   db:
     image: postgres:16-alpine
-    container_name: horaspro-db
+    container_name: gainora-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: horaspro
-      POSTGRES_PASSWORD: horaspro_dev
-      POSTGRES_DB: horaspro_dev
+      POSTGRES_USER: gainora
+      POSTGRES_PASSWORD: gainora_dev
+      POSTGRES_DB: gainora_dev
     ports:
       - '5432:5432'
     volumes:
